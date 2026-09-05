@@ -133,6 +133,7 @@ class YearFeaturesMixin:
         self.vendor_positions: Dict[str, Tuple[int, int]] = {}
         self._seed_vendors()
         self._seed_boss()
+        self._seed_ice_cameras()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -174,6 +175,8 @@ class YearFeaturesMixin:
         agent.raid_lockout_until = float(getattr(agent, "raid_lockout_until", 0) or 0)
         agent.bandwidth_debt = int(getattr(agent, "bandwidth_debt", 0) or 0)
         agent.repair_needed = int(getattr(agent, "repair_needed", 0) or 0)
+        if not isinstance(getattr(agent, "ice_cooldowns", None), dict):
+            agent.ice_cooldowns = {}
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -239,6 +242,244 @@ class YearFeaturesMixin:
                 self.npcs_enemies.append(boss)
                 self.bosses.append({"id": "signal_baron", "name": "Signal Baron", "x": x, "y": y, "alive": True})
                 break
+
+
+    def _seed_ice_cameras(self) -> None:
+        """Place StreetNet cameras as Focus-probe ICE nodes (#46)."""
+        self.ice_cameras: List[Dict[str, Any]] = []
+        g = self.gmap
+        anchors: List[Tuple[int, int]] = []
+        for pos in list(self.vendor_positions.values()):
+            anchors.append(pos)
+        anchors.append(self.jackpoint_pos)
+        anchors.append(self.uplink_pos)
+        anchors.append(self.spawn_xy)
+        for sp in list(getattr(self, "spawn_points", []) or [])[:4]:
+            anchors.append(sp)
+        placed: List[Tuple[int, int]] = []
+        for ax, ay in anchors:
+            for _ in range(40):
+                x = self.rng.randint(max(1, ax - 6), min(g.width - 2, ax + 6))
+                y = self.rng.randint(max(1, ay - 6), min(g.height - 2, ay + 6))
+                if not g.walkable(x, y):
+                    continue
+                if any(abs(x - px) + abs(y - py) < 5 for px, py in placed):
+                    continue
+                if self._near_any_spawn(x, y):
+                    continue
+                cam = {
+                    "id": "cam_%d" % (len(self.ice_cameras) + 1),
+                    "kind": "camera",
+                    "name": "Street Cam",
+                    "x": x,
+                    "y": y,
+                    "z": C.PLANE_STREET,
+                    "glyph": "c",
+                    "stunned_until": 0.0,
+                    "revealed_until": 0.0,
+                }
+                self.ice_cameras.append(cam)
+                placed.append((x, y))
+                break
+            if len(self.ice_cameras) >= 10:
+                break
+        if not self.ice_cameras:
+            sx, sy = self.spawn_xy
+            self.ice_cameras.append({
+                "id": "cam_1", "kind": "camera", "name": "Street Cam",
+                "x": min(g.width - 2, sx + 3), "y": sy, "z": C.PLANE_STREET,
+                "glyph": "c", "stunned_until": 0.0, "revealed_until": 0.0,
+            })
+
+    def _ice_probe_catalog(self, agent) -> List[Dict[str, Any]]:
+        now = time.time()
+        cds = getattr(agent, "ice_cooldowns", None) or {}
+        out = []
+        for pid, defn in C.ICE_PROBES.items():
+            ready_at = float(cds.get(pid, 0) or 0)
+            ready_in = max(0.0, ready_at - now)
+            out.append({
+                "id": pid,
+                "name": defn["name"],
+                "desc": defn["desc"],
+                "focus_cost": int(defn["focus_cost"]),
+                "cooldown": float(defn["cooldown"]),
+                "radius": int(defn["radius"]),
+                "duration": float(defn.get("duration", 0) or 0),
+                "ready_in": round(ready_in, 1),
+                "ready": ready_in <= 0.05,
+            })
+        return out
+
+    def _ice_nearby_targets(self, agent, radius: int = 12) -> List[Dict[str, Any]]:
+        now = time.time()
+        ax, ay = agent.actor.x, agent.actor.y
+        az = int(getattr(agent.actor, "z", 0) or 0)
+        found: List[Dict[str, Any]] = []
+        for cam in getattr(self, "ice_cameras", []) or []:
+            if int(cam.get("z", 0) or 0) != az:
+                continue
+            d = abs(int(cam["x"]) - ax) + abs(int(cam["y"]) - ay)
+            if d > radius:
+                continue
+            found.append({
+                "id": cam["id"],
+                "kind": "camera",
+                "name": cam.get("name", "Street Cam"),
+                "x": cam["x"], "y": cam["y"], "dist": d,
+                "stunned": float(cam.get("stunned_until", 0) or 0) > now,
+                "glyph": "c",
+            })
+        for a in self.npcs_enemies:
+            if not a.alive or a.faction != "enemy":
+                continue
+            if int(getattr(a, "z", 0) or 0) != az:
+                continue
+            kind = None
+            if a.glyph == C.ENEMY_DRONE:
+                kind = "drone"
+            elif a.glyph == C.ENEMY_THUG:
+                kind = "thug_deck"
+            else:
+                continue
+            d = abs(a.x - ax) + abs(a.y - ay)
+            if d > radius:
+                continue
+            found.append({
+                "id": "%s_%d_%d" % (kind, a.x, a.y),
+                "kind": kind,
+                "name": a.name,
+                "x": a.x, "y": a.y, "dist": d,
+                "stunned": float(getattr(a, "stunned_until", 0) or 0) > now,
+                "scrambled": float(getattr(a, "scrambled_until", 0) or 0) > now,
+                "glyph": a.glyph,
+                "hp": a.hp,
+            })
+        found.sort(key=lambda t: t["dist"])
+        return found
+
+    def _ice_snapshot(self, agent) -> Dict[str, Any]:
+        return {
+            "probes": self._ice_probe_catalog(agent),
+            "nearby": self._ice_nearby_targets(agent, radius=int(getattr(C, "ICE_PROBE_RADIUS_DEFAULT", 10))),
+            "focus": int(agent.actor.focus),
+            "max_focus": int(agent.actor.max_focus),
+            "hint": "Spend Focus to probe cameras, drones, or thug decks (z/x/c or ICE dock).",
+        }
+
+    def _ice_probe_action(self, agent, arg: str) -> bool:
+        """Focus-cost ICE probe: stun | reveal | scramble."""
+        pid = (arg or "").strip().lower()
+        if pid.startswith("probe "):
+            pid = pid[6:].strip()
+        if pid in ("", "list", "help", "?"):
+            names = ", ".join("%s (%df)" % (d["id"], d["focus_cost"]) for d in C.ICE_PROBES.values())
+            agent.log("ICE probes: %s — usage: ice_probe <type>" % names)
+            return True
+        defn = C.ICE_PROBES.get(pid)
+        if not defn:
+            agent.log("Unknown ICE probe. Try: stun, reveal, scramble.")
+            return True
+        now = time.time()
+        cds = getattr(agent, "ice_cooldowns", None)
+        if not isinstance(cds, dict):
+            cds = {}
+            agent.ice_cooldowns = cds
+        ready_at = float(cds.get(pid, 0) or 0)
+        if ready_at > now + 0.05:
+            agent.log("%s cooling down — %.1fs left." % (defn["name"], ready_at - now))
+            return True
+        cost = int(defn["focus_cost"])
+        if agent.actor.focus < cost:
+            agent.log("Need %d Focus for %s. Wait or use a Focus Tab." % (cost, defn["name"]))
+            return True
+        radius = int(defn["radius"])
+        duration = float(defn.get("duration", 0) or 0)
+        targets = self._ice_nearby_targets(agent, radius=radius)
+        if pid != "reveal" and not targets:
+            agent.log("No camera, drone, or thug deck in probe range (%d)." % radius)
+            return True
+
+        agent.actor.focus -= cost
+        cds[pid] = now + float(defn["cooldown"])
+        agent.ice_cooldowns = cds
+        agent.sfx("pulse")
+
+        if pid == "stun":
+            hit = targets[0]
+            if hit["kind"] == "camera":
+                for cam in self.ice_cameras:
+                    if cam["id"] == hit["id"]:
+                        cam["stunned_until"] = now + duration
+                        break
+                agent.log(
+                    "Stun Spike pins %s — watch loop frozen %.0fs (−%d Focus)."
+                    % (hit["name"], duration, cost)
+                )
+            else:
+                for a in self.npcs_enemies:
+                    if not a.alive:
+                        continue
+                    if a.x == hit["x"] and a.y == hit["y"] and a.name == hit["name"]:
+                        setattr(a, "stunned_until", now + duration)
+                        break
+                label = "thug deck" if hit["kind"] == "thug_deck" else "drone bus"
+                agent.log(
+                    "Stun Spike floods the %s on %s — frozen %.0fs (−%d Focus)."
+                    % (label, hit["name"], duration, cost)
+                )
+            return True
+
+        if pid == "reveal":
+            self._reveal_fog(agent, radius)
+            for cam in getattr(self, "ice_cameras", []) or []:
+                if int(cam.get("z", 0) or 0) != int(getattr(agent.actor, "z", 0) or 0):
+                    continue
+                d = abs(int(cam["x"]) - agent.actor.x) + abs(int(cam["y"]) - agent.actor.y)
+                if d <= radius:
+                    cam["revealed_until"] = now + duration
+            bits = []
+            for t in targets[:6]:
+                bits.append("%s@%d,%d" % (t["kind"], t["x"], t["y"]))
+            if bits:
+                agent.log(
+                    "ICE Scan paints StreetNet nodes (−%d Focus): %s."
+                    % (cost, "; ".join(bits))
+                )
+            else:
+                agent.log(
+                    "ICE Scan flares the fog (−%d Focus) — no live nodes in range, but the grid remembers."
+                    % cost
+                )
+            agent.cutscene("terminal")
+            return True
+
+        if pid == "scramble":
+            n = 0
+            for a in self.npcs_enemies:
+                if not a.alive or a.faction != "enemy":
+                    continue
+                if int(getattr(a, "z", 0) or 0) != int(getattr(agent.actor, "z", 0) or 0):
+                    continue
+                d = abs(a.x - agent.actor.x) + abs(a.y - agent.actor.y)
+                if d > radius:
+                    continue
+                setattr(a, "scrambled_until", now + duration)
+                n += 1
+            for cam in getattr(self, "ice_cameras", []) or []:
+                if int(cam.get("z", 0) or 0) != int(getattr(agent.actor, "z", 0) or 0):
+                    continue
+                d = abs(int(cam["x"]) - agent.actor.x) + abs(int(cam["y"]) - agent.actor.y)
+                if d <= radius:
+                    cam["stunned_until"] = max(float(cam.get("stunned_until", 0) or 0), now + duration * 0.5)
+            agent.log(
+                "Aggro Scramble shreds local targeting (−%d Focus) — %d hostiles lose your trail for %.0fs."
+                % (cost, n, duration)
+            )
+            return True
+
+        return True
+
 
     def reload_district_defs(self) -> None:
         self.district_defs = _load_json("districts.json")
@@ -680,6 +921,15 @@ class YearFeaturesMixin:
             agent.auth_nick = nick
             agent.log("Auth nick stub bound: %s (token %s — staging only)." % (nick, token))
             return True
+
+        if a in ("ice_probe", "probe", "ice"):
+            return self._ice_probe_action(agent, arg or "")
+
+        # Convenience aliases: ice_stun / probe_reveal / etc.
+        if a.startswith("ice_") and a[4:] in C.ICE_PROBES:
+            return self._ice_probe_action(agent, a[4:])
+        if a.startswith("probe_") and a[6:] in C.ICE_PROBES:
+            return self._ice_probe_action(agent, a[6:])
 
         return False
 
@@ -1251,6 +1501,7 @@ class YearFeaturesMixin:
                 "sinks": ["repair", "bandwidth", "district_tax"],
             },
             "aoi_radius": 28,
+            "ice": self._ice_snapshot(agent),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:

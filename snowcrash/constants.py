@@ -128,6 +128,39 @@ REL_MOVE_ACTIONS = (
     "back_right",
 )
 
+
+# ICE probe quickhacks (#46) — Focus-cost system hacks
+ICE_PROBE_RADIUS_DEFAULT = 10
+ICE_PROBES = {
+    "stun": {
+        "id": "stun",
+        "name": "Stun Spike",
+        "desc": "Freeze a nearby camera, drone, or thug deck for a few seconds",
+        "focus_cost": 4,
+        "cooldown": 12.0,
+        "radius": 8,
+        "duration": 6.0,
+    },
+    "reveal": {
+        "id": "reveal",
+        "name": "ICE Scan",
+        "desc": "Pulse StreetNet fog and tag cameras / drones / thug decks nearby",
+        "focus_cost": 3,
+        "cooldown": 8.0,
+        "radius": 12,
+        "duration": 10.0,
+    },
+    "scramble": {
+        "id": "scramble",
+        "name": "Aggro Scramble",
+        "desc": "Break chase loops — hostiles wander off your trail",
+        "focus_cost": 5,
+        "cooldown": 15.0,
+        "radius": 10,
+        "duration": 8.0,
+    },
+}
+
 HELP_TEXT = """\
 CONTROLS — 8-WAY + MULTIPLANE
   W/A/S/D           — move relative to facing (chord WA/WD/SA/SD = diagonals)
@@ -140,6 +173,8 @@ CONTROLS — 8-WAY + MULTIPLANE
   g                 — get / pick up item
   i                 — inventory
   f                 — ranged / hack attack
+  ice_probe <type>  — Focus ICE probe: stun | reveal | scramble (#46)
+  (web) z/x/c       — stun / reveal / scramble probes · ICE dock
   r                 — respawn (when dead)
   . / space         — wait
   ?                 — this help
@@ -159,6 +194,7 @@ MAP
   # wall  . floor  + door  = street  , grass  ~ water
   o manhole  < stairs up  > stairs down
   J jackpoint  U uplink  @ you  & NPC  i infected  t thug  d drone
+  c street camera (ICE probe target)
 """
 
 
