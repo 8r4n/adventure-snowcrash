@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>SNOWCRASH</h1>
+      <p class="tag">Freelance Metaverse courier · fractured LA · ASCII rogue-like</p>
+    </header>
+    <div id="layout">
+      <pre id="map" aria-label="Game map"></pre>
+      <aside id="side">
+        <div id="stats"></div>
+        <div id="inv-panel">
+          <h2>Inventory</h2>
+          <ul id="inventory"></ul>
+        </div>
+        <div id="help-mini">
+          <kbd>WASD</kbd>/<kbd>hjkl</kbd>/<kbd>arrows</kbd> move ·
+          <kbd>g</kbd> get · <kbd>f</kbd> fire/hack ·
+          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> restart · <kbd>.</kbd> wait
+        </div>
+      </aside>
+    </div>
+    <div id="log"></div>
+    <div id="overlay" class="hidden"></div>
+  </div>
+  <script src="/static/game.js"></script>
+</body>
+</html>
