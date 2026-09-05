@@ -1,0 +1,20 @@
+{
+  "season_id": "s1_neon_courier",
+  "name": "Season 1 — Neon Courier",
+  "max_tier": 12,
+  "xp_per_tier": 50,
+  "cosmetics": [
+    {"id": "trail_cyan", "tier": 1, "name": "Cyan Jack Trail", "slot": "trail"},
+    {"id": "glyph_star", "tier": 2, "name": "Star Glyph Frame", "slot": "frame"},
+    {"id": "jacket_pink", "tier": 3, "name": "Hot-Pink Courier Shell", "slot": "shell"},
+    {"id": "emote_salute", "tier": 4, "name": "Street Salute Emote", "slot": "emote"},
+    {"id": "trail_gold", "tier": 5, "name": "Gold Bandwidth Trail", "slot": "trail"},
+    {"id": "title_rim", "tier": 6, "name": "Title: Rim Runner", "slot": "title"},
+    {"id": "pet_sprite", "tier": 7, "name": "Sprite Pet Cosmetics", "slot": "pet"},
+    {"id": "banner_club", "tier": 8, "name": "Club Glassline Banner", "slot": "banner"},
+    {"id": "footprint_rain", "tier": 9, "name": "Neon Rain Footprints", "slot": "trail"},
+    {"id": "title_zero", "tier": 10, "name": "Title: Payload Cleared", "slot": "title"},
+    {"id": "frame_boss", "tier": 11, "name": "Boss Dust Frame", "slot": "frame"},
+    {"id": "shell_raid", "tier": 12, "name": "Raid Lockout Shell", "slot": "shell"}
+  ]
+}

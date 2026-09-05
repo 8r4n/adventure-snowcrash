@@ -1,0 +1,42 @@
+{
+  "districts": [
+    {
+      "id": "burbclave",
+      "name": "Burbclave",
+      "label": "Franchise enclaves · gated neon",
+      "x0": 0, "y0": 0, "x1": 0.45, "y1": 0.55,
+      "weather_bias": "clear",
+      "vendor_ids": ["burb_kiosk"],
+      "notes": "Safer pads, higher tax on street credits."
+    },
+    {
+      "id": "club",
+      "name": "Club District",
+      "label": "Black Neon / Glassline corridor",
+      "x0": 0.35, "y0": 0.2, "x1": 0.75, "y1": 0.65,
+      "weather_bias": "neon_rain",
+      "vendor_ids": ["black_neon_bar"],
+      "notes": "Bass, tips, and ambush jobs."
+    },
+    {
+      "id": "uplink_rim",
+      "name": "Uplink Rim",
+      "label": "Signal towers · Faraday benches",
+      "x0": 0.55, "y0": 0.0, "x1": 1.0, "y1": 0.55,
+      "weather_bias": "signal_storm",
+      "vendor_ids": ["rim_parts"],
+      "notes": "Craft benches and bandwidth sinks."
+    },
+    {
+      "id": "undercity",
+      "name": "Undercity",
+      "label": "Sewers / tunnels (UNDER plane)",
+      "x0": 0.0, "y0": 0.45, "x1": 1.0, "y1": 1.0,
+      "weather_bias": "signal_storm",
+      "vendor_ids": ["tunnel_fence"],
+      "notes": "Hostile density up; boss lairs seed here.",
+      "plane": -1
+    }
+  ],
+  "hot_reload": "Edit this file and restart the server (or call world.reload_district_defs()). Documented in docs/staging.md."
+}
