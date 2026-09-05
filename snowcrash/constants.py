@@ -153,3 +153,12 @@ MAP
   o manhole  < stairs up  > stairs down
   J jackpoint  U uplink  @ you  & NPC  i infected  t thug  d drone
 """
+
+
+# Progression / combat density (MMORPG street loop)
+XP_PER_KILL = 12
+XP_PER_LEVEL = 40
+MAX_COURIER_LEVEL = 12
+ENCOUNTER_EXTRA_STREET = 18  # additional hostiles seeded away from spawns
+CREDIT_DROP_CHANCE = 0.45
+LOOT_DROP_CHANCE = 0.28

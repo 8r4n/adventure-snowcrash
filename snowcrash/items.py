@@ -159,3 +159,38 @@ def random_loot(rng) -> Optional[Item]:
     if roll < 0.92:
         return make_datachip()
     return make_mono_knife()
+
+
+def make_street_credits(amount: int = 5) -> Item:
+    return Item(
+        id="credits",
+        name="Street Credits ×%d" % max(1, amount),
+        glyph="$",
+        kind="misc",
+        description="Franchise scrip — spend later at black-market stalls.",
+        extra={"credits": max(1, amount)},
+    )
+
+
+def make_pulse_shim() -> Item:
+    return Item(
+        id="pulse_shim",
+        name="Pulse Shim",
+        glyph="*",
+        kind="weapon",
+        description="One-shot street hack spike. +2 hack while equipped.",
+        hack_bonus=2,
+        equippable=True,
+    )
+
+
+def make_kevlar_vest() -> Item:
+    return Item(
+        id="kevlar_vest",
+        name="Kevlar Vest",
+        glyph="[",
+        kind="armor",
+        description="Cheap plates under a courier jacket. +2 defense.",
+        defense_bonus=2,
+        equippable=True,
+    )
