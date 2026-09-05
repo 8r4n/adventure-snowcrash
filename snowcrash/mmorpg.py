@@ -29,6 +29,7 @@ from .items import (
     make_focus_tab,
 )
 from .mapgen import FloorItem, GameMap, generate_world
+from .systems import YearFeaturesMixin
 from .wishes import (
     MAX_WISHES,
     grant_label,
@@ -113,6 +114,28 @@ class PlayerAgent:
     level: int = 1
     credits: int = 0
     kills: int = 0
+    skills: Dict[str, str] = field(default_factory=dict)
+    loadout: Dict[str, Optional[str]] = field(default_factory=lambda: {"weapon": None, "armor": None, "trinket": None})
+    skill_picks_available: int = 0
+    party_id: Optional[str] = None
+    party_invites: List[str] = field(default_factory=list)
+    crew_id: Optional[str] = None
+    housing: Dict[str, Any] = field(default_factory=dict)
+    journal: Dict[str, Any] = field(default_factory=dict)
+    reputation: int = 0
+    contracts: List[Dict[str, Any]] = field(default_factory=list)
+    pvp: Dict[str, Any] = field(default_factory=dict)
+    season: Dict[str, Any] = field(default_factory=dict)
+    dead: bool = False
+    respawn_options: List[Dict[str, Any]] = field(default_factory=list)
+    spectating: Optional[str] = None
+    muted: set = field(default_factory=set)
+    reports_filed: int = 0
+    auth_nick: Optional[str] = None
+    raid_id: Optional[str] = None
+    raid_lockout_until: float = 0.0
+    bandwidth_debt: int = 0
+    repair_needed: int = 0
 
     def is_invulnerable(self) -> bool:
         return time.time() < self.invuln_until
@@ -140,7 +163,7 @@ class PlayerAgent:
         return any(i.id == "payload_zero" for i in self.actor.inventory)
 
 
-class GameWorld:
+class GameWorld(YearFeaturesMixin):
     """Authoritative shared street layer."""
 
     def __init__(self, seed: Optional[int] = None) -> None:
@@ -200,6 +223,7 @@ class GameWorld:
         self._purge_enemies_near_spawns()
         self._seed_extra_encounters()
         self.system_chat("Metaverse street layer online. Seed %s." % seed)
+        self._year_init()
 
     def _ensure_world_payload(self) -> None:
         """Keep at least one Payload-Zero on the jackpoint for personal quests."""
@@ -793,6 +817,8 @@ class GameWorld:
         if n:
             agent.log("Cleared %d hostiles near pad." % n)
         self._grant_spawn_invuln(agent)
+        self._year_bootstrap_agent(agent)
+        self._analytics("join", agent)
         self.update_fov(agent)
         return agent
 
@@ -943,6 +969,8 @@ class GameWorld:
                 cy = rect[1] + rect[3] // 2
                 marks.append({"id": "club_%d" % i, "name": "Club Glassline", "glyph": "C", "x": cx, "y": cy, "z": 0})
                 break
+        for vid, (vx, vy) in getattr(self, "vendor_positions", {}).items():
+            marks.append({"id": "vendor_%s" % vid, "name": "Vendor", "glyph": "$", "x": vx, "y": vy, "z": 0})
         return marks
 
     def _grant_kill_rewards(self, agent: PlayerAgent, victim: Actor) -> None:
@@ -963,6 +991,7 @@ class GameWorld:
                 agent.actor.hack += 1
             agent.log("LEVEL UP → %d  (HP+4 Atk+1)." % agent.level)
             agent.sfx("pickup")
+            self._year_on_level_up(agent)
         if self.rng.random() < float(getattr(C, "CREDIT_DROP_CHANCE", 0.45)):
             amt = self.rng.randint(3, 12)
             agent.credits += amt
@@ -980,6 +1009,7 @@ class GameWorld:
             agent.actor.inventory.append(item)
             agent.log("Loot: %s" % item.name)
             agent.sfx("pickup")
+        self.year_on_kill(agent, victim)
 
     # ---- Combat / AI ----
     def melee_attack(self, attacker: Actor, defender: Actor, observer: Optional[PlayerAgent] = None) -> None:
@@ -1021,7 +1051,8 @@ class GameWorld:
                     victim.lost = True
                     victim.mode = "dead"
                     victim.sfx("death")
-                    victim.log("Your avatar flatlines. Press r to respawn.")
+                    victim.log("Your avatar flatlines. Press r to respawn (or respawn <option>).")
+                    self._year_on_player_death(victim, killer_name=attacker.name)
         elif defender.faction == "enemy" and observer:
             observer.sfx("hurt")
 
@@ -1074,6 +1105,7 @@ class GameWorld:
             if not target.alive:
                 agent.log("%s fries." % target.name)
                 agent.sfx("kill")
+                self._grant_kill_rewards(agent, target)
             else:
                 agent.sfx("hurt")
             return True
@@ -1091,6 +1123,7 @@ class GameWorld:
         if not target.alive:
             agent.log("%s bluescreens." % target.name)
             agent.sfx("kill")
+            self._grant_kill_rewards(agent, target)
         else:
             agent.sfx("hurt")
         return True
@@ -1158,6 +1191,7 @@ class GameWorld:
         for p in living:
             self.update_fov(p)
             self.check_win(p)
+        self.year_tick()
 
     def check_win(self, agent: PlayerAgent) -> None:
         if agent.won or agent.lost:
@@ -1182,6 +1216,7 @@ class GameWorld:
                 "Others can still finish theirs. YOU WIN."
             )
             self.system_chat("%s cleared Payload-Zero." % agent.name)
+            self.year_on_uplink(agent)
 
     # ---- Actions ----
     def handle_action(self, agent: PlayerAgent, action: str, arg: Optional[str] = None) -> None:
@@ -1206,8 +1241,15 @@ class GameWorld:
             return
 
         if agent.mode in ("dead", "won"):
-            if action in ("r", "restart"):
-                self._respawn(agent)
+            if action in ("r", "restart", "respawn"):
+                if agent.mode == "dead" and hasattr(self, "_year_respawn"):
+                    self._year_respawn(agent, (arg or "safe_pad").strip() or "safe_pad")
+                else:
+                    self._respawn(agent)
+            return
+        if agent.mode == "spectate":
+            if action in ("unspectate", "escape", "Esc", "r"):
+                self.handle_year_action(agent, "unspectate", arg)
             return
 
         if action in ("?", "help"):
@@ -1278,6 +1320,11 @@ class GameWorld:
             agent.log("Pos (%d,%d) tick %d." % (agent.actor.x, agent.actor.y, self.tick))
             return
 
+        # Year-backend actions (#12–#39)
+        if self.handle_year_action(agent, action, arg):
+            self.update_fov(agent)
+            return
+
     def _respawn(self, agent: PlayerAgent) -> None:
         agent.won = False
         agent.lost = False
@@ -1330,7 +1377,8 @@ class GameWorld:
                 self.update_fov(agent)
                 return
             if target.faction == "npc":
-                agent.log('%s: "%s"' % (target.name, target.talk))
+                talk = self._npc_schedule_line(target) if hasattr(self, "_npc_schedule_line") else target.talk
+                agent.log('%s: "%s"' % (target.name, talk))
                 agent.sfx("talk")
                 agent.cutscene("talk")
                 if target.quest_flag and target.quest_flag not in agent.quest_flags:
@@ -1347,10 +1395,17 @@ class GameWorld:
             if target.faction == "player":
                 other = self._agent_for_actor(target)
                 label = other.name if other else target.name
-                if C.PVP_ENABLED:
+                arena_ok = (
+                    other is not None
+                    and getattr(agent, "pvp", {}).get("opt_in")
+                    and getattr(other, "pvp", {}).get("opt_in")
+                    and agent.pvp.get("arena")
+                    and agent.pvp.get("arena") == other.pvp.get("arena")
+                )
+                if C.PVP_ENABLED or arena_ok:
                     self.melee_attack(agent.actor, target, observer=agent)
                 else:
-                    agent.log("Blocked by courier %s (no PvP)." % label)
+                    agent.log("Blocked by courier %s (streets PvP-off; use arena)." % label)
                     agent.sfx("bump")
                 self.update_fov(agent)
                 return
@@ -1470,6 +1525,7 @@ class GameWorld:
             agent.log("Cloned Payload-Zero into YOUR sleeve (shared world copy remains). Get to the uplink.")
             agent.sfx("pickup")
             agent.cutscene("payload")
+            self.year_on_payload(agent)
             self._ensure_world_payload()
             self.update_fov(agent)
             return
@@ -1779,7 +1835,7 @@ class GameWorld:
                 }
             )
 
-        return {
+        snap = {
             "mmorpg": True,
             "seed": self.seed,
             "turn": self.tick,
@@ -1866,6 +1922,16 @@ class GameWorld:
             "kills": agent.kills,
             "xp_next": int(getattr(C, "XP_PER_LEVEL", 40)),
         }
+        snap.update(self.year_snapshot_fields(agent))
+        # Spectate: overlay target camera lightly
+        if getattr(agent, "spectating", None) and agent.spectating in self.players:
+            tgt = self.players[agent.spectating]
+            snap["spectate_target"] = {
+                "id": tgt.id, "name": tgt.name,
+                "x": tgt.actor.x, "y": tgt.actor.y,
+                "z": int(getattr(tgt.actor, "z", 0) or 0),
+            }
+        return snap
 
 
 def _los(gmap: GameMap, x0: int, y0: int, x1: int, y1: int) -> bool:
