@@ -34,6 +34,11 @@ class GameState:
     pending_sfx: List[str] = field(default_factory=list)
     pending_cutscenes: List[str] = field(default_factory=list)
     cutscenes_played: List[str] = field(default_factory=list)
+    journal: Dict[str, Any] = field(default_factory=dict)
+    credits: int = 0
+    xp: int = 0
+    level: int = 1
+    kills: int = 0
 
     def log(self, msg: str) -> None:
         self.messages.append(msg)
@@ -83,6 +88,18 @@ def new_game(seed: Optional[int] = None) -> GameState:
     gs.log("You jack into the street layer. Fractured LA hums under neon rain.")
     gs.log("Talk to Relay Tran in the safehouse. Press ? for help.")
     gs.log(f"Seed: {seed}")
+    gs.journal = {
+        "arc": "payload_zero",
+        "step": 1,
+        "steps": [
+            {"id": "brief", "text": "Accept Payload-Zero arc"},
+            {"id": "jackpoint", "text": "Reach jackpoint (J) · sleeve Payload-Zero"},
+            {"id": "survive", "text": "Survive with the sleeve"},
+            {"id": "uplink", "text": "Scrub at uplink (U)"},
+            {"id": "done", "text": "Arc complete"},
+        ],
+        "completed": False,
+    }
     update_fov(gs)
     return gs
 
@@ -284,6 +301,9 @@ def check_win(gs: GameState) -> None:
         gs.won = True
         gs.mode = "won"
         gs.quest_flags["payload_cleared"] = True
+        if gs.journal:
+            gs.journal["step"] = 4
+            gs.journal["completed"] = True
         gs.sfx("win")
         gs.cutscene("uplink")
         gs.cutscene("namshub_counter")
@@ -489,6 +509,8 @@ def _pickup(gs: GameState) -> None:
     gs.sfx("pickup")
     if fi.item.id == "payload_zero":
         gs.quest_flags["got_payload"] = True
+        if gs.journal:
+            gs.journal["step"] = max(int(gs.journal.get("step", 0)), 2)
         if "got_payload" not in gs.story_seen:
             gs.story_seen.append("got_payload")
         gs.log("Payload-Zero is heavy with unspoken syllables. Get to the uplink.")
@@ -707,6 +729,11 @@ def snapshot(gs: GameState) -> Dict[str, Any]:
         "selected_inv": gs.selected_inv,
         "messages": gs.messages[-12:],
         "quest_flags": dict(gs.quest_flags),
+        "journal": dict(gs.journal) if gs.journal else {},
+        "credits": gs.credits,
+        "xp": gs.xp,
+        "level": gs.level,
+        "kills": gs.kills,
         "story_seen": list(gs.story_seen),
         "help": C.HELP_TEXT,
         "visible": [row[:] for row in gs.gmap.visible],

@@ -169,3 +169,23 @@ def grant_label(grant_id: str) -> str:
         "pulse": "Pulse Pistol",
         "heal": "Street Stimpack",
     }.get(grant_id, "Backlog Token")
+
+
+def make_wish_origin_item(wish_text: str = "night vision petition") -> Item:
+    """Explicit wish→item pipeline product (#34)."""
+    h = wish_hash(wish_text)
+    return Item(
+        id=f"wish_origin_{h}",
+        name="Wish-Origin Filament",
+        glyph="★",
+        kind="misc",
+        description="Materialized from a street petition. Use for night lens grant.",
+        consumable=True,
+        extra={
+            "grant": "flashlight",
+            "view_bonus": 5,
+            "view_ticks": 120,
+            "wish_origin": True,
+            "wish_text": wish_text.strip(),
+        },
+    )
