@@ -929,13 +929,18 @@
       }
 
       const vis = s.visible || [];
-      for (let y = 0; y < s.height; y++) {
-        for (let x = 0; x < s.width; x++) {
+      // Local FOV window only — full-map scan is too heavy on MMORPG sizes
+      const pr = 10;
+      const yLo = Math.max(0, s.player.y - pr);
+      const yHi = Math.min(s.height - 1, s.player.y + pr);
+      const xLo = Math.max(0, s.player.x - pr);
+      const xHi = Math.min(s.width - 1, s.player.x + pr);
+      for (let y = yLo; y <= yHi; y++) {
+        for (let x = xLo; x <= xHi; x++) {
           if (!(vis[y] && vis[y][x])) continue;
           const ch = mapAt(s, x, y);
           if (!"itd&*!/[}%JU".includes(ch)) continue;
           if (x === s.player.x && y === s.player.y) continue;
-          // Skip letter/number glyphs that are other players — drawn below
           const rgb = ENTITY_RGB[ch] || [57, 197, 207];
           drawBillboard(x, y, ch, rgb, null);
         }

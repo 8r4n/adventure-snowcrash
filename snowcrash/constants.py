@@ -27,10 +27,17 @@ ENEMY_DRONE = "d"
 VISIBLE = True
 EXPLORED = True
 
-MAP_WIDTH = 60
-MAP_HEIGHT = 30
+# MMORPG-scale city (local FOV / minimap / FPV keep perf reasonable)
+MAP_WIDTH = 200
+MAP_HEIGHT = 120
 
 VIEW_RADIUS = 8
+
+# Spawn protection (seconds) — AI cannot one-shot new joins
+SPAWN_INVULN_SEC = 2.5
+
+# MVP: players cannot damage other players
+PVP_ENABLED = False
 
 # Player facing: 0=N, 1=E, 2=S, 3=W
 FACING_DIRS = ((0, -1), (1, 0), (0, 1), (-1, 0))

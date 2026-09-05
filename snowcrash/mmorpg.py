@@ -77,6 +77,10 @@ class PlayerAgent:
     last_action_ts: float = 0.0
     last_chat_ts: float = 0.0
     connected: bool = True
+    invuln_until: float = 0.0  # spawn protection timestamp
+
+    def is_invulnerable(self) -> bool:
+        return time.time() < self.invuln_until
 
     def log(self, msg: str) -> None:
         self.messages.append(msg)
@@ -114,6 +118,11 @@ class GameWorld:
         self.jackpoint_pos = world.jackpoint_pos
         self.story_beats = world.story_beats
         self.spawn_xy = (world.player.x, world.player.y)
+        self.spawn_points: List[Tuple[int, int]] = list(
+            getattr(world, "spawn_points", None) or [self.spawn_xy]
+        )
+        if not self.spawn_points:
+            self.spawn_points = [self.spawn_xy]
         self.players: Dict[str, PlayerAgent] = {}
         self.name_index: Dict[str, str] = {}  # lower name -> id
         self.chat: List[ChatLine] = []
@@ -161,16 +170,45 @@ class GameWorld:
         self._glyph_i += 1
         return g, c
 
+    def _grant_spawn_invuln(self, agent: "PlayerAgent") -> None:
+        agent.invuln_until = time.time() + float(C.SPAWN_INVULN_SEC)
+        agent.log(
+            "Spawn shield active (%.1fs) — AI can't flatline you yet."
+            % float(C.SPAWN_INVULN_SEC)
+        )
+
     def _find_spawn(self) -> Tuple[int, int]:
-        sx, sy = self.spawn_xy
-        # Try nearby free cells
-        for radius in range(0, 6):
-            for dy in range(-radius, radius + 1):
-                for dx in range(-radius, radius + 1):
-                    x, y = sx + dx, sy + dy
-                    if self._can_stand(x, y):
-                        return x, y
-        return sx, sy
+        """Pick a random free spawn point; search radius if busy. Never stack."""
+        points = list(self.spawn_points) if self.spawn_points else [self.spawn_xy]
+        self.rng.shuffle(points)
+
+        def try_around(sx: int, sy: int, max_r: int = 8) -> Optional[Tuple[int, int]]:
+            for radius in range(0, max_r + 1):
+                ring: List[Tuple[int, int]] = []
+                for dy in range(-radius, radius + 1):
+                    for dx in range(-radius, radius + 1):
+                        if radius and max(abs(dx), abs(dy)) != radius:
+                            continue
+                        x, y = sx + dx, sy + dy
+                        if self._can_stand(x, y):
+                            ring.append((x, y))
+                if ring:
+                    return self.rng.choice(ring)
+            return None
+
+        free = [p for p in points if self._can_stand(p[0], p[1])]
+        if free:
+            return self.rng.choice(free)
+
+        for sx, sy in points:
+            hit = try_around(sx, sy, max_r=10)
+            if hit:
+                return hit
+
+        hit = try_around(self.spawn_xy[0], self.spawn_xy[1], max_r=20)
+        if hit:
+            return hit
+        return self.spawn_xy
 
     def _can_stand(self, x: int, y: int, ignore: Optional[Actor] = None) -> bool:
         if not self.gmap.walkable(x, y):
@@ -245,7 +283,8 @@ class GameWorld:
         self.system_chat("%s jacked in (%s)." % (name, glyph))
         agent.log("You jack into the shared street layer. Fractured LA hums under neon rain.")
         agent.log("Talk to Relay Tran. Open chat with Enter. Personal Payload-Zero quest — others keep theirs.")
-        agent.log("Seed: %s · You are glyph %s" % (self.seed, glyph))
+        agent.log("Seed: %s · You are glyph %s · spawn (%d,%d)" % (self.seed, glyph, x, y))
+        self._grant_spawn_invuln(agent)
         self.update_fov(agent)
         return agent
 
@@ -268,6 +307,7 @@ class GameWorld:
                 agent.actor.hp = max(1, agent.actor.max_hp // 2)
                 agent.lost = False
                 agent.mode = "play"
+            self._grant_spawn_invuln(agent)
 
     # ---- FOV ----
     def update_fov(self, agent: PlayerAgent) -> None:
@@ -276,8 +316,10 @@ class GameWorld:
         if px < 0:
             return
         r = C.VIEW_RADIUS
-        for y in range(gmap.height):
-            for x in range(gmap.width):
+        # Clear a local window only (huge maps — full wipe is wasteful)
+        pad = r + 2
+        for y in range(max(0, py - pad), min(gmap.height, py + pad + 1)):
+            for x in range(max(0, px - pad), min(gmap.width, px + pad + 1)):
                 agent.visible[y][x] = False
         for y in range(max(0, py - r), min(gmap.height, py + r + 1)):
             for x in range(max(0, px - r), min(gmap.width, px + r + 1)):
@@ -288,6 +330,18 @@ class GameWorld:
 
     # ---- Combat / AI ----
     def melee_attack(self, attacker: Actor, defender: Actor, observer: Optional[PlayerAgent] = None) -> None:
+        # MVP: no player-vs-player damage
+        if attacker.faction == "player" and defender.faction == "player" and not C.PVP_ENABLED:
+            return
+        # Spawn invulnerability
+        if defender.faction == "player":
+            victim = self._agent_for_actor(defender)
+            if victim and victim.is_invulnerable():
+                if observer and observer.actor is attacker:
+                    observer.log("%s's spawn shield flares — no damage." % defender.name)
+                elif victim:
+                    victim.log("Spawn shield absorbs a hit from %s." % attacker.name)
+                return
         raw = (attacker.total_attack() if hasattr(attacker, "total_attack") else attacker.attack) + self.rng.randint(0, 2)
         dmg = defender.take_damage(raw)
         line = "%s hits %s for %d." % (attacker.name, defender.name, dmg)
@@ -383,10 +437,11 @@ class GameWorld:
         for a in self.npcs_enemies:
             if not a.alive or a.faction != "enemy":
                 continue
-            target_agent = min(
-                living,
-                key=lambda p: abs(p.actor.x - a.x) + abs(p.actor.y - a.y),
-            )
+            def _chase_key(p: PlayerAgent) -> Tuple[int, int]:
+                d = abs(p.actor.x - a.x) + abs(p.actor.y - a.y)
+                return (1 if p.is_invulnerable() else 0, d)
+
+            target_agent = min(living, key=_chase_key)
             player = target_agent.actor
             dx = player.x - a.x
             dy = player.y - a.y
@@ -540,7 +595,8 @@ class GameWorld:
         agent.actor.x, agent.actor.y = self._find_spawn()
         agent.pending_cutscenes.clear()
         agent.pending_sfx.clear()
-        agent.log("Respawned at the safehouse. Streets still shared.")
+        agent.log("Respawned at a safe pad. Streets still shared.")
+        self._grant_spawn_invuln(agent)
         self._ensure_world_payload()
         self.update_fov(agent)
         self.system_chat("%s respawned." % agent.name)
@@ -571,8 +627,13 @@ class GameWorld:
             if target.faction == "player":
                 other = self._agent_for_actor(target)
                 label = other.name if other else target.name
-                agent.log("Blocked by courier %s." % label)
-                agent.sfx("bump")
+                # Never auto-attack other players on bump (PvP off for MVP)
+                if C.PVP_ENABLED:
+                    self.melee_attack(agent.actor, target, observer=agent)
+                else:
+                    agent.log("Blocked by courier %s (no PvP)." % label)
+                    agent.sfx("bump")
+                self.update_fov(agent)
                 return
         if not self.gmap.walkable(px, py):
             agent.log("Blocked.")
@@ -850,6 +911,8 @@ class GameWorld:
             "explored": [row[:] for row in agent.explored],
             "jackpoint": list(self.jackpoint_pos),
             "uplink": list(self.uplink_pos),
+            "spawn_count": len(self.spawn_points),
+            "invulnerable": agent.is_invulnerable(),
             "sfx": sfx_events,
             "cutscenes": cutscene_events,
         }
