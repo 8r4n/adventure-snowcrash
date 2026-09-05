@@ -71,6 +71,7 @@ CONTROLS
   q                     — quit
   A (web)               — toggle tiles / ASCII
   m (web)               — mute / unmute SFX
+  Space/Esc (web)       — skip 1st-person cutscene
 
 GOAL
   Recover or neutralize the rogue Payload-Zero from the jackpoint (J),

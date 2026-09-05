@@ -1,0 +1,34 @@
+{
+  "cutscenes": [
+    {
+      "id": "jackpoint",
+      "title": "1ST PERSON \u2014 JACKING IN",
+      "file": "jackpoint.json"
+    },
+    {
+      "id": "uplink",
+      "title": "1ST PERSON \u2014 METAVERSE UPLINK",
+      "file": "uplink.json"
+    },
+    {
+      "id": "talk",
+      "title": "1ST PERSON \u2014 COMM LINK",
+      "file": "talk.json"
+    },
+    {
+      "id": "payload",
+      "title": "1ST PERSON \u2014 PAYLOAD ACQUIRED",
+      "file": "payload.json"
+    },
+    {
+      "id": "terminal",
+      "title": "1ST PERSON \u2014 TERMINAL",
+      "file": "terminal.json"
+    },
+    {
+      "id": "door",
+      "title": "1ST PERSON \u2014 THRESHOLD",
+      "file": "door.json"
+    }
+  ]
+}

@@ -9,12 +9,17 @@
   const legendEl = document.getElementById("legend");
   const btnAscii = document.getElementById("btn-ascii");
   const btnMute = document.getElementById("btn-mute");
+  const perspectiveEl = document.getElementById("perspective");
+  const cutsceneEl = document.getElementById("cutscene");
+  const cutTitleEl = document.getElementById("cut-title");
+  const cutFramesEl = document.getElementById("cut-frames");
 
   let state = null;
   let invMode = false;
   let useTiles = true;
   let tilesMeta = null;
   let lastMode = null;
+  let cutscenePlaying = false;
   const TILE_PATH = "/static/tiles/";
   const SFX_PATH = "/static/sfx/";
   const SFX_IDS = [
@@ -156,6 +161,120 @@
     };
   })();
 
+  const CUT_PATH = "/static/cutscenes/";
+  const CutscenePlayer = (() => {
+    const cache = {};
+    let timer = null;
+    let queue = [];
+    let onDone = null;
+
+    function setPerspective(first, title) {
+      if (!perspectiveEl) return;
+      if (first) {
+        perspectiveEl.classList.add("first");
+        perspectiveEl.textContent = title || "1ST PERSON";
+      } else {
+        perspectiveEl.classList.remove("first");
+        perspectiveEl.textContent = "STREET LAYER (3RD)";
+      }
+    }
+
+    async function load(id) {
+      if (cache[id]) return cache[id];
+      const res = await fetch(CUT_PATH + id + ".json");
+      if (!res.ok) throw new Error("cutscene missing: " + id);
+      const pack = await res.json();
+      cache[id] = pack;
+      return pack;
+    }
+
+    function hide() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      cutscenePlaying = false;
+      if (cutsceneEl) cutsceneEl.classList.add("hidden");
+      setPerspective(false);
+    }
+
+    function finishOne() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      if (queue.length) {
+        playNext();
+        return;
+      }
+      hide();
+      if (typeof onDone === "function") {
+        const cb = onDone;
+        onDone = null;
+        cb();
+      }
+    }
+
+    function playPack(pack) {
+      cutscenePlaying = true;
+      const title = pack.title || ("1ST PERSON — " + (pack.id || "").toUpperCase());
+      setPerspective(true, title);
+      if (cutTitleEl) cutTitleEl.textContent = title;
+      if (cutsceneEl) cutsceneEl.classList.remove("hidden");
+      const frames = pack.frames || [];
+      if (!frames.length) {
+        finishOne();
+        return;
+      }
+      let i = 0;
+      if (cutFramesEl) cutFramesEl.textContent = frames[0];
+      const fps = pack.fps || 10;
+      timer = setInterval(() => {
+        i += 1;
+        if (i >= frames.length) {
+          finishOne();
+          return;
+        }
+        if (cutFramesEl) cutFramesEl.textContent = frames[i];
+      }, Math.max(40, Math.floor(1000 / fps)));
+    }
+
+    async function playNext() {
+      const id = queue.shift();
+      if (!id) {
+        finishOne();
+        return;
+      }
+      try {
+        const pack = await load(id);
+        playPack(pack);
+      } catch (err) {
+        console.warn("cutscene failed", id, err);
+        playNext();
+      }
+    }
+
+    function enqueue(ids) {
+      const list = (ids || []).filter(Boolean);
+      if (!list.length) return;
+      queue.push(...list);
+      if (!cutscenePlaying) playNext();
+    }
+
+    function skip() {
+      if (!cutscenePlaying) return false;
+      Sound.play("click");
+      finishOne();
+      return true;
+    }
+
+    function isPlaying() {
+      return cutscenePlaying;
+    }
+
+    return { enqueue, skip, isPlaying, setPerspective, load };
+  })();
+
   async function api(path, body) {
     const opts = body
       ? {
@@ -285,8 +404,14 @@
     Sound.playList(events);
   }
 
+  function handleCutscenes(s) {
+    const ids = Array.isArray(s.cutscenes) ? s.cutscenes.slice() : [];
+    if (ids.length) CutscenePlayer.enqueue(ids);
+  }
+
   function render(s) {
     handleSfx(s);
+    handleCutscenes(s);
     state = s;
     if (useTiles) {
       renderTiles(s);
@@ -390,6 +515,20 @@
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     Sound.unlock();
+    if (CutscenePlayer.isPlaying()) {
+      if (
+        ev.key === " " ||
+        ev.key === "Escape" ||
+        ev.key === "Enter" ||
+        ev.key === "Esc"
+      ) {
+        ev.preventDefault();
+        CutscenePlayer.skip();
+      } else {
+        ev.preventDefault();
+      }
+      return;
+    }
     if (ev.key === "m" || ev.key === "M") {
       ev.preventDefault();
       Sound.toggleMute();
@@ -434,6 +573,13 @@
 
   async function boot() {
     Sound.preload();
+    CutscenePlayer.setPerspective(false);
+    try {
+      const idx = await fetch(CUT_PATH + "index.json").then((r) => r.json());
+      (idx.cutscenes || []).forEach((c) => CutscenePlayer.load(c.id).catch(() => {}));
+    } catch (err) {
+      console.warn("cutscene index missing", err);
+    }
     try {
       tilesMeta = await fetch(TILE_PATH + "tiles.json").then((r) => r.json());
       buildLegend();

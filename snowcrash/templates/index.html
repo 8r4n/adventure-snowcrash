@@ -14,7 +14,8 @@
       <div class="toolbar">
         <button type="button" id="btn-ascii" aria-pressed="false">ASCII view</button>
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute sound (m)">Mute</button>
-        <span class="hint">or press <kbd>A</kbd> tiles/ASCII · <kbd>m</kbd> mute</span>
+        <span id="perspective" class="perspective" title="Camera perspective">STREET LAYER (3RD)</span>
+        <span class="hint">or press <kbd>A</kbd> tiles/ASCII · <kbd>m</kbd> mute · Space/Esc skip cutscene</span>
       </div>
     </header>
     <div id="layout">
@@ -42,6 +43,13 @@
     </section>
     <div id="log"></div>
     <div id="overlay" class="hidden"></div>
+    <div id="cutscene" class="hidden" aria-live="polite">
+      <div class="cut-inner">
+        <div id="cut-title" class="cut-title">1ST PERSON</div>
+        <pre id="cut-frames" class="cut-frames"></pre>
+        <div class="cut-hint">Space / Esc to skip · returning to street layer…</div>
+      </div>
+    </div>
   </div>
   <script src="/static/game.js"></script>
 </body>

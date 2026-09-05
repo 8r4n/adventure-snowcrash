@@ -32,6 +32,8 @@ class GameState:
     mode: str = "play"  # play, inventory, help, dead, won
     story_seen: List[str] = field(default_factory=list)
     pending_sfx: List[str] = field(default_factory=list)
+    pending_cutscenes: List[str] = field(default_factory=list)
+    cutscenes_played: List[str] = field(default_factory=list)
 
     def log(self, msg: str) -> None:
         self.messages.append(msg)
@@ -41,6 +43,14 @@ class GameState:
     def sfx(self, event_id: str) -> None:
         """Queue a one-shot sound event for the next snapshot."""
         self.pending_sfx.append(event_id)
+
+    def cutscene(self, cutscene_id: str, once: bool = True) -> None:
+        """Queue a first-person ASCII cutscene for the web client."""
+        if once and cutscene_id in self.cutscenes_played:
+            return
+        if once:
+            self.cutscenes_played.append(cutscene_id)
+        self.pending_cutscenes.append(cutscene_id)
 
     def actor_at(self, x: int, y: int) -> Optional[Actor]:
         for a in self.actors:
@@ -275,6 +285,7 @@ def check_win(gs: GameState) -> None:
         gs.mode = "won"
         gs.quest_flags["payload_cleared"] = True
         gs.sfx("win")
+        gs.cutscene("uplink")
         gs.log(
             "Node Custodian slots the Faraday sleeve. Payload-Zero dissolves into "
             "harmless checksums — or rides a clean packet into the Metaverse. "
@@ -375,6 +386,7 @@ def _try_move(gs: GameState, dx: int, dy: int) -> None:
         if target.faction == "npc":
             gs.log(f'{target.name}: "{target.talk}"')
             gs.sfx("talk")
+            gs.cutscene("talk")
             if target.quest_flag and target.quest_flag not in gs.quest_flags:
                 gs.quest_flags[target.quest_flag] = True
                 if target.quest_flag not in gs.story_seen:
@@ -389,6 +401,7 @@ def _try_move(gs: GameState, dx: int, dy: int) -> None:
     gs.player.x, gs.player.y = px, py
     if gs.gmap.tiles[py][px] == C.DOOR:
         gs.sfx("door")
+        gs.cutscene("door")
     else:
         gs.sfx("step")
     # auto-describe items
@@ -401,6 +414,13 @@ def _try_move(gs: GameState, dx: int, dy: int) -> None:
         if "jackpoint" not in gs.story_seen:
             gs.story_seen.append("jackpoint")
             gs.log("Jackpoint air tastes like ozone and old prayers.")
+            gs.cutscene("jackpoint")
+    # Adjacent uplink approach (before win) — brief jack sense
+    ux, uy = gs.uplink_pos
+    if abs(px - ux) + abs(py - uy) <= 1 and "uplink_approach" not in gs.story_seen:
+        if not gs.has_payload():
+            gs.story_seen.append("uplink_approach")
+            gs.log("Uplink node thrums — needs Payload-Zero in the sleeve.")
     end_player_turn(gs)
 
 
@@ -419,6 +439,7 @@ def _pickup(gs: GameState) -> None:
         if "got_payload" not in gs.story_seen:
             gs.story_seen.append("got_payload")
         gs.log("Payload-Zero is heavy with unspoken syllables. Get to the uplink.")
+        gs.cutscene("payload")
     end_player_turn(gs)
 
 
@@ -486,6 +507,7 @@ def _use_item(gs: GameState, idx: int) -> None:
             gs.player.hack += item.hack_bonus
             gs.log(f"Hack skill +{item.hack_bonus}.")
         used = True
+        gs.cutscene("terminal")
     if used:
         gs.sfx("use")
     if used and item.consumable:
@@ -567,6 +589,8 @@ def snapshot(gs: GameState) -> Dict[str, Any]:
     p = gs.player
     sfx_events = list(gs.pending_sfx)
     gs.pending_sfx.clear()
+    cutscene_events = list(gs.pending_cutscenes)
+    gs.pending_cutscenes.clear()
     return {
         "seed": gs.seed,
         "turn": gs.turn,
@@ -609,4 +633,5 @@ def snapshot(gs: GameState) -> Dict[str, Any]:
         "jackpoint": list(gs.jackpoint_pos),
         "uplink": list(gs.uplink_pos),
         "sfx": sfx_events,
+        "cutscenes": cutscene_events,
     }
