@@ -1,0 +1,23 @@
+{
+  "bench": "faraday",
+  "recipes": [
+    {
+      "id": "faraday_shim",
+      "name": "Faraday Shim",
+      "inputs": {"pulse_shim": 1, "credits": 8},
+      "output": {"id": "faraday_shim", "name": "Faraday Shim", "kind": "weapon", "hack_bonus": 3, "equippable": true, "glyph": "*", "description": "Shielded spike — wish-pipeline cousin."}
+    },
+    {
+      "id": "stim_brew",
+      "name": "Street Stim Brew",
+      "inputs": {"stimpack": 1, "credits": 5},
+      "output": {"id": "stimpack", "name": "Street Stimpack+", "kind": "med", "heal": 16, "consumable": true, "glyph": "!", "description": "Bench-refined clotting foam. Heals 16."}
+    },
+    {
+      "id": "wish_origin_lens",
+      "name": "Wish-Origin Night Lens",
+      "inputs": {"credits": 25},
+      "output": {"id": "wish_origin_lens", "name": "Wish-Origin Night Lens", "kind": "misc", "consumable": true, "glyph": "★", "description": "Crafted from backlog petitions — bumps view briefly.", "extra": {"grant": "flashlight", "view_bonus": 5, "view_ticks": 100, "wish_origin": true}}
+    }
+  ]
+}
