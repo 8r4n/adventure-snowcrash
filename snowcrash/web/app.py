@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from ..mmorpg import TICK_HZ, GameWorld
+from ..systems.aoi import interested_player_ids
 
 PKG = Path(__file__).resolve().parent.parent
 STATIC = PKG / "static"
@@ -145,6 +146,40 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
             agent = world.join(name)
             return JSONResponse(world.snapshot(agent))
 
+    @app.get("/api/analytics")
+    async def api_analytics(format: str = "json") -> Any:
+        async with lock:
+            if (format or "").lower() == "csv":
+                from fastapi.responses import PlainTextResponse
+                return PlainTextResponse(world.analytics_export_csv(), media_type="text/csv")
+            return JSONResponse({"events": list(world.analytics_log[-200:])})
+
+    @app.get("/api/replay")
+    async def api_replay(limit: int = 200) -> JSONResponse:
+        async with lock:
+            lim = max(1, min(2000, int(limit)))
+            return JSONResponse({"frames": list(world.replay_buffer[-lim:])})
+
+    @app.post("/api/auth/nick")
+    async def api_auth_nick(body: dict) -> JSONResponse:
+        """Staging auth-nick stub — no real OAuth secrets required (#25)."""
+        nick = str((body or {}).get("nick") or "Courier")[:24]
+        token = str((body or {}).get("token") or "")
+        async with lock:
+            if token and token in world.auth_nicks:
+                nick = world.auth_nicks[token]
+                return JSONResponse({"ok": True, "nick": nick, "token": token, "stub": True})
+            import uuid as _uuid
+            token = _uuid.uuid4().hex[:12]
+            world.auth_nicks[token] = nick
+            return JSONResponse({"ok": True, "nick": nick, "token": token, "stub": True})
+
+    @app.post("/api/reload_defs")
+    async def api_reload_defs() -> JSONResponse:
+        async with lock:
+            world.reload_district_defs()
+            return JSONResponse({"ok": True, "districts": len(world.district_defs.get("districts", []))})
+
     @app.get("/health")
     async def health() -> Dict[str, Any]:
         return {
@@ -152,6 +187,9 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
             "mmorpg": True,
             "online": sum(1 for p in world.players.values() if p.connected),
             "seed": world.seed,
+            "year_backend": True,
+            "weather": getattr(world, "weather_state", {}),
+            "aoi": True,
         }
 
     @app.websocket("/ws")
@@ -204,8 +242,9 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                         if not agent:
                             continue
                         world.handle_action(agent, str(msg.get("action") or "noop"), msg.get("arg"))
-                        # Push immediate snapshot to actor + nearby (broadcast all for demo)
-                        await broadcast_snapshots()
+                        # AOI interest management (#18) — nearby + social, not full O(n²)
+                        interested = interested_player_ids(world, player_id)
+                        await broadcast_snapshots(only=interested)
                     continue
                 if mtype == "respawn":
                     async with lock:
