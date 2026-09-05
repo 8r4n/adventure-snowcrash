@@ -1425,6 +1425,15 @@
 
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    // Never steal keys from login / chat / any text field
+    const tEl = ev.target;
+    const tag = (tEl && tEl.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || (tEl && tEl.isContentEditable)) {
+      return;
+    }
+    if (nameGate && !nameGate.classList.contains("hidden")) {
+      return;
+    }
     Sound.unlock();
     if (chatFocused || (chatInput && document.activeElement === chatInput)) {
       if (ev.key === "Escape") {
@@ -1450,7 +1459,7 @@
       return;
     }
     if (!gameplayReady) {
-      ev.preventDefault();
+      // Name gate / pre-game: do not preventDefault (blocks typing)
       return;
     }
     if (CutscenePlayer.isPlaying()) {
