@@ -657,7 +657,8 @@
           setHud("connecting…", "warn");
           ws = new WebSocket(wsUrl());
           ws.onopen = () => {
-            send({ type: "join", name, id: myId || undefined });
+            const nick = (typeof YearUI !== "undefined" && YearUI.getIrcNick) ? YearUI.getIrcNick() : "";
+            send({ type: "join", name, id: myId || undefined, nick: nick || undefined });
             startPing();
           };
           ws.onmessage = (ev) => {
@@ -1055,7 +1056,936 @@
       }
     }
 
-    function render(s) {
+  
+  // ---- Year frontend UI (#12–#39) — defensive snapshot binding ----
+  const YearUI = (() => {
+    const els = {
+      skillModal: document.getElementById("skill-modal"),
+      skillPicks: document.getElementById("skill-picks"),
+      loadoutPreview: document.getElementById("loadout-preview"),
+      skillSub: document.getElementById("skill-modal-sub"),
+      deathOverlay: document.getElementById("death-overlay"),
+      deathCause: document.getElementById("death-cause"),
+      respawnOptions: document.getElementById("respawn-options"),
+      btnRespawnDefault: document.getElementById("btn-respawn-default"),
+      eventTicker: document.getElementById("event-ticker"),
+      toastStack: document.getElementById("toast-stack"),
+      killFeed: document.getElementById("kill-feed"),
+      districtPill: document.getElementById("district-pill"),
+      districtSplash: document.getElementById("district-splash"),
+      districtSplashName: document.getElementById("district-splash-name"),
+      districtSplashTag: document.getElementById("district-splash-tag"),
+      bossTelegraph: document.getElementById("boss-telegraph"),
+      bossName: document.getElementById("boss-name"),
+      bossBar: document.getElementById("boss-bar"),
+      bossHint: document.getElementById("boss-hint"),
+      npcCue: document.getElementById("npc-cue"),
+      weatherCanvas: document.getElementById("weather-canvas"),
+      weatherOverlay: document.getElementById("weather-overlay"),
+      partyBody: document.getElementById("party-body"),
+      journalBody: document.getElementById("journal-body"),
+      shopBody: document.getElementById("shop-body"),
+      craftBody: document.getElementById("craft-body"),
+      stashBody: document.getElementById("stash-body"),
+      crewBody: document.getElementById("crew-body"),
+      contractsBody: document.getElementById("contracts-body"),
+      seasonBody: document.getElementById("season-body"),
+      raidBody: document.getElementById("raid-body"),
+      partyPings: document.getElementById("party-pings"),
+      arenaPill: document.getElementById("arena-pill"),
+      duelBanner: document.getElementById("duel-banner"),
+      duelModal: document.getElementById("duel-modal"),
+      duelText: document.getElementById("duel-text"),
+      theater: document.getElementById("theater-mode"),
+      theaterTitle: document.getElementById("theater-title"),
+      theaterStage: document.getElementById("theater-stage"),
+      analytics: document.getElementById("analytics-badge"),
+      panelDock: document.getElementById("panel-dock"),
+      chatPanel: document.getElementById("chat-panel"),
+      ircModBar: document.getElementById("irc-mod-bar"),
+      ircModTarget: document.getElementById("irc-mod-target"),
+      mobileHud: document.getElementById("mobile-hud"),
+      side: document.getElementById("side"),
+      ircNick: document.getElementById("irc-nick"),
+    };
+
+    let lastDistrictId = null;
+    let lastEventSig = "";
+    let lastKillSig = "";
+    let lastWishSig = "";
+    let lastSkillOpen = false;
+    let lastDead = false;
+    let weatherKind = "";
+    let weatherRaf = 0;
+    let weatherDrops = [];
+    let modTarget = "";
+    let seenFeeMsgs = new Set();
+    let theaterSpeed = 1;
+
+    function defArr(v) { return Array.isArray(v) ? v : []; }
+    function defObj(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
+    function defStr(v, d) { return (v == null || v === "") ? d : String(v); }
+    function defNum(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+
+    function toast(text, cls, ms) {
+      if (!els.toastStack || !text) return;
+      const el = document.createElement("div");
+      el.className = "toast" + (cls ? " " + cls : "");
+      el.textContent = text;
+      els.toastStack.appendChild(el);
+      setTimeout(() => { try { el.remove(); } catch (_) {} }, ms || 4200);
+    }
+
+    function openPanel(name) {
+      const panel = document.querySelector('.year-panel[data-panel="' + name + '"]');
+      if (panel) {
+        panel.open = true;
+        try { panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (_) {}
+      }
+      if (els.panelDock) {
+        els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
+          b.classList.toggle("active", b.getAttribute("data-panel") === name);
+        });
+      }
+    }
+
+    function toggleIrcCollapse() {
+      if (!els.chatPanel) return;
+      els.chatPanel.classList.toggle("collapsed");
+      if (els.side) els.side.classList.toggle("irc-collapsed", els.chatPanel.classList.contains("collapsed"));
+      const btn = document.getElementById("btn-irc-collapse");
+      if (btn) btn.textContent = els.chatPanel.classList.contains("collapsed") ? "▸" : "▾";
+    }
+
+    function renderSkills(s) {
+      const picks = defArr(s.skill_picks_available);
+      const skills = defObj(s.skills);
+      const loadout = defArr(s.loadout);
+      const shouldOpen = picks.length > 0;
+      if (els.loadoutPreview) {
+        const sk = Object.keys(skills).map((k) => k + ":" + skills[k]).join(" · ") || "—";
+        const lo = loadout.map((x) => (typeof x === "string" ? x : (x && x.name) || "?")).join(", ") || "—";
+        els.loadoutPreview.textContent = "Skills " + sk + " · Loadout " + lo;
+      }
+      if (els.skillPicks) {
+        els.skillPicks.innerHTML = picks
+          .map((p, i) => {
+            const id = defStr(p.id || p.key || i, String(i));
+            const name = defStr(p.name || p.label || id, id);
+            const desc = defStr(p.desc || p.description || "", "");
+            return `<button type="button" data-skill="${escapeHtml(id)}"><strong>${escapeHtml(name)}</strong><br/><span class="dim">${escapeHtml(desc)}</span></button>`;
+          })
+          .join("");
+      }
+      if (els.skillModal) {
+        if (shouldOpen && !lastSkillOpen) {
+          els.skillModal.classList.remove("hidden");
+          if (els.skillSub) els.skillSub.textContent = picks.length + " pick(s) available";
+        } else if (!shouldOpen) {
+          els.skillModal.classList.add("hidden");
+        }
+      }
+      lastSkillOpen = shouldOpen;
+    }
+
+    function renderShop(s) {
+      if (!els.shopBody) return;
+      const shop = defObj(s.shop);
+      const items = defArr(shop.items || shop.stock || s.shop);
+      if (!items.length) {
+        els.shopBody.innerHTML = '<div class="panel-empty">No vendor in range</div>';
+        return;
+      }
+      const title = defStr(shop.name || shop.vendor, "Vendor");
+      els.shopBody.innerHTML =
+        `<div class="row"><strong>${escapeHtml(title)}</strong><span>$${defNum(s.credits, 0)}</span></div>` +
+        items
+          .map((it, i) => {
+            const id = defStr(it.id || it.key || i, String(i));
+            const name = defStr(it.name || it.label, id);
+            const price = defNum(it.price != null ? it.price : it.cost, 0);
+            return `<div class="row shop-item"><span>${escapeHtml(name)}</span><span><span class="price">$${price}</span> <button type="button" data-buy="${escapeHtml(id)}">Buy</button></span></div>`;
+          })
+          .join("");
+    }
+
+    function renderEvents(s) {
+      const events = defArr(s.events);
+      if (els.eventTicker) {
+        if (events.length) {
+          const top = events[0];
+          const text = typeof top === "string" ? top : defStr(top.text || top.msg || top.name, "WORLD EVENT");
+          els.eventTicker.hidden = false;
+          els.eventTicker.textContent = "⚡ " + text;
+        } else {
+          els.eventTicker.hidden = true;
+          els.eventTicker.textContent = "";
+        }
+      }
+      const sig = events
+        .map((e) => (typeof e === "string" ? e : defStr(e.id || e.text || e.msg, "")))
+        .join("|");
+      if (sig && sig !== lastEventSig) {
+        const fresh = events.slice(0, 3);
+        fresh.forEach((e) => {
+          const t = typeof e === "string" ? e : defStr(e.text || e.msg || e.name, "");
+          if (t) toast(t, "event", 5000);
+        });
+        lastEventSig = sig;
+      }
+    }
+
+    function renderParty(s) {
+      if (!els.partyBody) return;
+      const party = defObj(s.party);
+      const members = defArr(party.members || party.players);
+      const invites = defArr(party.invites);
+      const pings = defArr(party.pings);
+      if (!members.length && !invites.length) {
+        els.partyBody.innerHTML =
+          '<div class="panel-empty">Solo · invite via Party</div>' +
+          '<button type="button" data-party="invite">Invite nearby</button> ' +
+          '<button type="button" data-party="ping">Ping map</button>';
+      } else {
+        els.partyBody.innerHTML =
+          members
+            .map((m) => {
+              const name = defStr(m.name || m.id, "?");
+              const you = m.id === s.you || m.you ? ' <span class="you">YOU</span>' : "";
+              const hp = m.hp != null ? ` · ${m.hp}/${m.max_hp || "?"}` : "";
+              return `<div class="row party-member"><span>${escapeHtml(name)}${you}${escapeHtml(hp)}</span></div>`;
+            })
+            .join("") +
+          invites
+            .map((inv) => {
+              const from = defStr(inv.from || inv.name || inv.id, "courier");
+              const id = defStr(inv.id || from, from);
+              return `<div class="row"><span>Invite: ${escapeHtml(from)}</span><button type="button" data-party-accept="${escapeHtml(id)}">Accept</button></div>`;
+            })
+            .join("") +
+          '<div class="row"><button type="button" data-party="ping">Ping</button><button type="button" data-party="leave">Leave</button></div>';
+      }
+      // minimap party pings
+      if (els.partyPings) {
+        els.partyPings.innerHTML = "";
+        const wrap = document.getElementById("minimap-wrap");
+        const mini = document.getElementById("minimap");
+        if (wrap && mini && s.player && pings.length) {
+          const px = s.player.x;
+          const py = s.player.y;
+          const r = MINI_R;
+          pings.forEach((pg) => {
+            const x = defNum(pg.x, px);
+            const y = defNum(pg.y, py);
+            const dx = x - (px - r);
+            const dy = y - (py - r);
+            const cells = r * 2 + 1;
+            const leftPct = (dx / cells) * 100;
+            const topPct = (dy / cells) * 100;
+            if (leftPct < 0 || leftPct > 100 || topPct < 0 || topPct > 100) return;
+            const dot = document.createElement("div");
+            dot.className = "party-ping";
+            dot.style.left = leftPct + "%";
+            dot.style.top = topPct + "%";
+            els.partyPings.appendChild(dot);
+          });
+        }
+      }
+    }
+
+    function renderDeath(s) {
+      const dead = !!(s.dead || s.mode === "dead");
+      const opts = defArr(s.respawn_options);
+      if (els.deathOverlay) {
+        if (dead) {
+          els.deathOverlay.classList.remove("hidden");
+          if (els.deathCause) {
+            const cause = defObj(s.dead);
+            els.deathCause.textContent = defStr(cause.cause || cause.by || s.death_cause, "Courier down");
+          }
+          if (els.respawnOptions) {
+            if (opts.length) {
+              els.respawnOptions.innerHTML = opts
+                .map((o) => {
+                  const id = defStr(o.id || o.key || o.name, "default");
+                  const label = defStr(o.label || o.name || id, id);
+                  const cost = o.cost != null ? ` ($${o.cost})` : "";
+                  return `<button type="button" data-respawn="${escapeHtml(id)}">${escapeHtml(label + cost)}</button>`;
+                })
+                .join("");
+            } else {
+              els.respawnOptions.innerHTML = "";
+            }
+          }
+        } else {
+          els.deathOverlay.classList.add("hidden");
+        }
+      }
+      // keep legacy overlay in sync when year death UI owns it
+      if (dead && overlay && s.mode === "dead") {
+        overlay.classList.add("hidden");
+      }
+      lastDead = dead;
+    }
+
+    function renderKillFeed(s) {
+      if (!els.killFeed) return;
+      const feed = defArr(s.kill_feed);
+      const sig = feed
+        .slice(0, 6)
+        .map((k) => defStr(k.id || (k.killer || "") + ">" + (k.victim || "") + (k.t || ""), ""))
+        .join("|");
+      if (sig === lastKillSig) return;
+      lastKillSig = sig;
+      els.killFeed.innerHTML = feed
+        .slice(0, 6)
+        .map((k) => {
+          const killer = defStr(k.killer || k.a || "?", "?");
+          const victim = defStr(k.victim || k.b || "?", "?");
+          const via = k.via ? " [" + escapeHtml(String(k.via)) + "]" : "";
+          return `<div class="kf-line"><span class="killer">${escapeHtml(killer)}</span> ▸ <span class="victim">${escapeHtml(victim)}</span>${via}</div>`;
+        })
+        .join("");
+    }
+
+    function renderJournal(s) {
+      if (!els.journalBody) return;
+      const journal = defArr(s.journal || defObj(s.journal).quests);
+      const quests = Array.isArray(s.journal) ? s.journal : defArr(defObj(s.journal).quests);
+      const list = quests.length ? quests : journal;
+      if (!list.length) {
+        els.journalBody.innerHTML = '<div class="panel-empty">No active quests</div>';
+        return;
+      }
+      els.journalBody.innerHTML = list
+        .map((q) => {
+          const id = defStr(q.id || q.key, "");
+          const title = defStr(q.title || q.name || id, "Quest");
+          const st = defStr(q.status || (q.done ? "done" : "active"), "active");
+          const obj = defStr(q.objective || q.text || q.desc, "");
+          return `<div class="journal-quest ${escapeHtml(st)}" data-quest="${escapeHtml(id)}"><strong>${escapeHtml(title)}</strong><div class="dim">${escapeHtml(obj)}</div><button type="button" data-track="${escapeHtml(id)}">Track</button></div>`;
+        })
+        .join("");
+    }
+
+    function renderDistrict(s) {
+      const district = defObj(s.district);
+      const name = defStr(district.name || district.id || s.district, "");
+      const id = defStr(district.id || name, "");
+      if (els.districtPill) {
+        els.districtPill.textContent = name || "—";
+        els.districtPill.title = defStr(district.tag || district.blurb || "District", "District");
+      }
+      if (id && id !== lastDistrictId && lastDistrictId != null && els.districtSplash) {
+        if (els.districtSplashName) els.districtSplashName.textContent = name || id;
+        if (els.districtSplashTag) els.districtSplashTag.textContent = defStr(district.tag || district.blurb, "");
+        els.districtSplash.classList.remove("hidden");
+        setTimeout(() => {
+          if (els.districtSplash) els.districtSplash.classList.add("hidden");
+        }, 2200);
+      }
+      if (id) lastDistrictId = id;
+      else if (lastDistrictId == null) lastDistrictId = "";
+    }
+
+    function renderBoss(s) {
+      const boss = defObj(s.boss);
+      const active = !!(boss.id || boss.name || boss.hp != null);
+      if (!els.bossTelegraph) return;
+      if (!active) {
+        els.bossTelegraph.classList.add("hidden");
+        return;
+      }
+      els.bossTelegraph.classList.remove("hidden");
+      if (els.bossName) els.bossName.textContent = defStr(boss.name || boss.id, "BOSS").toUpperCase();
+      const hp = defNum(boss.hp, 0);
+      const max = Math.max(1, defNum(boss.max_hp != null ? boss.max_hp : boss.maxhp, 100));
+      if (els.bossBar) els.bossBar.style.width = Math.max(0, Math.min(100, (hp / max) * 100)) + "%";
+      if (els.bossHint) els.bossHint.textContent = defStr(boss.telegraph || boss.phase || boss.hint, "");
+    }
+
+    function renderCraft(s) {
+      if (!els.craftBody) return;
+      const craft = defObj(s.craft);
+      const recipes = defArr(craft.recipes || s.craft);
+      if (!recipes.length) {
+        els.craftBody.innerHTML = '<div class="panel-empty">Faraday bench offline</div>';
+        return;
+      }
+      els.craftBody.innerHTML = recipes
+        .map((r) => {
+          const id = defStr(r.id || r.key || r.name, "?");
+          const name = defStr(r.name || id, id);
+          const locked = !!r.locked;
+          const mats = defArr(r.materials || r.cost)
+            .map((m) => (typeof m === "string" ? m : defStr(m.name || m.id, "?")))
+            .join(", ");
+          return `<div class="row craft-recipe${locked ? " locked" : ""}"><span>${escapeHtml(name)}<br/><span class="dim">${escapeHtml(mats)}</span></span>${locked ? "" : `<button type="button" data-craft="${escapeHtml(id)}">Craft</button>`}</div>`;
+        })
+        .join("");
+    }
+
+    function renderStash(s) {
+      if (!els.stashBody) return;
+      const housing = defObj(s.housing);
+      const stash = defArr(housing.stash || housing.items || s.housing);
+      const name = defStr(housing.name || housing.safehouse, "Safehouse");
+      if (!stash.length && !housing.name && !s.housing) {
+        els.stashBody.innerHTML = '<div class="panel-empty">No safehouse linked</div>';
+        return;
+      }
+      els.stashBody.innerHTML =
+        `<div class="row"><strong>${escapeHtml(name)}</strong></div>` +
+        (stash.length
+          ? stash
+              .map((it, i) => {
+                const id = defStr(it.id || i, String(i));
+                const label = defStr(it.name || it.glyph || id, id);
+                return `<div class="row"><span>${escapeHtml(label)}</span><button type="button" data-stash-withdraw="${escapeHtml(id)}">Take</button></div>`;
+              })
+              .join("")
+          : '<div class="panel-empty">Stash empty</div>') +
+        '<div class="row"><button type="button" data-stash="deposit">Deposit selected</button></div>';
+    }
+
+    function renderNpcCue(s) {
+      if (!els.npcCue) return;
+      const dlg = defObj(s.dialogue || s.npc_dialogue || defObj(s.npc).dialogue);
+      const line = defStr(dlg.text || dlg.line || (typeof s.dialogue === "string" ? s.dialogue : ""), "");
+      const speaker = defStr(dlg.speaker || dlg.name || defObj(s.npc).name, "NPC");
+      const choices = defArr(dlg.choices || dlg.options);
+      if (!line && !choices.length) {
+        els.npcCue.classList.add("hidden");
+        els.npcCue.innerHTML = "";
+        return;
+      }
+      els.npcCue.classList.remove("hidden");
+      els.npcCue.innerHTML =
+        `<span class="npc-name">${escapeHtml(speaker)}</span>${escapeHtml(line)}` +
+        (choices.length
+          ? `<div class="npc-choices">${choices
+              .map((c, i) => {
+                const id = defStr(c.id || c.key || i, String(i));
+                const label = defStr(c.label || c.text || id, id);
+                return `<button type="button" data-dlg="${escapeHtml(id)}">${escapeHtml(label)}</button>`;
+              })
+              .join("")}</div>`
+          : "");
+    }
+
+    function ensureWeatherDrops(w, h) {
+      if (weatherDrops.length) return;
+      for (let i = 0; i < 48; i++) {
+        weatherDrops.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          len: 6 + Math.random() * 14,
+          spd: 2 + Math.random() * 4,
+          hue: Math.random() > 0.5 ? "rgba(57,197,207,0.55)" : "rgba(255,42,109,0.4)",
+        });
+      }
+    }
+
+    function paintWeather() {
+      const canvas = els.weatherCanvas;
+      if (!canvas || !weatherKind) return;
+      const parent = canvas.parentElement;
+      const w = (parent && parent.clientWidth) || 480;
+      const h = (parent && parent.clientHeight) || 270;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        weatherDrops = [];
+      }
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, w, h);
+      if (weatherKind === "neon_rain" || weatherKind === "rain") {
+        ensureWeatherDrops(w, h);
+        weatherDrops.forEach((d) => {
+          ctx.strokeStyle = d.hue;
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - 1, d.y + d.len);
+          ctx.stroke();
+          d.y += d.spd;
+          d.x -= 0.4;
+          if (d.y > h) {
+            d.y = -d.len;
+            d.x = Math.random() * w;
+          }
+        });
+      } else if (weatherKind === "signal_storm" || weatherKind === "storm") {
+        if (Math.random() < 0.04) {
+          ctx.fillStyle = "rgba(255,255,255,0.08)";
+          ctx.fillRect(0, 0, w, h);
+        }
+        ctx.strokeStyle = "rgba(255,42,109,0.25)";
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          let x = Math.random() * w;
+          let y = 0;
+          ctx.moveTo(x, y);
+          for (let j = 0; j < 6; j++) {
+            x += (Math.random() - 0.5) * 40;
+            y += h / 6;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+      }
+      weatherRaf = requestAnimationFrame(paintWeather);
+    }
+
+    function renderWeather(s) {
+      const weather = defObj(s.weather);
+      const kind = defStr(weather.kind || weather.type || (typeof s.weather === "string" ? s.weather : ""), "");
+      if (els.weatherOverlay) {
+        els.weatherOverlay.classList.remove("neon-rain", "signal-storm");
+        if (kind === "neon_rain" || kind === "rain") els.weatherOverlay.classList.add("neon-rain");
+        if (kind === "signal_storm" || kind === "storm") els.weatherOverlay.classList.add("signal-storm");
+      }
+      if (kind !== weatherKind) {
+        weatherKind = kind;
+        weatherDrops = [];
+        if (weatherRaf) {
+          cancelAnimationFrame(weatherRaf);
+          weatherRaf = 0;
+        }
+        if (els.weatherCanvas) {
+          const ctx = els.weatherCanvas.getContext("2d");
+          if (ctx) ctx.clearRect(0, 0, els.weatherCanvas.width, els.weatherCanvas.height);
+        }
+        if (kind) weatherRaf = requestAnimationFrame(paintWeather);
+      }
+    }
+
+    function renderCrew(s) {
+      if (!els.crewBody) return;
+      const crew = defObj(s.crew);
+      const members = defArr(crew.members);
+      const name = defStr(crew.name || crew.tag, "");
+      const rep = defObj(s.reputation);
+      if (!name && !members.length) {
+        els.crewBody.innerHTML = '<div class="panel-empty">No crew · form or join</div><button type="button" data-crew="form">Form crew</button>';
+        return;
+      }
+      const repBits = Object.keys(rep)
+        .slice(0, 4)
+        .map((k) => k + ":" + rep[k])
+        .join(" · ");
+      els.crewBody.innerHTML =
+        `<div class="row"><strong>${escapeHtml(name || "Crew")}</strong><span class="dim">${escapeHtml(repBits)}</span></div>` +
+        members
+          .map((m) => `<div class="row"><span>${escapeHtml(defStr(m.name || m.id, "?"))}</span><span class="dim">${escapeHtml(defStr(m.role, ""))}</span></div>`)
+          .join("") +
+        '<div class="row"><button type="button" data-crew="invite">Invite</button><button type="button" data-crew="leave">Leave</button></div>';
+    }
+
+    function renderContracts(s) {
+      if (!els.contractsBody) return;
+      const board = defArr(s.contracts || defObj(s.contracts).board);
+      const list = Array.isArray(s.contracts) ? s.contracts : defArr(defObj(s.contracts).board || defObj(s.contracts).active);
+      if (!list.length) {
+        els.contractsBody.innerHTML = '<div class="panel-empty">No contracts posted</div>';
+        return;
+      }
+      els.contractsBody.innerHTML = list
+        .map((c) => {
+          const id = defStr(c.id || c.key, "?");
+          const title = defStr(c.title || c.name || id, id);
+          const reward = c.reward != null ? "$" + c.reward : defStr(c.pay, "");
+          const rep = c.reputation != null ? " · rep " + c.reputation : "";
+          return `<div class="row contract-row"><span>${escapeHtml(title)}<br/><span class="rep">${escapeHtml(reward + rep)}</span></span><button type="button" data-contract="${escapeHtml(id)}">Accept</button></div>`;
+        })
+        .join("");
+    }
+
+    function renderPvp(s) {
+      const pvp = defObj(s.pvp);
+      const arena = !!(pvp.arena || pvp.in_arena || pvp.mode === "arena");
+      const duel = defObj(pvp.duel || s.duel);
+      if (els.arenaPill) els.arenaPill.classList.toggle("hidden", !arena);
+      if (els.duelBanner) {
+        const showBanner = arena || !!duel.active;
+        els.duelBanner.classList.toggle("hidden", !showBanner);
+        if (showBanner) els.duelBanner.textContent = arena ? "ARENA · PVP ON" : "DUEL · ACTIVE";
+      }
+      const challenge = defObj(duel.challenge || pvp.challenge);
+      if (els.duelModal) {
+        if (challenge.from || challenge.id) {
+          els.duelModal.classList.remove("hidden");
+          if (els.duelText) {
+            els.duelText.textContent =
+              defStr(challenge.from || challenge.name, "Courier") +
+              " challenges you" +
+              (challenge.stakes != null ? " · stakes $" + challenge.stakes : "");
+          }
+        } else if (!challenge.pending) {
+          els.duelModal.classList.add("hidden");
+        }
+      }
+    }
+
+    function renderTheater(s) {
+      const theater = defObj(s.theater || s.spectate || s.replay);
+      const active = !!(theater.active || theater.mode || theater.frames);
+      if (!els.theater) return;
+      if (!active) {
+        // do not auto-hide if user opened manually without backend — only hide when backend clears
+        if (theater.active === false) els.theater.classList.add("hidden");
+        return;
+      }
+      els.theater.classList.remove("hidden");
+      if (els.theaterTitle) els.theaterTitle.textContent = defStr(theater.title || theater.id, "REPLAY");
+      if (els.theaterStage) {
+        const frame = theater.frame || theater.ascii || (defArr(theater.frames)[theater.index || 0]) || "";
+        els.theaterStage.textContent = typeof frame === "string" ? frame : JSON.stringify(frame, null, 0);
+      }
+    }
+
+    function renderSeason(s) {
+      if (!els.seasonBody) return;
+      const season = defObj(s.season);
+      const tiers = defArr(season.tiers || season.rewards);
+      const level = defNum(season.level != null ? season.level : season.tier, 0);
+      const xp = defNum(season.xp, 0);
+      const xpNext = defNum(season.xp_next, 100);
+      if (!season.id && !tiers.length && !season.name) {
+        els.seasonBody.innerHTML = '<div class="panel-empty">Season pass idle</div>';
+        return;
+      }
+      els.seasonBody.innerHTML =
+        `<div class="row"><strong>${escapeHtml(defStr(season.name || season.id, "Season"))}</strong><span class="season-tier">T${level}</span></div>` +
+        `<div class="row dim">XP ${xp}/${xpNext}</div>` +
+        tiers
+          .slice(0, 8)
+          .map((t) => {
+            const id = defStr(t.id || t.tier || t.name, "?");
+            const label = defStr(t.name || t.cosmetic || id, id);
+            const claimed = !!t.claimed;
+            return `<div class="row"><span>${escapeHtml(label)}</span>${claimed ? '<span class="dim">owned</span>' : `<button type="button" data-season-claim="${escapeHtml(id)}">Claim</button>`}</div>`;
+          })
+          .join("");
+    }
+
+    function renderRaid(s) {
+      if (!els.raidBody) return;
+      const raid = defObj(s.raid || defObj(s.party).raid);
+      const lobby = defArr(raid.lobby || raid.members);
+      if (!raid.id && !lobby.length && !raid.name) {
+        els.raidBody.innerHTML = '<div class="panel-empty">No raid queued</div><button type="button" data-raid="queue">Queue raid</button>';
+        return;
+      }
+      els.raidBody.innerHTML =
+        `<div class="row"><strong>${escapeHtml(defStr(raid.name || raid.id, "Raid"))}</strong><span class="dim">${escapeHtml(defStr(raid.phase || raid.status, "lobby"))}</span></div>` +
+        lobby
+          .map((m) => {
+            const name = defStr(m.name || m.id, "?");
+            const ready = m.ready ? " ✓" : "";
+            return `<div class="row"><span>${escapeHtml(name + ready)}</span></div>`;
+          })
+          .join("") +
+        '<div class="row"><button type="button" data-raid="ready">Ready</button><button type="button" data-raid="leave">Leave</button></div>';
+    }
+
+    function renderWishToy(s) {
+      const wish = defObj(s.wish_result || s.toy);
+      const sig = defStr(wish.id || wish.name || wish.toast, "");
+      if (sig && sig !== lastWishSig) {
+        toast("Wish→toy: " + defStr(wish.name || wish.toast || sig, sig), "wish", 5500);
+        lastWishSig = sig;
+      }
+      // also scan messages for wish/fee/repair
+      const msgs = defArr(s.messages);
+      msgs.forEach((m) => {
+        const t = String(m || "");
+        const key = t.slice(0, 80);
+        if (seenFeeMsgs.has(key)) return;
+        const low = t.toLowerCase();
+        if (low.includes("wish") && (low.includes("granted") || low.includes("toy"))) {
+          seenFeeMsgs.add(key);
+          toast(t, "wish", 4500);
+        } else if (low.includes("fee") || low.includes("toll")) {
+          seenFeeMsgs.add(key);
+          toast(t, "fee", 4000);
+        } else if (low.includes("repair")) {
+          seenFeeMsgs.add(key);
+          toast(t, "repair", 4000);
+        }
+      });
+      if (seenFeeMsgs.size > 80) {
+        seenFeeMsgs = new Set(Array.from(seenFeeMsgs).slice(-40));
+      }
+    }
+
+    function styleLogFees(s) {
+      if (!logEl) return;
+      // enhance last render of messages with fee/repair classes
+      const msgs = defArr(s.messages);
+      if (!msgs.length) return;
+      logEl.innerHTML = msgs
+        .map((m) => {
+          const t = String(m || "");
+          const low = t.toLowerCase();
+          let cls = "";
+          if (low.includes("fee") || low.includes("toll")) cls = "log-fee";
+          else if (low.includes("repair")) cls = "log-repair";
+          else if (low.includes("wish")) cls = "log-wish";
+          return `<div class="${cls}">${escapeHtml(t)}</div>`;
+        })
+        .join("");
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function renderAnalytics(s) {
+      if (!els.analytics) return;
+      const a = defObj(s.analytics || s.debug);
+      const tick = s.tick != null ? s.tick : "—";
+      const online = s.online_count != null ? s.online_count : listLen(s);
+      const bits = [
+        "t" + tick,
+        online + "p",
+        a.fps != null ? a.fps + "fps" : null,
+        a.ms != null ? a.ms + "ms" : lastPingMs != null ? lastPingMs + "ms" : null,
+      ].filter(Boolean);
+      els.analytics.hidden = false;
+      els.analytics.textContent = bits.join(" · ");
+    }
+
+    function apply(s) {
+      if (!s) return;
+      try {
+        renderSkills(s);
+        renderShop(s);
+        renderEvents(s);
+        renderParty(s);
+        renderDeath(s);
+        renderKillFeed(s);
+        renderJournal(s);
+        renderDistrict(s);
+        renderBoss(s);
+        renderCraft(s);
+        renderStash(s);
+        renderNpcCue(s);
+        renderWeather(s);
+        renderCrew(s);
+        renderContracts(s);
+        renderPvp(s);
+        renderTheater(s);
+        renderSeason(s);
+        renderRaid(s);
+        renderWishToy(s);
+        styleLogFees(s);
+        renderAnalytics(s);
+      } catch (err) {
+        console.warn("YearUI apply failed", err);
+      }
+    }
+
+    function bind() {
+      document.querySelectorAll(".modal-close").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-close");
+          const modal = id ? document.getElementById(id) : btn.closest(".year-modal");
+          if (modal) modal.classList.add("hidden");
+        });
+      });
+
+      if (els.panelDock) {
+        els.panelDock.addEventListener("click", (ev) => {
+          const btn = ev.target && ev.target.closest ? ev.target.closest("[data-panel]") : null;
+          if (!btn) {
+            if (ev.target && ev.target.id === "btn-collapse-irc") toggleIrcCollapse();
+            return;
+          }
+          openPanel(btn.getAttribute("data-panel"));
+          Sound.play("click");
+        });
+      }
+      const ircCollapse = document.getElementById("btn-irc-collapse");
+      if (ircCollapse) ircCollapse.addEventListener("click", () => toggleIrcCollapse());
+
+      if (els.skillPicks) {
+        els.skillPicks.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("[data-skill]");
+          if (!btn) return;
+          send("skill_pick", btn.getAttribute("data-skill"));
+          Sound.play("click");
+        });
+      }
+      if (els.btnRespawnDefault) {
+        els.btnRespawnDefault.addEventListener("click", () => {
+          send("r");
+          Sound.play("click");
+        });
+      }
+      if (els.respawnOptions) {
+        els.respawnOptions.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("[data-respawn]");
+          if (!btn) return;
+          send("respawn", btn.getAttribute("data-respawn"));
+          Sound.play("click");
+        });
+      }
+      if (els.shopBody) {
+        els.shopBody.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("[data-buy]");
+          if (!btn) return;
+          send("shop_buy", btn.getAttribute("data-buy"));
+          Sound.play("click");
+        });
+      }
+      function bindPanel(el, handlers) {
+        if (!el) return;
+        el.addEventListener("click", (ev) => {
+          for (const [attr, fn] of handlers) {
+            const btn = ev.target.closest("[" + attr + "]");
+            if (btn) {
+              fn(btn.getAttribute(attr), btn);
+              Sound.play("click");
+              return;
+            }
+          }
+        });
+      }
+      bindPanel(els.partyBody, [
+        ["data-party", (v) => send("party_" + v)],
+        ["data-party-accept", (v) => send("party_accept", v)],
+      ]);
+      bindPanel(els.journalBody, [["data-track", (v) => send("journal_track", v)]]);
+      bindPanel(els.craftBody, [["data-craft", (v) => send("craft", v)]]);
+      bindPanel(els.stashBody, [
+        ["data-stash-withdraw", (v) => send("stash_withdraw", v)],
+        ["data-stash", (v) => send("stash_" + v)],
+      ]);
+      bindPanel(els.crewBody, [["data-crew", (v) => send("crew_" + v)]]);
+      bindPanel(els.contractsBody, [["data-contract", (v) => send("contract_accept", v)]]);
+      bindPanel(els.seasonBody, [["data-season-claim", (v) => send("season_claim", v)]]);
+      bindPanel(els.raidBody, [["data-raid", (v) => send("raid_" + v)]]);
+      if (els.npcCue) {
+        els.npcCue.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("[data-dlg]");
+          if (!btn) return;
+          send("dialogue", btn.getAttribute("data-dlg"));
+          Sound.play("talk");
+        });
+      }
+      const btnAccept = document.getElementById("btn-duel-accept");
+      const btnDecline = document.getElementById("btn-duel-decline");
+      if (btnAccept) btnAccept.addEventListener("click", () => { send("duel_accept"); if (els.duelModal) els.duelModal.classList.add("hidden"); });
+      if (btnDecline) btnDecline.addEventListener("click", () => { send("duel_decline"); if (els.duelModal) els.duelModal.classList.add("hidden"); });
+
+      const btnTheaterExit = document.getElementById("btn-theater-exit");
+      if (btnTheaterExit) btnTheaterExit.addEventListener("click", () => {
+        if (els.theater) els.theater.classList.add("hidden");
+        send("spectate_exit");
+      });
+      const theaterControls = document.getElementById("theater-controls");
+      if (theaterControls) {
+        theaterControls.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("[data-theater]");
+          if (!btn) return;
+          const act = btn.getAttribute("data-theater");
+          if (act === "speed") {
+            theaterSpeed = theaterSpeed >= 2 ? 1 : theaterSpeed + 0.5;
+            btn.textContent = theaterSpeed + "×";
+            send("spectate_speed", String(theaterSpeed));
+          } else {
+            send("spectate_" + act);
+          }
+        });
+      }
+
+      // StreetNet mute/report (#30)
+      if (ircNicksEl) {
+        ircNicksEl.addEventListener("contextmenu", (ev) => {
+          const li = ev.target.closest("li");
+          if (!li) return;
+          ev.preventDefault();
+          modTarget = (li.getAttribute("data-name") || "").trim();
+          if (!modTarget || !els.ircModBar) return;
+          if (els.ircModTarget) els.ircModTarget.textContent = modTarget;
+          els.ircModBar.classList.remove("hidden");
+        });
+        // long-press / click also opens mod on mobile
+        ircNicksEl.addEventListener("click", (ev) => {
+          if (!window.matchMedia("(max-width: 720px)").matches) return;
+          const li = ev.target.closest("li");
+          if (!li) return;
+          modTarget = (li.getAttribute("data-name") || "").trim();
+          if (!modTarget || !els.ircModBar) return;
+          if (els.ircModTarget) els.ircModTarget.textContent = modTarget;
+          els.ircModBar.classList.remove("hidden");
+        });
+      }
+      const btnMuteIrc = document.getElementById("btn-irc-mute");
+      const btnReport = document.getElementById("btn-irc-report");
+      const btnModClose = document.getElementById("btn-irc-mod-close");
+      if (btnMuteIrc) btnMuteIrc.addEventListener("click", () => {
+        if (modTarget) {
+          send("chat_mute", modTarget);
+          Net.chat("/mute " + modTarget);
+          toast("Muted " + modTarget, "party");
+        }
+        if (els.ircModBar) els.ircModBar.classList.add("hidden");
+      });
+      if (btnReport) btnReport.addEventListener("click", () => {
+        if (modTarget) {
+          send("chat_report", modTarget);
+          Net.chat("/report " + modTarget);
+          toast("Reported " + modTarget, "fee");
+        }
+        if (els.ircModBar) els.ircModBar.classList.add("hidden");
+      });
+      if (btnModClose) btnModClose.addEventListener("click", () => {
+        if (els.ircModBar) els.ircModBar.classList.add("hidden");
+      });
+
+      // Mobile virtual joystick / chord pad (#31)
+      const vjoy = document.getElementById("vjoy");
+      const chord = document.getElementById("chord-pad");
+      function bindTouchAct(root, attr, prefix) {
+        if (!root) return;
+        const fire = (ev) => {
+          const btn = ev.target.closest("[" + attr + "]");
+          if (!btn) return;
+          ev.preventDefault();
+          const val = btn.getAttribute(attr);
+          if (prefix === "move") send(val);
+          else send(val);
+          Sound.unlock();
+        };
+        root.addEventListener("pointerdown", fire);
+      }
+      bindTouchAct(vjoy, "data-move", "move");
+      bindTouchAct(chord, "data-act", "act");
+
+      // Optional nick polish (#25)
+      if (els.ircNick) {
+        try {
+          const savedNick = localStorage.getItem("snowcrash_nick") || "";
+          if (savedNick) els.ircNick.value = savedNick;
+        } catch (_) {}
+      }
+    }
+
+    function getIrcNick() {
+      if (!els.ircNick) return "";
+      return (els.ircNick.value || "").trim().slice(0, 16);
+    }
+
+    function persistNick() {
+      const n = getIrcNick();
+      if (!n) return;
+      try { localStorage.setItem("snowcrash_nick", n); } catch (_) {}
+    }
+
+    return { apply, bind, openPanel, toast, getIrcNick, persistNick, toggleIrcCollapse };
+  })();
+
+
+  function render(s) {
       lastState = s;
       if (!s) return;
       paintScene(s, noiseT);
@@ -1439,6 +2369,7 @@
         .join("");
     }
     renderIrc(s);
+    YearUI.apply(s);
     if (netHud && lastPingMs != null) {
       netHud.textContent = lastPingMs + "ms · " + (s.online_count || listLen(s)) + " online";
     }
@@ -1730,6 +2661,7 @@
     try {
       localStorage.setItem("snowcrash_name", displayName);
     } catch (_) {}
+    try { YearUI.persistNick(); } catch (_) {}
     if (nameGate) nameGate.classList.add("hidden");
     await runIntroThenGame({});
   }
@@ -1834,5 +2766,6 @@
     });
   }
 
+  YearUI.bind();
   boot();
 })();

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{{ title }}</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
@@ -15,6 +15,8 @@
       <form id="name-form">
         <label for="display-name">Courier name</label>
         <input id="display-name" name="name" maxlength="24" autocomplete="nickname" placeholder="e.g. Rin Vale" required />
+        <label for="irc-nick" class="nick-optional">StreetNet nick <span class="dim">(optional)</span></label>
+        <input id="irc-nick" name="nick" maxlength="16" autocomplete="username" placeholder="defaults to courier name" />
         <button type="submit" id="btn-jack-in">Enter streets</button>
       </form>
       <p class="name-gate-hint">Tip: open two browsers with different names to play together. Or use <code>?name=YourName</code>.</p>
@@ -49,9 +51,28 @@
         <span id="perspective" class="pill" title="Camera">FPV</span>
         <span id="compass" class="pill compass" title="Facing">N</span>
         <span id="obj-compass" class="pill obj-compass" title="Objective bearing">★ · —</span>
+        <span id="district-pill" class="pill district-pill" title="District">—</span>
+        <span id="arena-pill" class="pill arena-pill hidden" title="PvP arena">ARENA</span>
         <span id="net-hud" class="pill net-hud" title="Network">…</span>
+        <span id="analytics-badge" class="pill analytics-badge" title="Debug analytics" hidden>·</span>
+      </div>
+      <div id="panel-dock" class="panel-dock" role="toolbar" aria-label="Year panels">
+        <button type="button" class="dock-btn" data-panel="journal" title="Quest journal (J)">Jrnl</button>
+        <button type="button" class="dock-btn" data-panel="shop" title="Shop / vendor">Shop</button>
+        <button type="button" class="dock-btn" data-panel="party" title="Party">Party</button>
+        <button type="button" class="dock-btn" data-panel="crew" title="Crew">Crew</button>
+        <button type="button" class="dock-btn" data-panel="contracts" title="Contracts board">Cntr</button>
+        <button type="button" class="dock-btn" data-panel="craft" title="Faraday craft">Craft</button>
+        <button type="button" class="dock-btn" data-panel="stash" title="Safehouse / stash">Stash</button>
+        <button type="button" class="dock-btn" data-panel="season" title="Season pass">Pass</button>
+        <button type="button" class="dock-btn" data-panel="raid" title="Raid lobby">Raid</button>
+        <button type="button" id="btn-collapse-irc" class="dock-btn" title="Collapse StreetNet">IRC</button>
       </div>
     </header>
+
+    <div id="event-ticker" class="event-ticker" aria-live="polite" hidden></div>
+    <div id="kill-feed" class="kill-feed" aria-live="polite"></div>
+    <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
 
     <div id="layout">
       <div id="viewport">
@@ -63,6 +84,15 @@
           <div id="fpv-stage" class="fpv-stage">
             <canvas id="fpv-canvas" aria-label="First-person colored ASCII view"></canvas>
             <pre id="fpv" class="fpv-fallback hidden" aria-hidden="true"></pre>
+            <canvas id="weather-canvas" class="weather-canvas" aria-hidden="true"></canvas>
+            <div id="weather-overlay" class="weather-overlay" aria-hidden="true"></div>
+            <div id="boss-telegraph" class="boss-telegraph hidden" aria-live="polite">
+              <div class="boss-name" id="boss-name">BOSS</div>
+              <div class="boss-bar-wrap"><div id="boss-bar" class="boss-bar"></div></div>
+              <div id="boss-hint" class="boss-hint"></div>
+            </div>
+            <div id="npc-cue" class="npc-cue hidden" aria-live="polite"></div>
+            <div id="duel-banner" class="duel-banner hidden">DUEL · CONSENT</div>
           </div>
         </div>
 
@@ -72,11 +102,81 @@
             <span id="mini-plane">Z0</span>
           </div>
           <pre id="minimap" class="minimap-ascii"></pre>
+          <div id="party-pings" class="party-pings" aria-hidden="true"></div>
+        </div>
+
+        <!-- Mobile virtual controls (#31) -->
+        <div id="mobile-hud" class="mobile-hud" aria-label="Touch controls">
+          <div id="vjoy" class="vjoy" data-pad="move">
+            <button type="button" class="vjoy-btn" data-move="forward_left">↖</button>
+            <button type="button" class="vjoy-btn" data-move="forward">▲</button>
+            <button type="button" class="vjoy-btn" data-move="forward_right">↗</button>
+            <button type="button" class="vjoy-btn" data-move="strafe_left">◀</button>
+            <button type="button" class="vjoy-btn vjoy-idle" disabled>·</button>
+            <button type="button" class="vjoy-btn" data-move="strafe_right">▶</button>
+            <button type="button" class="vjoy-btn" data-move="back_left">↙</button>
+            <button type="button" class="vjoy-btn" data-move="back">▼</button>
+            <button type="button" class="vjoy-btn" data-move="back_right">↘</button>
+          </div>
+          <div id="chord-pad" class="chord-pad">
+            <button type="button" data-act="turn_left">Q</button>
+            <button type="button" data-act="turn_right">E</button>
+            <button type="button" data-act="g">GET</button>
+            <button type="button" data-act="f">FIRE</button>
+            <button type="button" data-act="i">INV</button>
+            <button type="button" data-act="plane_up">↑Z</button>
+            <button type="button" data-act="plane_down">↓Z</button>
+          </div>
         </div>
       </div>
 
       <aside id="side">
         <div id="stats" class="stats-compact"></div>
+
+        <details id="party-panel" class="side-fold year-panel" data-panel="party">
+          <summary>Party</summary>
+          <div id="party-body" class="panel-body"></div>
+        </details>
+
+        <details id="journal-panel" class="side-fold year-panel" data-panel="journal">
+          <summary>Quest journal</summary>
+          <div id="journal-body" class="panel-body"></div>
+        </details>
+
+        <details id="shop-panel" class="side-fold year-panel" data-panel="shop">
+          <summary>Shop / vendor</summary>
+          <div id="shop-body" class="panel-body"></div>
+        </details>
+
+        <details id="craft-panel" class="side-fold year-panel" data-panel="craft">
+          <summary>Faraday craft</summary>
+          <div id="craft-body" class="panel-body"></div>
+        </details>
+
+        <details id="stash-panel" class="side-fold year-panel" data-panel="stash">
+          <summary>Safehouse / stash</summary>
+          <div id="stash-body" class="panel-body"></div>
+        </details>
+
+        <details id="crew-panel" class="side-fold year-panel" data-panel="crew">
+          <summary>Crew</summary>
+          <div id="crew-body" class="panel-body"></div>
+        </details>
+
+        <details id="contracts-panel" class="side-fold year-panel" data-panel="contracts">
+          <summary>Contracts</summary>
+          <div id="contracts-body" class="panel-body"></div>
+        </details>
+
+        <details id="season-panel" class="side-fold year-panel" data-panel="season">
+          <summary>Season / battle pass</summary>
+          <div id="season-body" class="panel-body"></div>
+        </details>
+
+        <details id="raid-panel" class="side-fold year-panel" data-panel="raid">
+          <summary>Raid lobby</summary>
+          <div id="raid-body" class="panel-body"></div>
+        </details>
 
         <details id="inv-panel" class="side-fold" open>
           <summary>Inventory</summary>
@@ -88,6 +188,7 @@
             <span class="irc-mark">●</span>
             <h2>StreetNet</h2>
             <span id="irc-chan-label" class="irc-chan-label">#streets</span>
+            <button type="button" id="btn-irc-collapse" class="irc-collapse" title="Collapse">▾</button>
           </div>
           <div id="irc-channels" class="irc-channels" role="tablist" aria-label="IRC channels"></div>
           <div class="irc-body">
@@ -98,6 +199,12 @@
             </div>
           </div>
           <div id="irc-topic" class="irc-topic"></div>
+          <div id="irc-mod-bar" class="irc-mod-bar hidden">
+            <span id="irc-mod-target" class="irc-mod-target"></span>
+            <button type="button" id="btn-irc-mute" data-mod="mute">Mute</button>
+            <button type="button" id="btn-irc-report" data-mod="report">Report</button>
+            <button type="button" id="btn-irc-mod-close">×</button>
+          </div>
           <form id="chat-form" class="irc-form">
             <span id="irc-prompt" class="irc-prompt">&lt;you&gt;</span>
             <input id="chat-input" type="text" maxlength="240" placeholder="message · /join · /msg · /help" autocomplete="off" spellcheck="false" />
@@ -110,9 +217,67 @@
     <details id="legend-panel" class="legend-fold">
       <summary>Glyph key · controls</summary>
       <div id="legend"></div>
-      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute</p>
+      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute · dock opens year panels</p>
     </details>
     <div id="log" class="log-slim"></div>
+
+    <!-- #12 Level-up skill/loadout modal -->
+    <div id="skill-modal" class="year-modal hidden" role="dialog" aria-modal="true" aria-labelledby="skill-modal-title">
+      <div class="year-modal-card">
+        <h2 id="skill-modal-title">LEVEL UP · skill / loadout</h2>
+        <p id="skill-modal-sub" class="dim">Pick a skill. Backend: skill_picks_available / skills / loadout</p>
+        <div id="skill-picks" class="skill-picks"></div>
+        <div id="loadout-preview" class="loadout-preview"></div>
+        <button type="button" class="modal-close" data-close="skill-modal">Close</button>
+      </div>
+    </div>
+
+    <!-- #16 Death overlay + respawn -->
+    <div id="death-overlay" class="year-modal death-overlay hidden" role="dialog" aria-modal="true">
+      <div class="year-modal-card death-card">
+        <h2 class="death-title">SIGNAL LOST</h2>
+        <p id="death-cause" class="dim"></p>
+        <div id="respawn-options" class="respawn-options"></div>
+        <button type="button" id="btn-respawn-default" class="btn-primary">Respawn (r)</button>
+      </div>
+    </div>
+
+    <!-- #19 District transition splash -->
+    <div id="district-splash" class="district-splash hidden" aria-live="polite">
+      <div class="district-splash-inner">
+        <p class="intro-kicker">DISTRICT</p>
+        <h2 id="district-splash-name">—</h2>
+        <p id="district-splash-tag" class="dim"></p>
+      </div>
+    </div>
+
+    <!-- #28 Duel consent -->
+    <div id="duel-modal" class="year-modal hidden" role="dialog" aria-modal="true">
+      <div class="year-modal-card">
+        <h2>Duel challenge</h2>
+        <p id="duel-text" class="dim"></p>
+        <div class="modal-actions">
+          <button type="button" id="btn-duel-accept" class="btn-primary">Accept</button>
+          <button type="button" id="btn-duel-decline">Decline</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- #29 Spectate / replay theater -->
+    <div id="theater-mode" class="theater-mode hidden" aria-live="polite">
+      <div class="theater-chrome">
+        <span class="cut-kicker">THEATER · SPECTATE / REPLAY</span>
+        <span id="theater-title" class="cut-title">—</span>
+        <button type="button" id="btn-theater-exit" class="btn-ghost">Exit</button>
+      </div>
+      <pre id="theater-stage" class="theater-stage"></pre>
+      <div id="theater-controls" class="theater-controls">
+        <button type="button" data-theater="pause">Pause</button>
+        <button type="button" data-theater="step">Step</button>
+        <button type="button" data-theater="speed">1×</button>
+      </div>
+    </div>
+
     <div id="overlay" class="hidden"></div>
     <div id="cutscene" class="hidden" aria-live="polite">
       <div class="cut-inner">
