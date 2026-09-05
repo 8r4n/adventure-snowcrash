@@ -3,17 +3,36 @@
 A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev** (`adventure-dev`, port **8766**) is a shared-world Metaverse street layer: many couriers, WebSocket realtime sync, chat, and personal Payload-Zero quests. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI stays single-player overhead ASCII.
 
 
+
 ## Screenshots
 
-### Opening credits
-![Snowcrash opening credits — Rin Vale courier dossier intro](docs/screenshots/opening-credits.png)
+Animated GIFs below autoplay on GitHub (keep them under ~2MB for reliable playback).
 
-![Snowcrash opening credits animated](docs/screenshots/opening-credits.gif)
+### Opening credits
+
+<p align="center">
+  <img src="docs/screenshots/opening-credits.gif" alt="Snowcrash opening credits — animated ASCII intro" width="720" />
+</p>
+
+<details>
+<summary>Still frame</summary>
+
+![Snowcrash opening credits still](docs/screenshots/opening-credits.png)
+
+</details>
 
 ### Gameplay
-![Snowcrash gameplay — video→ASCII FPV, Street GPS minimap, courier HUD](docs/screenshots/gameplay.png)
 
-![Snowcrash gameplay animated — movement and HUD](docs/screenshots/gameplay.gif)
+<p align="center">
+  <img src="docs/screenshots/gameplay.gif" alt="Snowcrash gameplay — animated FPV and Street GPS" width="720" />
+</p>
+
+<details>
+<summary>Still frame</summary>
+
+![Snowcrash gameplay still](docs/screenshots/gameplay.png)
+
+</details>
 
 
 ## Requirements
