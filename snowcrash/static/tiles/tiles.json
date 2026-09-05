@@ -1,0 +1,190 @@
+{
+  "tile_size": 32,
+  "path": "/static/tiles/",
+  "empty": "empty.png",
+  "fog": "fog.png",
+  "glyphs": {
+    "#": {
+      "file": "wall.png",
+      "label": "Wall"
+    },
+    ".": {
+      "file": "floor.png",
+      "label": "Floor"
+    },
+    "+": {
+      "file": "door.png",
+      "label": "Door"
+    },
+    "~": {
+      "file": "water.png",
+      "label": "Water"
+    },
+    "=": {
+      "file": "street.png",
+      "label": "Street"
+    },
+    ",": {
+      "file": "grass.png",
+      "label": "Grass"
+    },
+    " ": {
+      "file": "fog.png",
+      "label": "Fog / unknown"
+    },
+    "@": {
+      "file": "player.png",
+      "label": "You (Rin Vale)"
+    },
+    "&": {
+      "file": "npc.png",
+      "label": "NPC"
+    },
+    "i": {
+      "file": "infected.png",
+      "label": "Infected avatar"
+    },
+    "t": {
+      "file": "thug.png",
+      "label": "Street thug"
+    },
+    "d": {
+      "file": "drone.png",
+      "label": "Security drone"
+    },
+    "*": {
+      "file": "misc.png",
+      "label": "Datachip / loot"
+    },
+    "!": {
+      "file": "med.png",
+      "label": "Med / stim"
+    },
+    "/": {
+      "file": "weapon.png",
+      "label": "Weapon"
+    },
+    "[": {
+      "file": "armor.png",
+      "label": "Armor"
+    },
+    "%": {
+      "file": "payload.png",
+      "label": "Payload-Zero"
+    },
+    "}": {
+      "file": "pistol.png",
+      "label": "Pulse pistol"
+    },
+    "J": {
+      "file": "jackpoint.png",
+      "label": "Jackpoint"
+    },
+    "U": {
+      "file": "uplink.png",
+      "label": "Metaverse uplink"
+    }
+  },
+  "legend": [
+    {
+      "glyph": "#",
+      "file": "wall.png",
+      "label": "Wall"
+    },
+    {
+      "glyph": ".",
+      "file": "floor.png",
+      "label": "Floor"
+    },
+    {
+      "glyph": "+",
+      "file": "door.png",
+      "label": "Door"
+    },
+    {
+      "glyph": "~",
+      "file": "water.png",
+      "label": "Water"
+    },
+    {
+      "glyph": "=",
+      "file": "street.png",
+      "label": "Street"
+    },
+    {
+      "glyph": ",",
+      "file": "grass.png",
+      "label": "Grass"
+    },
+    {
+      "glyph": " ",
+      "file": "fog.png",
+      "label": "Fog / unknown"
+    },
+    {
+      "glyph": "@",
+      "file": "player.png",
+      "label": "You (Rin Vale)"
+    },
+    {
+      "glyph": "&",
+      "file": "npc.png",
+      "label": "NPC"
+    },
+    {
+      "glyph": "i",
+      "file": "infected.png",
+      "label": "Infected avatar"
+    },
+    {
+      "glyph": "t",
+      "file": "thug.png",
+      "label": "Street thug"
+    },
+    {
+      "glyph": "d",
+      "file": "drone.png",
+      "label": "Security drone"
+    },
+    {
+      "glyph": "*",
+      "file": "misc.png",
+      "label": "Datachip / loot"
+    },
+    {
+      "glyph": "!",
+      "file": "med.png",
+      "label": "Med / stim"
+    },
+    {
+      "glyph": "/",
+      "file": "weapon.png",
+      "label": "Weapon"
+    },
+    {
+      "glyph": "[",
+      "file": "armor.png",
+      "label": "Armor"
+    },
+    {
+      "glyph": "%",
+      "file": "payload.png",
+      "label": "Payload-Zero"
+    },
+    {
+      "glyph": "}",
+      "file": "pistol.png",
+      "label": "Pulse pistol"
+    },
+    {
+      "glyph": "J",
+      "file": "jackpoint.png",
+      "label": "Jackpoint"
+    },
+    {
+      "glyph": "U",
+      "file": "uplink.png",
+      "label": "Metaverse uplink"
+    }
+  ]
+}

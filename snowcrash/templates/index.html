@@ -10,10 +10,17 @@
   <div id="app">
     <header>
       <h1>SNOWCRASH</h1>
-      <p class="tag">Freelance Metaverse courier · fractured LA · ASCII rogue-like</p>
+      <p class="tag">Freelance Metaverse courier · fractured LA · 32×32 cyberpunk tiles</p>
+      <div class="toolbar">
+        <button type="button" id="btn-ascii" aria-pressed="false">ASCII view</button>
+        <span class="hint">or press <kbd>A</kbd> to toggle tiles / ASCII</span>
+      </div>
     </header>
     <div id="layout">
-      <pre id="map" aria-label="Game map"></pre>
+      <div id="map-wrap">
+        <div id="map" class="tiles" aria-label="Game map"></div>
+        <pre id="ascii-map" class="hidden" aria-label="ASCII map"></pre>
+      </div>
       <aside id="side">
         <div id="stats"></div>
         <div id="inv-panel">
@@ -23,10 +30,15 @@
         <div id="help-mini">
           <kbd>WASD</kbd>/<kbd>hjkl</kbd>/<kbd>arrows</kbd> move ·
           <kbd>g</kbd> get · <kbd>f</kbd> fire/hack ·
-          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> restart · <kbd>.</kbd> wait
+          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> restart · <kbd>.</kbd> wait ·
+          <kbd>A</kbd> tiles/ASCII
         </div>
       </aside>
     </div>
+    <section id="legend-panel" aria-label="Tile legend">
+      <h2>Legend</h2>
+      <div id="legend"></div>
+    </section>
     <div id="log"></div>
     <div id="overlay" class="hidden"></div>
   </div>

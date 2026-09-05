@@ -109,6 +109,10 @@ def _draw(stdscr: "curses._CursesWindow", gs: GameState) -> None:
                     attr = curses.color_pair(5) | curses.A_BOLD
                 elif ch in ("*", "!", "/", "[", "}", "%"):
                     attr = curses.color_pair(3) | curses.A_BOLD
+                elif ch == "J":
+                    attr = curses.color_pair(1) | curses.A_BOLD
+                elif ch == "U":
+                    attr = curses.color_pair(4) | curses.A_BOLD
                 else:
                     attr = curses.color_pair(6)
             try:

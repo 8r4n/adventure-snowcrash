@@ -570,4 +570,6 @@ def snapshot(gs: GameState) -> Dict[str, Any]:
         "help": C.HELP_TEXT,
         "visible": [row[:] for row in gs.gmap.visible],
         "explored": [row[:] for row in gs.gmap.explored],
+        "jackpoint": list(gs.jackpoint_pos),
+        "uplink": list(gs.uplink_pos),
     }

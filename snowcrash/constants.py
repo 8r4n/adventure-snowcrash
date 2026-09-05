@@ -10,6 +10,8 @@ WATER = "~"
 STREET = "="
 GRASS = ","
 EMPTY = " "
+JACKPOINT = "J"
+UPLINK = "U"
 
 # Entities (display glyphs)
 PLAYER = "@"
@@ -67,9 +69,15 @@ CONTROLS
   . / space             — wait a turn
   ?                     — this help
   q                     — quit
+  A (web)               — toggle tiles / ASCII
 
 GOAL
-  Recover or neutralize the rogue Payload-Zero from the jackpoint,
-  then reach the Metaverse uplink node. Talk to NPCs, loot terminals,
+  Recover or neutralize the rogue Payload-Zero from the jackpoint (J),
+  then reach the Metaverse uplink node (U). Talk to NPCs, loot terminals,
   survive the streets of fractured LA.
+
+MAP
+  # wall  . floor  + door  = street  , grass  ~ water
+  J jackpoint  U uplink  @ you  & NPC  i infected  t thug  d drone
+  ! med  / weapon  [ armor  } pistol  % Payload-Zero  * loot
 """

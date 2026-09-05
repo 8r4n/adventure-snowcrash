@@ -52,7 +52,7 @@ class GameMap:
         if not self.in_bounds(x, y):
             return False
         t = self.tiles[y][x]
-        return t in (C.FLOOR, C.DOOR, C.STREET, C.GRASS)
+        return t in (C.FLOOR, C.DOOR, C.STREET, C.GRASS, C.JACKPOINT, C.UPLINK)
 
     def blocks_sight(self, x: int, y: int) -> bool:
         if not self.in_bounds(x, y):
@@ -283,8 +283,11 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
             if loot:
                 floor_items.append(FloorItem(ix, iy, loot))
 
-    jack_pos = (jx + 4, jy + 3)
+    # Permanent walkable landmark tiles so quest rooms are obvious
+    jack_pos = (jx + jw // 2, jy + 1)
     uplink_pos = (ux + uw // 2, uy + uh // 2)
+    tiles[jack_pos[1]][jack_pos[0]] = C.JACKPOINT
+    tiles[uplink_pos[1]][uplink_pos[0]] = C.UPLINK
 
     story = [
         "Briefing: Relay Tran wants Payload-Zero recovered from the jackpoint.",

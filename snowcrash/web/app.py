@@ -1,4 +1,4 @@
-"""FastAPI web frontend — HTML ASCII grid + keyboard."""
+"""FastAPI web frontend — HTML tile grid + keyboard."""
 
 from __future__ import annotations
 

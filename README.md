@@ -1,6 +1,6 @@
 # Snowcrash
 
-A short, playable cyberpunk **rogue-like** in Python: turn-based ASCII streets of fractured LA, fog of war, inventory, melee + hack/ranged combat, and a courier quest for **Payload-Zero**.
+A short, playable cyberpunk **rogue-like** in Python: turn-based streets of fractured LA (ASCII TUI + 32×32 web tiles), fog of war, inventory, melee + hack/ranged combat, and a courier quest for **Payload-Zero**.
 
 Original theme inspired by the *vibe* of Cataclysm: DDA mechanics and Neal Stephenson’s Metaverse — **no copied text or assets**.
 
@@ -38,6 +38,18 @@ python -m snowcrash.web --host 0.0.0.0 --port 8765 --seed 42
 
 Then open **http://127.0.0.1:8765/** (or your host’s IP on port **8765**).
 
+The web UI renders a neon 32×32 tile map (not bare ASCII) with a legend under the grid.
+Press **A** or use the **ASCII view** button to switch back to the classic glyph map.
+Quest rooms show **J** (jackpoint) and **U** (Metaverse uplink) as distinct tiles.
+
+To regenerate sprites after editing `scripts/gen_tiles.py`:
+
+```bash
+source .venv/bin/activate
+pip install pillow   # generator only; not a runtime dep
+python scripts/gen_tiles.py
+```
+
 ## Controls
 
 | Key | Action |
@@ -60,10 +72,11 @@ Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** ne
 
 - **Safehouse** (NW) — briefing with Relay Tran
 - **Neon Club** (NE) — tips + pulse pistol loot
-- **Jackpoint** (SW) — Payload-Zero + hostile security
-- **Uplink** (SE) — deliver / neutralize to win
+- **Jackpoint** (SW, `J`) — Payload-Zero + hostile security
+- **Uplink** (SE, `U`) — deliver / neutralize to win
 
 Enemies: `i` infected avatars, `t` street thugs, `d` security drones.
+Web tiles live in `snowcrash/static/tiles/` (see `tiles.json` for glyph → sprite + legend labels).
 
 ## Package layout
 
@@ -81,7 +94,8 @@ adventure/
       __main__.py
       app.py
     templates/index.html
-    static/{style.css,game.js}
+    static/{style.css,game.js,tiles/}
+  scripts/gen_tiles.py   # Pillow one-shot sprite bake
 ```
 
 ## License
