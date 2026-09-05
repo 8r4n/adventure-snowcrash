@@ -1,6 +1,8 @@
 (() => {
   const SESSION = "browser";
   const fpvEl = document.getElementById("fpv");
+  const fpvCanvas = document.getElementById("fpv-canvas");
+  const fpvStage = document.getElementById("fpv-stage");
   const minimapEl = document.getElementById("minimap");
   const statsEl = document.getElementById("stats");
   const invEl = document.getElementById("inventory");
@@ -13,6 +15,7 @@
   const cutsceneEl = document.getElementById("cutscene");
   const cutTitleEl = document.getElementById("cut-title");
   const cutFramesEl = document.getElementById("cut-frames");
+  const cutCanvas = document.getElementById("cut-canvas");
   const fpvStatus = document.getElementById("fpv-status");
   const introEl = document.getElementById("intro");
   const introCanvas = document.getElementById("intro-canvas");
@@ -37,10 +40,12 @@
   const FACING_NAMES = ["N", "E", "S", "W"];
   const FACING_GLYPH = ["^", ">", "v", "<"];
   const WALL_CHARS = "#~";
-  const FPV_COLS = 88;
-  const FPV_ROWS = 32;
+  const SCENE_W = 480;
+  const SCENE_H = 270;
   const MINI_R = 10; // radar radius in map cells
   const SHADE = " .:-=+*#%@";
+  /** Filled by FpvEngine below — avoids TDZ with CutscenePlayer. */
+  const FpvBridge = { pause() {}, resume() {}, render(_s) {}, kick() {} };
 
   // ---- Sound ----
   const Sound = (() => {
@@ -139,11 +144,14 @@
     return { play, playList, toggleMute, setMuted, isMuted: () => muted, unlock, preload, syncUi };
   })();
 
-  // ---- Cutscenes (jack-in intensives) ----
+  // ---- Cutscenes (jack-in intensives via shared video→ASCII) ----
   const CutscenePlayer = (() => {
     const cache = {};
+    const mp4Probe = {};
     let timer = null;
     let queue = [];
+    let cutAscii = null;
+    let packAbort = false;
 
     function setPerspective(intensive, title) {
       if (!perspectiveEl) return;
@@ -156,6 +164,20 @@
       }
     }
 
+    function ensureCutAscii() {
+      if (cutAscii || !cutCanvas || typeof VideoAsciiCanvas === "undefined") return cutAscii;
+      const cols = Math.min(160, Math.max(100, Math.floor((cutCanvas.parentElement?.clientWidth || 800) / 6)));
+      cutAscii = new VideoAsciiCanvas(cutCanvas, {
+        cols,
+        brightness: 1.2,
+        contrast: 1.12,
+        autoColor: true,
+        bg: "#05080c",
+        fit: true,
+      });
+      return cutAscii;
+    }
+
     async function load(id) {
       if (cache[id]) return cache[id];
       const res = await fetch(CUT_PATH + id + ".json");
@@ -164,20 +186,38 @@
       return cache[id];
     }
 
+    async function hasMp4(id) {
+      if (id in mp4Probe) return mp4Probe[id];
+      try {
+        const res = await fetch(CUT_PATH + id + ".mp4", { method: "HEAD" });
+        mp4Probe[id] = res.ok;
+      } catch (_) {
+        mp4Probe[id] = false;
+      }
+      return mp4Probe[id];
+    }
+
     function hide() {
+      packAbort = true;
       if (timer) {
         clearInterval(timer);
         timer = null;
       }
+      if (cutAscii) cutAscii.stop();
       cutscenePlaying = false;
       if (cutsceneEl) cutsceneEl.classList.add("hidden");
       setPerspective(false);
+      // resume live FPV loop
+      FpvBridge.resume();
     }
 
     function finishOne() {
       if (timer) {
         clearInterval(timer);
         timer = null;
+      }
+      if (cutAscii) {
+        try { cutAscii.pause(); } catch (_) {}
       }
       if (queue.length) {
         playNext();
@@ -186,28 +226,118 @@
       hide();
     }
 
-    function playPack(pack) {
+    /** Paint a JSON ASCII frame onto an offscreen canvas with neon colors, then ASCII-sample. */
+    function renderJsonFrame(engine, frameText) {
+      const lines = String(frameText || "").split("\n");
+      const rows = Math.max(1, lines.length);
+      const cols = Math.max(1, ...lines.map((l) => l.length));
+      const off = document.createElement("canvas");
+      off.width = cols * 4;
+      off.height = rows * 6;
+      const ctx = off.getContext("2d", { alpha: false });
+      ctx.fillStyle = "#05080c";
+      ctx.fillRect(0, 0, off.width, off.height);
+      for (let y = 0; y < rows; y++) {
+        const line = lines[y] || "";
+        for (let x = 0; x < cols; x++) {
+          const ch = line[x] || " ";
+          if (ch === " ") continue;
+          const code = ch.charCodeAt(0);
+          const dens = Math.min(1, (code - 32) / 90);
+          let r, g, b;
+          if ("@#%".includes(ch)) {
+            r = 255; g = 42; b = 109;
+          } else if ("=+~".includes(ch)) {
+            r = 57; g = 197; b = 207;
+          } else if (";:".includes(ch)) {
+            r = 40; g = 160; b = 180;
+          } else if ("*+".includes(ch)) {
+            r = 240; g = 180; b = 41;
+          } else {
+            r = 30 + dens * 180;
+            g = 180 + dens * 40;
+            b = 200 + dens * 40;
+          }
+          const pulse = 0.85 + 0.15 * Math.sin((x + y) * 0.4);
+          ctx.fillStyle = `rgb(${(r * pulse) | 0},${(g * pulse) | 0},${(b * pulse) | 0})`;
+          ctx.fillRect(x * 4, y * 6, 4, 6);
+        }
+      }
+      // scanline tint
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      for (let y = 0; y < off.height; y += 3) ctx.fillRect(0, y, off.width, 1);
+      engine.renderFromCanvas(off);
+    }
+
+    function playJsonPack(pack) {
       cutscenePlaying = true;
+      packAbort = false;
       const title = pack.title || ("1ST PERSON — " + (pack.id || "").toUpperCase());
       setPerspective(true, title);
       if (cutTitleEl) cutTitleEl.textContent = title;
       if (cutsceneEl) cutsceneEl.classList.remove("hidden");
+      FpvBridge.pause();
+      if (cutAscii) {
+        try { cutAscii.stop(); } catch (_) {}
+      }
+
       const frames = pack.frames || [];
       if (!frames.length) {
         finishOne();
         return;
       }
+      const engine = ensureCutAscii();
       let i = 0;
-      if (cutFramesEl) cutFramesEl.textContent = frames[0];
+      if (engine) {
+        engine.setCols(Math.min(160, Math.max(100, Math.floor((cutCanvas.parentElement?.clientWidth || 800) / 6))));
+        renderJsonFrame(engine, frames[0]);
+      } else if (cutFramesEl) {
+        cutFramesEl.classList.remove("hidden");
+        cutFramesEl.textContent = frames[0];
+      }
       const fps = pack.fps || 10;
       timer = setInterval(() => {
+        if (packAbort) return;
         i += 1;
         if (i >= frames.length) {
           finishOne();
           return;
         }
-        if (cutFramesEl) cutFramesEl.textContent = frames[i];
+        if (engine) renderJsonFrame(engine, frames[i]);
+        else if (cutFramesEl) cutFramesEl.textContent = frames[i];
       }, Math.max(40, Math.floor(1000 / fps)));
+    }
+
+    async function playVideoPack(id, pack) {
+      cutscenePlaying = true;
+      packAbort = false;
+      const title = pack.title || ("1ST PERSON — " + (pack.id || "").toUpperCase());
+      setPerspective(true, title);
+      if (cutTitleEl) cutTitleEl.textContent = title;
+      if (cutsceneEl) cutsceneEl.classList.remove("hidden");
+      FpvBridge.pause();
+      if (cutAscii) {
+        try { cutAscii.stop(); } catch (_) {}
+      }
+
+      const engine = ensureCutAscii();
+      if (!engine) {
+        playJsonPack(pack);
+        return;
+      }
+      try {
+        await engine.load(CUT_PATH + id + ".mp4");
+        if (packAbort) return;
+        engine.setCols(Math.min(160, Math.max(100, Math.floor((cutCanvas.parentElement?.clientWidth || 800) / 6))));
+        await engine.play({
+          onEnded: () => {
+            if (!packAbort) finishOne();
+          },
+        });
+      } catch (err) {
+        console.warn("cutscene mp4 failed, falling back to JSON", id, err);
+        playJsonPack(pack);
+      }
     }
 
     async function playNext() {
@@ -217,7 +347,13 @@
         return;
       }
       try {
-        playPack(await load(id));
+        const pack = await load(id);
+        // Prefer MP4 through shared VideoAsciiCanvas; JSON packs remain as fallback.
+        if (await hasMp4(id)) {
+          await playVideoPack(id, pack);
+        } else {
+          playJsonPack(pack);
+        }
       } catch (err) {
         console.warn("cutscene failed", id, err);
         playNext();
@@ -454,167 +590,349 @@
     return null;
   }
 
-  // ---- Live FPV raycaster (video→ASCII Metaverse layer) ----
-  function renderFpv(s) {
-    if (!fpvEl || !s) return;
-    const px = s.player.x + 0.5;
-    const py = s.player.y + 0.5;
-    const facing = (s.player.facing || 0) % 4;
-    const ang = (facing * Math.PI) / 2; // 0=N -> -PI/2 in screen space? 
-    // Map: 0=N (0,-1), 1=E (1,0), 2=S (0,1), 3=W (-1,0)
-    // Screen angle: 0 = +X east conventionally; use dir from facing
-    const dirX = [0, 1, 0, -1][facing];
-    const dirY = [-1, 0, 1, 0][facing];
-    // camera plane (perpendicular)
-    const planeX = -dirY * 0.66;
-    const planeY = dirX * 0.66;
+  // ---- Live FPV: offscreen neon scene → shared colored ASCII canvas ----
+  const FpvEngine = (() => {
+    const scene = document.createElement("canvas");
+    scene.width = SCENE_W;
+    scene.height = SCENE_H;
+    const sctx = scene.getContext("2d", { alpha: false });
 
-    const cols = FPV_COLS;
-    const rows = FPV_ROWS;
-    const depths = new Array(cols);
-    const hits = new Array(cols);
-    const sides = new Array(cols);
-    const hitCh = new Array(cols);
+    let ascii = null;
+    let running = false;
+    let paused = false;
+    let noiseT = 0;
+    let lastState = null;
+    let rafId = 0;
 
-    for (let col = 0; col < cols; col++) {
-      const camX = (2 * col) / cols - 1;
-      const rayDirX = dirX + planeX * camX;
-      const rayDirY = dirY + planeY * camX;
-      let mapX = Math.floor(px);
-      let mapY = Math.floor(py);
-      const deltaDistX = rayDirX === 0 ? 1e30 : Math.abs(1 / rayDirX);
-      const deltaDistY = rayDirY === 0 ? 1e30 : Math.abs(1 / rayDirY);
-      let stepX, stepY, sideDistX, sideDistY;
-      if (rayDirX < 0) {
-        stepX = -1;
-        sideDistX = (px - mapX) * deltaDistX;
-      } else {
-        stepX = 1;
-        sideDistX = (mapX + 1 - px) * deltaDistX;
-      }
-      if (rayDirY < 0) {
-        stepY = -1;
-        sideDistY = (py - mapY) * deltaDistY;
-      } else {
-        stepY = 1;
-        sideDistY = (mapY + 1 - py) * deltaDistY;
-      }
-      let hit = 0;
-      let side = 0;
-      let ch = "#";
-      for (let i = 0; i < 48 && !hit; i++) {
-        if (sideDistX < sideDistY) {
-          sideDistX += deltaDistX;
-          mapX += stepX;
-          side = 0;
-        } else {
-          sideDistY += deltaDistY;
-          mapY += stepY;
-          side = 1;
-        }
-        ch = mapAt(s, mapX, mapY);
-        if (isWall(ch) || ch === "+") hit = 1;
-      }
-      let perp;
-      if (side === 0) perp = (mapX - px + (1 - stepX) / 2) / rayDirX;
-      else perp = (mapY - py + (1 - stepY) / 2) / rayDirY;
-      if (!isFinite(perp) || perp < 0.05) perp = 0.05;
-      depths[col] = perp;
-      sides[col] = side;
-      hitCh[col] = ch;
-      hits[col] = hit;
+    const ENTITY_RGB = {
+      i: [255, 42, 109],
+      t: [255, 123, 114],
+      d: [121, 192, 255],
+      "&": [210, 168, 255],
+      "*": [240, 180, 41],
+      "!": [240, 180, 41],
+      "/": [240, 180, 41],
+      "[": [240, 180, 41],
+      "}": [240, 180, 41],
+      "%": [61, 214, 140],
+      J: [61, 214, 140],
+      U: [57, 197, 207],
+      "+": [240, 180, 41],
+    };
+
+    function ensureAscii() {
+      if (ascii || !fpvCanvas || typeof VideoAsciiCanvas === "undefined") return ascii;
+      const pw = (fpvStage && fpvStage.clientWidth) || 800;
+      const cols = Math.min(180, Math.max(110, Math.floor(pw / 5.5)));
+      ascii = new VideoAsciiCanvas(fpvCanvas, {
+        cols,
+        brightness: 1.18,
+        contrast: 1.12,
+        autoColor: true,
+        bg: "#05080c",
+        fit: true,
+      });
+      ascii.setSourceCanvas(scene);
+      return ascii;
     }
 
-    // Build ASCII framebuffer
-    const lines = [];
-    const mid = rows / 2;
-    for (let y = 0; y < rows; y++) {
-      let row = "";
-      for (let x = 0; x < cols; x++) {
-        const dist = depths[x];
-        const lineH = Math.min(rows, Math.floor(rows / dist));
+    function resizeAscii() {
+      const eng = ensureAscii();
+      if (!eng || !fpvStage) return;
+      const cols = Math.min(180, Math.max(110, Math.floor(fpvStage.clientWidth / 5.5)));
+      eng.setCols(cols);
+      eng.setSourceCanvas(scene);
+    }
+
+    function wallColor(ch, side, dist) {
+      const near = Math.max(0.15, Math.min(1, 1.6 / Math.max(0.2, dist)));
+      let r, g, b;
+      if (ch === "+") {
+        r = 240; g = 180; b = 41;
+      } else if (ch === "~") {
+        r = 42; g = 111; b = 158;
+      } else {
+        r = 40; g = 190; b = 205;
+      }
+      if (side) {
+        r *= 0.72; g *= 0.72; b *= 0.78;
+      }
+      r = Math.min(255, r * near * 1.15);
+      g = Math.min(255, g * near * 1.15);
+      b = Math.min(255, b * near * 1.2);
+      return [r | 0, g | 0, b | 0];
+    }
+
+    function paintScene(s, t) {
+      if (!s || !sctx) return;
+      const W = SCENE_W;
+      const H = SCENE_H;
+      const px = s.player.x + 0.5;
+      const py = s.player.y + 0.5;
+      const facing = (s.player.facing || 0) % 4;
+      const dirX = [0, 1, 0, -1][facing];
+      const dirY = [-1, 0, 1, 0][facing];
+      const planeX = -dirY * 0.66;
+      const planeY = dirX * 0.66;
+      const mid = H / 2;
+
+      const ceil = sctx.createLinearGradient(0, 0, 0, mid);
+      ceil.addColorStop(0, "#060a14");
+      ceil.addColorStop(1, "#0a1528");
+      sctx.fillStyle = ceil;
+      sctx.fillRect(0, 0, W, mid);
+
+      const floor = sctx.createLinearGradient(0, mid, 0, H);
+      floor.addColorStop(0, "#0a1018");
+      floor.addColorStop(1, "#121c28");
+      sctx.fillStyle = floor;
+      sctx.fillRect(0, mid, W, H - mid);
+
+      sctx.strokeStyle = "rgba(57,197,207,0.08)";
+      sctx.lineWidth = 1;
+      for (let i = 1; i <= 8; i++) {
+        const y = mid + (i * i * (H - mid)) / 80;
+        sctx.beginPath();
+        sctx.moveTo(0, y);
+        sctx.lineTo(W, y);
+        sctx.stroke();
+      }
+
+      const depths = new Float32Array(W);
+
+      for (let col = 0; col < W; col++) {
+        const camX = (2 * col) / W - 1;
+        const rayDirX = dirX + planeX * camX;
+        const rayDirY = dirY + planeY * camX;
+        let mapX = Math.floor(px);
+        let mapY = Math.floor(py);
+        const deltaDistX = rayDirX === 0 ? 1e30 : Math.abs(1 / rayDirX);
+        const deltaDistY = rayDirY === 0 ? 1e30 : Math.abs(1 / rayDirY);
+        let stepX, stepY, sideDistX, sideDistY;
+        if (rayDirX < 0) {
+          stepX = -1;
+          sideDistX = (px - mapX) * deltaDistX;
+        } else {
+          stepX = 1;
+          sideDistX = (mapX + 1 - px) * deltaDistX;
+        }
+        if (rayDirY < 0) {
+          stepY = -1;
+          sideDistY = (py - mapY) * deltaDistY;
+        } else {
+          stepY = 1;
+          sideDistY = (mapY + 1 - py) * deltaDistY;
+        }
+        let hit = 0;
+        let side = 0;
+        let ch = "#";
+        for (let i = 0; i < 48 && !hit; i++) {
+          if (sideDistX < sideDistY) {
+            sideDistX += deltaDistX;
+            mapX += stepX;
+            side = 0;
+          } else {
+            sideDistY += deltaDistY;
+            mapY += stepY;
+            side = 1;
+          }
+          ch = mapAt(s, mapX, mapY);
+          if (isWall(ch) || ch === "+") hit = 1;
+        }
+        let perp;
+        if (side === 0) perp = (mapX - px + (1 - stepX) / 2) / rayDirX;
+        else perp = (mapY - py + (1 - stepY) / 2) / rayDirY;
+        if (!isFinite(perp) || perp < 0.05) perp = 0.05;
+        depths[col] = perp;
+
+        const lineH = Math.min(H, Math.floor(H / perp));
         const drawStart = Math.floor(mid - lineH / 2);
         const drawEnd = Math.floor(mid + lineH / 2);
-        let c = " ";
-        if (y < drawStart) {
-          // ceiling — scanlines
-          const shade = Math.max(0, 2 - Math.floor((drawStart - y) / 6));
-          c = " .:'"[shade] || " ";
-          if ((x + y + (s.turn || 0)) % 17 === 0) c = "·";
-        } else if (y > drawEnd) {
-          // floor
-          const fy = (y - mid) / mid;
-          const si = Math.min(SHADE.length - 1, Math.floor(fy * 6));
-          c = SHADE[si] || ".";
-          if ((x * 3 + y) % 11 === 0) c = "=";
-        } else {
-          // wall column
-          const near = Math.min(1, 1.8 / dist);
-          let si = Math.min(SHADE.length - 1, Math.floor(near * (SHADE.length - 1)));
-          if (sides[x]) si = Math.max(0, si - 1);
-          c = SHADE[si];
-          if (hitCh[x] === "+") c = near > 0.55 ? "+" : ":";
-          if (hitCh[x] === "~") c = "~";
-          // edge highlight
-          if (y === drawStart || y === drawEnd) c = "|";
-        }
-        row += c;
+        const rgb = wallColor(ch, side, perp);
+        sctx.fillStyle = "rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")";
+        sctx.fillRect(col, drawStart, 1, Math.max(1, drawEnd - drawStart));
+        sctx.fillStyle = "rgba(232,251,255," + Math.min(0.55, 0.35 / perp) + ")";
+        sctx.fillRect(col, drawStart, 1, 1);
+        sctx.fillRect(col, drawEnd, 1, 1);
       }
-      lines.push(row);
-    }
 
-    // Sprite-ish overlays for nearby entities (billboards in center band)
-    const vis = s.visible || [];
-    for (let y = 0; y < s.height; y++) {
-      for (let x = 0; x < s.width; x++) {
-        if (!(vis[y] && vis[y][x])) continue;
-        const ch = mapAt(s, x, y);
-        if (!"itd&*!/[}%JU".includes(ch)) continue;
-        if (x === s.player.x && y === s.player.y) continue;
-        // transform to camera space
-        const relX = x + 0.5 - px;
-        const relY = y + 0.5 - py;
-        const invDet = 1.0 / (planeX * dirY - dirX * planeY);
-        const transformX = invDet * (dirY * relX - dirX * relY);
-        const transformY = invDet * (-planeY * relX + planeX * relY);
-        if (transformY <= 0.15) continue;
-        const spriteScreenX = Math.floor((cols / 2) * (1 + transformX / transformY));
-        const spriteH = Math.abs(Math.floor(rows / transformY));
-        const drawStartY = Math.max(0, Math.floor(mid - spriteH / 2));
-        const drawEndY = Math.min(rows - 1, Math.floor(mid + spriteH / 2));
-        const spriteW = Math.max(2, Math.floor(spriteH * 0.45));
-        const drawStartX = Math.max(0, spriteScreenX - Math.floor(spriteW / 2));
-        const drawEndX = Math.min(cols - 1, spriteScreenX + Math.floor(spriteW / 2));
-        for (let sx = drawStartX; sx <= drawEndX; sx++) {
-          if (transformY >= depths[sx]) continue;
-          for (let sy = drawStartY; sy <= drawEndY; sy++) {
-            const row = lines[sy];
-            const mark = sx === spriteScreenX ? ch : (sy === drawStartY || sy === drawEndY ? "|" : "*");
-            lines[sy] = row.substring(0, sx) + mark + row.substring(sx + 1);
+      const vis = s.visible || [];
+      for (let y = 0; y < s.height; y++) {
+        for (let x = 0; x < s.width; x++) {
+          if (!(vis[y] && vis[y][x])) continue;
+          const ch = mapAt(s, x, y);
+          if (!"itd&*!/[}%JU".includes(ch)) continue;
+          if (x === s.player.x && y === s.player.y) continue;
+          const relX = x + 0.5 - px;
+          const relY = y + 0.5 - py;
+          const invDet = 1.0 / (planeX * dirY - dirX * planeY);
+          const transformX = invDet * (dirY * relX - dirX * relY);
+          const transformY = invDet * (-planeY * relX + planeX * relY);
+          if (transformY <= 0.15) continue;
+          const spriteScreenX = Math.floor((W / 2) * (1 + transformX / transformY));
+          const spriteH = Math.abs(Math.floor(H / transformY));
+          const drawStartY = Math.max(0, Math.floor(mid - spriteH / 2));
+          const drawEndY = Math.min(H - 1, Math.floor(mid + spriteH / 2));
+          const spriteW = Math.max(4, Math.floor(spriteH * 0.4));
+          const drawStartX = Math.max(0, spriteScreenX - Math.floor(spriteW / 2));
+          const drawEndX = Math.min(W - 1, spriteScreenX + Math.floor(spriteW / 2));
+          const rgb = ENTITY_RGB[ch] || [57, 197, 207];
+          for (let sx = drawStartX; sx <= drawEndX; sx++) {
+            if (transformY >= depths[sx]) continue;
+            const edge = sx === drawStartX || sx === drawEndX;
+            const glow = edge ? 1.25 : 1;
+            const rr = Math.min(255, rgb[0] * glow);
+            const gg = Math.min(255, rgb[1] * glow);
+            const bb = Math.min(255, rgb[2] * glow);
+            sctx.fillStyle = "rgb(" + (rr | 0) + "," + (gg | 0) + "," + (bb | 0) + ")";
+            sctx.fillRect(sx, drawStartY, 1, drawEndY - drawStartY + 1);
+            sctx.fillStyle = "rgba(255,255,255,0.35)";
+            sctx.fillRect(sx, drawStartY, 1, 2);
+            depths[sx] = transformY;
           }
-          depths[sx] = transformY;
+          sctx.fillStyle = "#e8fbff";
+          sctx.font = Math.max(10, Math.floor(spriteH * 0.35)) + "px monospace";
+          sctx.textAlign = "center";
+          sctx.fillText(ch, spriteScreenX, mid + 4);
         }
+      }
+
+      const cx = (W / 2) | 0;
+      const cy = (H / 2) | 0;
+      sctx.strokeStyle = "rgba(57,197,207,0.85)";
+      sctx.lineWidth = 1;
+      sctx.beginPath();
+      sctx.moveTo(cx - 10, cy);
+      sctx.lineTo(cx - 3, cy);
+      sctx.moveTo(cx + 3, cy);
+      sctx.lineTo(cx + 10, cy);
+      sctx.moveTo(cx, cy - 8);
+      sctx.lineTo(cx, cy - 3);
+      sctx.moveTo(cx, cy + 3);
+      sctx.lineTo(cx, cy + 8);
+      sctx.stroke();
+      sctx.fillStyle = "rgba(255,42,109,0.9)";
+      sctx.fillRect(cx - 1, cy - 1, 3, 3);
+
+      const turn = s.turn || 0;
+      sctx.fillStyle = "rgba(0,0,0,0.12)";
+      const phase = ((t * 60) | 0) % 3;
+      for (let y = phase; y < H; y += 3) {
+        sctx.fillRect(0, y, W, 1);
+      }
+      sctx.fillStyle = "rgba(57,197,207,0.08)";
+      for (let n = 0; n < 40; n++) {
+        const nx = (n * 97 + turn * 13 + ((t * 40) | 0)) % W;
+        const ny = (n * 53 + turn * 7 + ((t * 25) | 0)) % H;
+        sctx.fillRect(nx, ny, 2, 1);
+      }
+      const vig = sctx.createRadialGradient(cx, cy, H * 0.2, cx, cy, H * 0.75);
+      vig.addColorStop(0, "rgba(0,0,0,0)");
+      vig.addColorStop(1, "rgba(0,0,0,0.45)");
+      sctx.fillStyle = vig;
+      sctx.fillRect(0, 0, W, H);
+    }
+
+    function pushAscii() {
+      const eng = ensureAscii();
+      if (!eng) return;
+      eng.renderFromCanvas(scene);
+    }
+
+    function updateHud(s) {
+      if (!s) return;
+      const facing = (s.player.facing || 0) % 4;
+      if (compassEl) {
+        const fn = s.player.facing_name || FACING_NAMES[facing] || "?";
+        compassEl.textContent = FACING_GLYPH[facing] + " " + fn;
+      }
+      if (fpvStatus) {
+        fpvStatus.textContent =
+          "POS " +
+          s.player.x +
+          "," +
+          s.player.y +
+          " · T" +
+          s.turn +
+          " · " +
+          (s.player.has_payload ? "PAYLOAD LOCKED" : "NO PAYLOAD");
       }
     }
 
-    // HUD reticle
-    const cx = Math.floor(cols / 2);
-    const cy = Math.floor(rows / 2);
-    if (lines[cy]) {
-      const r = lines[cy];
-      lines[cy] = r.substring(0, cx - 1) + "[+]" + r.substring(cx + 2);
+    function render(s) {
+      lastState = s;
+      if (!s) return;
+      paintScene(s, noiseT);
+      pushAscii();
+      updateHud(s);
     }
 
-    fpvEl.textContent = lines.join("\n");
-    if (compassEl) {
-      const fn = s.player.facing_name || FACING_NAMES[facing] || "?";
-      compassEl.textContent = FACING_GLYPH[facing] + " " + fn;
+    function loop(ts) {
+      if (!running) return;
+      rafId = requestAnimationFrame(loop);
+      if (paused || !lastState) return;
+      noiseT = (ts || 0) / 1000;
+      // idle refresh ~12fps for scanlines/noise without burning CPU
+      if (((ts / 80) | 0) === ((noiseT * 12) | 0) || true) {
+        // throttle: only repaint every ~80ms
+      }
+      if (!loop._last || ts - loop._last > 80) {
+        loop._last = ts;
+        paintScene(lastState, noiseT);
+        pushAscii();
+      }
     }
-    if (fpvStatus) {
-      fpvStatus.textContent = `POS ${s.player.x},${s.player.y} · T${s.turn} · ${
-        s.player.has_payload ? "PAYLOAD LOCKED" : "NO PAYLOAD"
-      }`;
+
+    function start() {
+      ensureAscii();
+      resizeAscii();
+      running = true;
+      paused = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(loop);
     }
+
+    function pause() {
+      paused = true;
+    }
+
+    function resume() {
+      paused = false;
+      if (lastState) render(lastState);
+    }
+
+    function stop() {
+      running = false;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      if (ascii) ascii.stop();
+    }
+
+    function kick() {
+      // force a redraw after layout changes
+      resizeAscii();
+      if (lastState) render(lastState);
+    }
+
+    // wire bridge for CutscenePlayer
+    FpvBridge.pause = pause;
+    FpvBridge.resume = resume;
+    FpvBridge.render = render;
+    FpvBridge.kick = kick;
+
+    window.addEventListener("resize", () => {
+      if (!running) return;
+      kick();
+    });
+
+    return { start, stop, pause, resume, render, kick, scene };
+  })();
+
+  function renderFpv(s) {
+    if (!s) return;
+    FpvEngine.render(s);
   }
 
   // ---- Enhanced ASCII minimap (GTA corner radar — NOT PNG tiles) ----
@@ -901,16 +1219,20 @@
   async function startGameplay(opts) {
     const replaySeed = opts && opts.seed !== undefined ? opts.seed : null;
     gameplayReady = true;
+    FpvEngine.start();
     try {
       const s = await api("/api/new", { seed: replaySeed });
       render(s);
+      FpvEngine.kick();
     } catch (err) {
-      if (fpvEl) fpvEl.textContent = "Failed to load game: " + err;
+      console.error("Failed to load game:", err);
+      if (fpvStatus) fpvStatus.textContent = "Failed to load game";
     }
   }
 
   async function runIntroThenGame(opts) {
     gameplayReady = false;
+    FpvEngine.pause();
     // Mute gameplay SFX path until intro ends (no /api/new yet)
     await IntroPlayer.play();
     await startGameplay(opts || {});

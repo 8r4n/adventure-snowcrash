@@ -40,9 +40,9 @@ Then open **http://127.0.0.1:8765/** (or your host’s IP on port **8765**).
 
 On first load (and **Replay intro** / restart after death-win) the web UI plays a fullscreen **opening cinematic**: high-fidelity **colored ASCII video** (canvas sample of a procedural MP4) with timed story beats for Rin Vale / Payload-Zero. **Space / Esc / Skip intro** dismisses it, then the playable HUD starts (`/api/new` is deferred until the intro ends so gameplay SFX do not overlap).
 
-The main viewport is a live **1st-person ASCII raycast** (branded video→ASCII Metaverse layer). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the same glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
+The main viewport is live **video→ASCII FPV**: neon raycast scene → shared colored-ASCII canvas (same pipeline as the intro). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
 Short procedural SFX play for move/combat/loot — **Mute** / **m** (localStorage; default volume ~0.4).
-Jackpoint / uplink / payload / NPC / terminal / door still trigger denser **jack-in ASCII cutscenes** (Space/Esc skip). TUI has no FPV/cutscenes yet.
+Jackpoint / uplink / payload / NPC / terminal / door trigger **jack-in video→ASCII cutscenes** (MP4 preferred, JSON fallback; Space/Esc skip). TUI has no FPV/cutscenes yet.
 Quest rooms: **J** jackpoint, **U** Metaverse uplink.
 
 To regenerate sprites after editing `scripts/gen_tiles.py`:
@@ -58,7 +58,8 @@ To regenerate SFX WAVs (stdlib only — no extra deps):
 ```bash
 python scripts/gen_sfx.py
 python scripts/gen_cutscenes.py   # stdlib ASCII cutscene packs
-python scripts/gen_intro_video.py # Pillow + ffmpeg → colored-ASCII intro MP4
+python scripts/gen_intro_video.py      # Pillow + ffmpeg → colored-ASCII intro MP4
+python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline)
 ```
 
 ## Controls
@@ -86,13 +87,17 @@ Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** ne
 
 ## Perspective / FPV + minimap
 
-**Opening cinematic:** `snowcrash/static/ascii-video.js` (`VideoAsciiCanvas`) samples each frame of `static/cutscenes/intro/montage.mp4` onto a canvas and draws a dense charset with **per-glyph RGB from the source** (~120–200 columns, rAF loop). Source media is original procedural footage (neon grids, skyline, datastream, tunnel) — no copyrighted clips. Rebuild with `python scripts/gen_intro_video.py` (Pillow + ffmpeg).
+**Shared ASCII pipeline:** `snowcrash/static/ascii-video.js` exports `AsciiRenderer` + `VideoAsciiCanvas`. Both sample luminance to a dense charset and paint **per-glyph RGB** from the source — works with `<video>`, an offscreen scene canvas (`setSourceCanvas` / `renderFromCanvas`), or `ImageData` (`renderFromImageData`). Intro, live FPV, and jack-in cutscenes all share this look.
 
-**Web default after intro:** continuous **1st-person video→ASCII FPV** (live raycaster synced to the tile world + facing). Corner **Street GPS** = enhanced ASCII minimap (glyph language, upscaled/colorized — not the PNG tile set).
+**Opening cinematic:** `VideoAsciiCanvas` plays `static/cutscenes/intro/montage.mp4` fullscreen. Rebuild with `python scripts/gen_intro_video.py` (Pillow + ffmpeg).
+
+**Web gameplay FPV:** each move/turn (plus a low-rate idle rAF for scanlines/noise) paints a neon first-person scene (perspective walls, ceiling/floor gradients, entity billboards) to an offscreen canvas, then samples it through the same ASCII renderer onto `#fpv-canvas`. Same colored density as the intro — not a plain `<pre>` raycaster.
+
+**Street GPS:** enhanced ASCII minimap (glyph language, 2×2 upscaled/colorized) in matching METAVERSE LAYER chrome.
 
 Movement is **relative to facing** (GTA-like): `W/S` forward/back, `A/D` strafe, `Q/E` (or arrows) turn.
 
-Jack-in intensives still queue prebaked ASCII cutscene packs in `snowcrash/static/cutscenes/`:
+**Jack-in cutscenes** prefer short procedural MP4s (`static/cutscenes/<id>.mp4`) through `VideoAsciiCanvas`; JSON packs remain as fallback (rendered onto the same canvas with neon coloring):
 
 | Trigger | Cutscene id |
 |---------|-------------|
@@ -103,7 +108,10 @@ Jack-in intensives still queue prebaked ASCII cutscene packs in `snowcrash/stati
 | Walk through a door (once) | `door` |
 | Win at Metaverse uplink | `uplink` |
 
-Rebuild packs with `python scripts/gen_cutscenes.py` (no OpenCV at runtime).
+```bash
+python scripts/gen_cutscenes.py         # JSON ASCII packs
+python scripts/gen_cutscene_videos.py   # short MP4s for jack-in (Pillow + ffmpeg)
+```
 
 ## Map landmarks
 

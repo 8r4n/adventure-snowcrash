@@ -47,7 +47,10 @@
             <span>METAVERSE LAYER · VIDEO→ASCII · LIVE FPV</span>
             <span id="fpv-status">STREETS OF FRACTURED LA</span>
           </div>
-          <pre id="fpv" aria-label="First-person ASCII view"></pre>
+          <div id="fpv-stage" class="fpv-stage">
+            <canvas id="fpv-canvas" aria-label="First-person colored ASCII view"></canvas>
+            <pre id="fpv" class="fpv-fallback hidden" aria-hidden="true"></pre>
+          </div>
           <div class="fpv-chrome bottom">
             <span>RELATIVE MOVE · FACING LOCK</span>
             <span>JACK-IN CUTSCENES ON OBJECTS</span>
@@ -56,7 +59,7 @@
 
         <div id="minimap-wrap" aria-label="Street GPS minimap">
           <div class="mini-chrome">
-            <span>STREET GPS</span>
+            <span>STREET GPS · METAVERSE LAYER</span>
             <span>ENHANCED ASCII · 3RD</span>
           </div>
           <pre id="minimap" class="minimap-ascii"></pre>
@@ -64,6 +67,7 @@
       </div>
 
       <aside id="side">
+        <div class="side-kicker">COURIER HUD</div>
         <div id="stats"></div>
         <div id="inv-panel">
           <h2>Inventory</h2>
@@ -85,8 +89,14 @@
     <div id="overlay" class="hidden"></div>
     <div id="cutscene" class="hidden" aria-live="polite">
       <div class="cut-inner">
-        <div id="cut-title" class="cut-title">1ST PERSON — JACK-IN</div>
-        <pre id="cut-frames" class="cut-frames"></pre>
+        <div class="cut-chrome">
+          <span class="cut-kicker">METAVERSE LAYER · JACK-IN</span>
+          <span id="cut-title" class="cut-title">1ST PERSON — JACK-IN</span>
+        </div>
+        <div class="cut-stage">
+          <canvas id="cut-canvas" aria-label="Jack-in cutscene ASCII"></canvas>
+          <pre id="cut-frames" class="cut-frames hidden" aria-hidden="true"></pre>
+        </div>
         <div class="cut-hint">Space / Esc to skip · returning to live FPV…</div>
       </div>
     </div>
