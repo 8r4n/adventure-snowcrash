@@ -260,6 +260,175 @@ def scene_door(t: float, cols: int, rows: int) -> list[list[float]]:
     return buf
 
 
+
+
+def scene_briefing(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Archive lattice / librarian briefing scroll."""
+    buf = blank(cols, rows, 0.04)
+    # scrolling archive columns
+    for x in range(3, cols - 3, 4):
+        offset = int(noise(11, x, 0) * rows + t * rows * 1.2) % rows
+        for i in range(8):
+            y = (offset + i) % (rows - 2) + 1
+            add_px(buf, x, y, 0.2 + i * 0.08)
+    # central tome / daemon mask
+    cx, cy = cols // 2, rows // 2 - 1
+    draw_rect(buf, cx - 10, cy - 5, cx + 10, cy + 5, 0.35, fill=False)
+    for y in range(cy - 3, cy + 4):
+        for x in range(cx - 7, cx + 8):
+            if noise(5, x + int(t * 20), y) > 0.55:
+                add_px(buf, x, y, 0.45)
+    # subtitle crawl
+    bw = int((cols - 8) * clamp01(t * 1.1))
+    draw_rect(buf, 4, rows - 4, 4 + bw, rows - 3, 0.7)
+    draw_rect(buf, 2, 1, cols - 3, rows - 2, 0.22, fill=False)
+    return buf
+
+
+def scene_club(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Black neon dance floor strobe."""
+    buf = blank(cols, rows, 0.05)
+    pulse = 0.5 + 0.5 * math.sin(t * 22)
+    # floor grid
+    for y in range(rows // 2, rows):
+        for x in range(cols):
+            if (x + int(t * 12)) % 5 == 0 or y % 3 == 0:
+                add_px(buf, x, y, 0.25 + 0.35 * pulse)
+    # strobe bars
+    for i in range(6):
+        x = int((i + t * 3) * cols / 6) % cols
+        draw_rect(buf, x, 2, min(cols - 1, x + 2), rows // 2, 0.55 + 0.4 * pulse)
+    # crowd silhouettes
+    for k in range(8):
+        cx = 6 + k * (cols - 12) // 8
+        h = 3 + int(2 * abs(math.sin(t * 10 + k)))
+        draw_rect(buf, cx, rows // 2 - h, cx + 2, rows // 2, 0.6)
+    draw_rect(buf, 1, 1, cols - 2, rows - 2, 0.3, fill=False)
+    return buf
+
+
+def scene_flotilla(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Radio horizon / refugee flotilla signal."""
+    buf = blank(cols, rows, 0.04)
+    horizon = rows // 2 + int(2 * math.sin(t * 3))
+    for y in range(horizon):
+        for x in range(cols):
+            buf[y][x] = 0.08 + 0.04 * math.sin(x * 0.2 + t)
+    # water chop
+    for y in range(horizon, rows):
+        for x in range(cols):
+            v = 0.12 + 0.2 * abs(math.sin(x * 0.35 + t * 6 + y * 0.2))
+            buf[y][x] = v
+    # hull silhouettes
+    for i, ox in enumerate((cols // 4, cols // 2, 3 * cols // 4)):
+        w = 6 + i
+        draw_rect(buf, ox - w, horizon - 2 - i, ox + w, horizon, 0.55)
+        add_px(buf, ox, horizon - 4 - i, 0.85)  # mast light
+    # radio rings
+    cx, cy = cols // 2, horizon - 1
+    for k in range(int(2 + 5 * t)):
+        rr = 3 + k * 2
+        for a in range(0, 360, 10):
+            ang = math.radians(a)
+            add_px(buf, cx + int(rr * math.cos(ang)), cy + int(rr * 0.4 * math.sin(ang)), 0.4)
+    draw_rect(buf, 2, 1, cols - 3, rows - 2, 0.25, fill=False)
+    return buf
+
+
+def scene_namshub(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Counter-incantation / Babel fracture scrub at uplink."""
+    buf = blank(cols, rows, 0.05)
+    cx, cy = cols // 2, rows // 2
+    # fracturing rings
+    for k in range(6):
+        rr = int(2 + k * 3 + t * 14)
+        crack = 0.4 + 0.5 * math.sin(t * 12 + k)
+        for a in range(0, 360, 6):
+            ang = math.radians(a + t * 40)
+            jitter = int(2 * noise(k + 3, int(a), int(t * 10)))
+            add_px(buf, cx + int(rr * math.cos(ang)) + jitter, cy + int(rr * 0.55 * math.sin(ang)), crack)
+    # glyph shatter columns
+    for x in range(4, cols - 4, 3):
+        h = int(rows * (0.2 + 0.8 * ((math.sin(t * 9 + x) + 1) * 0.5)))
+        for y in range(rows - h, rows):
+            add_px(buf, x, y, 0.3 + 0.4 * (y / rows))
+    # clean wipe from top
+    wipe = int(rows * clamp01(t * 1.05))
+    for y in range(0, wipe):
+        for x in range(cols):
+            buf[y][x] = clamp01(buf[y][x] * 0.25 + 0.12)
+    draw_rect(buf, 1, 1, cols - 2, rows - 2, 0.28, fill=False)
+    return buf
+
+
+def scene_victory(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Street victory / cleared babel light."""
+    buf = blank(cols, rows, 0.06)
+    cx, cy = cols // 2, rows // 2
+    pulse = 0.5 + 0.5 * math.sin(t * 8)
+    # sunrise wash
+    for y in range(rows):
+        for x in range(cols):
+            u = 1.0 - abs(x - cx) / cx
+            v = 1.0 - y / rows
+            buf[y][x] = clamp01(0.1 + 0.45 * u * v * (0.6 + 0.4 * pulse) * clamp01(t * 1.2))
+    # courier glyph
+    draw_rect(buf, cx - 2, cy - 3, cx + 2, cy + 3, 0.85)
+    add_px(buf, cx, cy - 5, 0.9)
+    # confetti noise
+    for y in range(rows):
+        for x in range(cols):
+            if noise(21, x + int(t * 30), y) > 0.93:
+                buf[y][x] = 1.0
+    draw_rect(buf, 2, 1, cols - 3, rows - 2, 0.35, fill=False)
+    return buf
+
+
+def scene_babel_clear(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Babel clear — quiet lattice after scrub."""
+    buf = blank(cols, rows, 0.03)
+    for x in range(0, cols, 2):
+        for y in range(rows):
+            phase = math.sin(t * 4 + x * 0.15 + y * 0.1)
+            if phase > 0.2:
+                add_px(buf, x, y, 0.15 + 0.35 * phase * clamp01(t + 0.2))
+    cx, cy = cols // 2, rows // 2
+    rad = int(2 + 8 * clamp01(t))
+    for y in range(cy - rad, cy + rad + 1):
+        for x in range(cx - rad, cx + rad + 1):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= rad * rad:
+                add_px(buf, x, y, 0.55)
+    draw_rect(buf, 3, 2, cols - 4, rows - 3, 0.25, fill=False)
+    return buf
+
+
+def scene_wish(t: float, cols: int, rows: int) -> list[list[float]]:
+    """Wish granted spark / petition ack."""
+    buf = blank(cols, rows, 0.05)
+    cx, cy = cols // 2, rows // 2
+    # star burst
+    for a in range(0, 360, 15):
+        ang = math.radians(a + t * 60)
+        length = int(4 + 12 * t)
+        draw_line(
+            buf,
+            cx,
+            cy,
+            cx + int(length * math.cos(ang)),
+            cy + int(length * 0.6 * math.sin(ang)),
+            0.55 + 0.4 * math.sin(t * 10 + a),
+        )
+    rad = int(2 + 4 * abs(math.sin(t * 14)))
+    for y in range(cy - rad, cy + rad + 1):
+        for x in range(cx - rad, cx + rad + 1):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= rad * rad:
+                add_px(buf, x, y, 0.9)
+    # petition bar
+    bw = int((cols - 10) * clamp01(t * 1.3))
+    draw_rect(buf, 5, rows - 4, 5 + bw, rows - 3, 0.75)
+    return buf
+
+
 SCENES = {
     "jackpoint": {
         "title": "1ST PERSON — JACKING IN",
@@ -290,6 +459,41 @@ SCENES = {
         "title": "1ST PERSON — THRESHOLD",
         "seconds": 1.4,
         "render": scene_door,
+    },
+    "briefing_librarian": {
+        "title": "1ST PERSON — ARCHIVE BRIEFING",
+        "seconds": 2.4,
+        "render": scene_briefing,
+    },
+    "club_black_neon": {
+        "title": "1ST PERSON — BLACK NEON",
+        "seconds": 2.0,
+        "render": scene_club,
+    },
+    "flotilla_signal": {
+        "title": "1ST PERSON — FLOTILLA SIGNAL",
+        "seconds": 2.2,
+        "render": scene_flotilla,
+    },
+    "namshub_counter": {
+        "title": "1ST PERSON — BABEL COUNTER",
+        "seconds": 2.6,
+        "render": scene_namshub,
+    },
+    "street_victory": {
+        "title": "1ST PERSON — STREET VICTORY",
+        "seconds": 2.2,
+        "render": scene_victory,
+    },
+    "babel_clear": {
+        "title": "1ST PERSON — BABEL CLEAR",
+        "seconds": 2.0,
+        "render": scene_babel_clear,
+    },
+    "wish_granted": {
+        "title": "1ST PERSON — WISH GRANTED",
+        "seconds": 1.6,
+        "render": scene_wish,
     },
 }
 

@@ -403,10 +403,10 @@
       html:
         '<p class="intro-kicker">METAVERSE LAYER · VIDEO→ASCII</p>' +
         '<h1 class="intro-title">SNOWCRASH</h1>' +
-        '<p class="intro-sub">Fractured LA</p>',
+        '<p class="intro-sub">Fractured franchise cities</p>',
     },
     {
-      at: 5.2,
+      at: 4.0,
       html:
         '<p class="intro-kicker">COURIER DOSSIER</p>' +
         '<h1 class="intro-title" style="letter-spacing:0.22em;font-size:clamp(1.4rem,4vw,2.2rem)">RIN VALE</h1>' +
@@ -414,20 +414,28 @@
         "You ride the neon seams between meatspace and the Layer — paid to move what shouldn't move.</p>",
     },
     {
-      at: 10.8,
+      at: 8.5,
       html:
-        '<p class="intro-kicker">BRIEFING</p>' +
-        '<h1 class="intro-title" style="letter-spacing:0.18em;font-size:clamp(1.2rem,3.5vw,1.9rem)">THE STREETS</h1>' +
-        '<p class="intro-body">Fractured LA is a grid of jackpoints, uplink nodes, and hostile avatars. ' +
-        "Tonight's run: recover a linguistic weapon before it rewrites the Layer.</p>",
+        '<p class="intro-kicker">PARALLEL LAYER</p>' +
+        '<h1 class="intro-title" style="letter-spacing:0.16em;font-size:clamp(1.2rem,3.5vw,1.9rem)">THE METAVERSE</h1>' +
+        '<p class="intro-body">Above the asphalt: a social overlay of jackpoints, avatars, and uplink nodes. ' +
+        "Street deals echo upstairs. What you speak can rewrite code — and flesh.</p>",
     },
     {
-      at: 16.2,
+      at: 13.0,
       html:
         '<p class="intro-kicker">THREAT VECTOR</p>' +
         '<h1 class="intro-title" style="letter-spacing:0.16em;font-size:clamp(1.2rem,3.5vw,1.9rem)">PAYLOAD-ZERO</h1>' +
-        '<p class="intro-body">A viral utterance sealed in a courier sleeve. ' +
-        "Infected avatars hunt it. Security drones triangulate it. Deliver it to a Metaverse uplink — or burn with it.</p>",
+        '<p class="intro-body">Neurolinguistic malware in a Faraday sleeve. ' +
+        "Infected avatars hunt it. Counter-incantation at the uplink fractures the Babel stack.</p>",
+    },
+    {
+      at: 17.5,
+      html:
+        '<p class="intro-kicker">BROADCAST</p>' +
+        '<h1 class="intro-title" style="letter-spacing:0.14em;font-size:clamp(1.1rem,3.2vw,1.7rem)">THE FLOTILLA</h1>' +
+        '<p class="intro-body">Cable Baron Cassian Vox pushes a constellation of refugee signal-ships. ' +
+        "Propaganda rides the same band as the desperate. Listen carefully.</p>",
     },
     {
       at: 21.5,
@@ -435,7 +443,7 @@
         '<p class="intro-kicker">JACK IN</p>' +
         '<h1 class="intro-title">SNOWCRASH</h1>' +
         '<p class="intro-sub">Enter the streets</p>' +
-        '<p class="intro-body">WASD move · Q/E turn · recover Payload-Zero · punch the uplink.</p>',
+        '<p class="intro-body">WASD move · Q/E turn · recover Payload-Zero · punch the uplink · /wish to petition.</p>',
     },
   ];
 
@@ -1315,6 +1323,7 @@
       const li = document.createElement("li");
       li.textContent = `${i}: ${it.glyph} ${it.name}`;
       if (it.equipped) li.classList.add("equipped");
+      if (it.kind === "wish") li.classList.add("wish");
       if (i === s.selected_inv) li.classList.add("sel");
       li.title = it.description;
       li.addEventListener("click", () => {
@@ -1650,6 +1659,7 @@
       if (!raw) return;
       let text = raw;
       if (text.toLowerCase().startsWith("/say ")) text = text.slice(5);
+      // /wish and /feature pass through to server for inventory petition
       Net.chat(text);
       chatInput.value = "";
       chatInput.blur();
@@ -1657,6 +1667,21 @@
     });
     chatInput.addEventListener("focus", () => { chatFocused = true; });
     chatInput.addEventListener("blur", () => { chatFocused = false; });
+  }
+
+  const btnWish = document.getElementById("btn-wish");
+  if (btnWish && chatInput) {
+    btnWish.addEventListener("click", () => {
+      Sound.unlock();
+      chatInput.focus();
+      chatFocused = true;
+      if (!chatInput.value.startsWith("/wish")) {
+        chatInput.value = "/wish ";
+      }
+      try {
+        chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+      } catch (_) {}
+    });
   }
 
   boot();

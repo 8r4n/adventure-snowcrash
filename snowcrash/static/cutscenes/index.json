@@ -29,6 +29,41 @@
       "id": "door",
       "title": "1ST PERSON \u2014 THRESHOLD",
       "file": "door.json"
+    },
+    {
+      "id": "briefing_librarian",
+      "title": "1ST PERSON \u2014 ARCHIVE BRIEFING",
+      "file": "briefing_librarian.json"
+    },
+    {
+      "id": "club_black_neon",
+      "title": "1ST PERSON \u2014 BLACK NEON",
+      "file": "club_black_neon.json"
+    },
+    {
+      "id": "flotilla_signal",
+      "title": "1ST PERSON \u2014 FLOTILLA SIGNAL",
+      "file": "flotilla_signal.json"
+    },
+    {
+      "id": "namshub_counter",
+      "title": "1ST PERSON \u2014 BABEL COUNTER",
+      "file": "namshub_counter.json"
+    },
+    {
+      "id": "street_victory",
+      "title": "1ST PERSON \u2014 STREET VICTORY",
+      "file": "street_victory.json"
+    },
+    {
+      "id": "babel_clear",
+      "title": "1ST PERSON \u2014 BABEL CLEAR",
+      "file": "babel_clear.json"
+    },
+    {
+      "id": "wish_granted",
+      "title": "1ST PERSON \u2014 WISH GRANTED",
+      "file": "wish_granted.json"
     }
   ]
 }
