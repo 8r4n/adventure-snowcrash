@@ -4,9 +4,8 @@ A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev**
 
 
 
-## Screenshots
 
-Animated GIFs below autoplay on GitHub (keep them under ~2MB for reliable playback).
+## Screenshots
 
 ### Opening credits
 
@@ -14,25 +13,11 @@ Animated GIFs below autoplay on GitHub (keep them under ~2MB for reliable playba
   <img src="docs/screenshots/opening-credits.gif" alt="Snowcrash opening credits — animated ASCII intro" width="720" />
 </p>
 
-<details>
-<summary>Still frame</summary>
-
-![Snowcrash opening credits still](docs/screenshots/opening-credits.png)
-
-</details>
-
 ### Gameplay
 
 <p align="center">
   <img src="docs/screenshots/gameplay.gif" alt="Snowcrash gameplay — animated FPV and Street GPS" width="720" />
 </p>
-
-<details>
-<summary>Still frame</summary>
-
-![Snowcrash gameplay still](docs/screenshots/gameplay.png)
-
-</details>
 
 
 ## Requirements
