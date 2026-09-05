@@ -1056,7 +1056,79 @@
       }
     }
 
-  
+
+    function render(s) {
+      lastState = s;
+      if (!s) return;
+      paintScene(s, noiseT);
+      pushAscii();
+      updateHud(s);
+    }
+
+    function loop(ts) {
+      if (!running) return;
+      rafId = requestAnimationFrame(loop);
+      if (paused || !lastState) return;
+      noiseT = (ts || 0) / 1000;
+      // idle refresh ~12fps for scanlines/noise without burning CPU
+      if (((ts / 80) | 0) === ((noiseT * 12) | 0) || true) {
+        // throttle: only repaint every ~80ms
+      }
+      if (!loop._last || ts - loop._last > 80) {
+        loop._last = ts;
+        paintScene(lastState, noiseT);
+        pushAscii();
+      }
+    }
+
+    function start() {
+      ensureAscii();
+      resizeAscii();
+      running = true;
+      paused = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function pause() {
+      paused = true;
+    }
+
+    function resume() {
+      paused = false;
+      if (lastState) render(lastState);
+    }
+
+    function stop() {
+      running = false;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      if (ascii) ascii.stop();
+    }
+
+    function kick() {
+      // force a redraw after layout changes
+      resizeAscii();
+      if (lastState) render(lastState);
+    }
+
+    // wire bridge for CutscenePlayer
+    FpvBridge.pause = pause;
+    FpvBridge.resume = resume;
+    FpvBridge.render = render;
+    FpvBridge.kick = kick;
+
+    window.addEventListener("resize", () => {
+      if (!running) return;
+      kick();
+    });
+
+    return { start, stop, pause, resume, render, kick, scene };
+  })();
+
+
   // ---- Year frontend UI (#12–#39) — defensive snapshot binding ----
   const YearUI = (() => {
     const els = {
@@ -1350,14 +1422,43 @@
 
     function renderJournal(s) {
       if (!els.journalBody) return;
-      const journal = defArr(s.journal || defObj(s.journal).quests);
-      const quests = Array.isArray(s.journal) ? s.journal : defArr(defObj(s.journal).quests);
-      const list = quests.length ? quests : journal;
+      const j = s.journal;
+      // Backend sends { arc, step, steps[], completed }; also accept array / .quests
+      let list = [];
+      let header = "";
+      if (Array.isArray(j)) {
+        list = j;
+      } else {
+        const jo = defObj(j);
+        if (Array.isArray(jo.quests) && jo.quests.length) {
+          list = jo.quests;
+        } else if (Array.isArray(jo.steps) && jo.steps.length) {
+          const arc = defStr(jo.arc || jo.title || jo.name, "Quest");
+          const cur = jo.step != null ? Number(jo.step) : -1;
+          header = `<div class="journal-arc"><strong>${escapeHtml(arc.replace(/_/g, " "))}</strong>` +
+            (cur >= 0 ? ` <span class="dim">step ${escapeHtml(String(cur))}</span>` : "") +
+            `</div>`;
+          list = jo.steps.map((step, i) => {
+            if (typeof step === "string") {
+              return { id: "step-" + i, title: "Step " + (i + 1), text: step, status: i + 1 === cur ? "active" : (i + 1 < cur ? "done" : "pending") };
+            }
+            const id = defStr(step.id || step.key, "step-" + i);
+            const done = !!(step.done || step.completed || (cur > 0 && i + 1 < cur));
+            const active = !done && (cur < 0 || i + 1 === cur || step.id === jo.current);
+            return {
+              id,
+              title: defStr(step.title || step.name || id, id),
+              text: defStr(step.text || step.objective || step.desc, ""),
+              status: done ? "done" : active ? "active" : defStr(step.status, "pending"),
+            };
+          });
+        }
+      }
       if (!list.length) {
         els.journalBody.innerHTML = '<div class="panel-empty">No active quests</div>';
         return;
       }
-      els.journalBody.innerHTML = list
+      els.journalBody.innerHTML = header + list
         .map((q) => {
           const id = defStr(q.id || q.key, "");
           const title = defStr(q.title || q.name || id, "Quest");
@@ -1984,77 +2085,6 @@
     return { apply, bind, openPanel, toast, getIrcNick, persistNick, toggleIrcCollapse };
   })();
 
-
-  function render(s) {
-      lastState = s;
-      if (!s) return;
-      paintScene(s, noiseT);
-      pushAscii();
-      updateHud(s);
-    }
-
-    function loop(ts) {
-      if (!running) return;
-      rafId = requestAnimationFrame(loop);
-      if (paused || !lastState) return;
-      noiseT = (ts || 0) / 1000;
-      // idle refresh ~12fps for scanlines/noise without burning CPU
-      if (((ts / 80) | 0) === ((noiseT * 12) | 0) || true) {
-        // throttle: only repaint every ~80ms
-      }
-      if (!loop._last || ts - loop._last > 80) {
-        loop._last = ts;
-        paintScene(lastState, noiseT);
-        pushAscii();
-      }
-    }
-
-    function start() {
-      ensureAscii();
-      resizeAscii();
-      running = true;
-      paused = false;
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(loop);
-    }
-
-    function pause() {
-      paused = true;
-    }
-
-    function resume() {
-      paused = false;
-      if (lastState) render(lastState);
-    }
-
-    function stop() {
-      running = false;
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = 0;
-      }
-      if (ascii) ascii.stop();
-    }
-
-    function kick() {
-      // force a redraw after layout changes
-      resizeAscii();
-      if (lastState) render(lastState);
-    }
-
-    // wire bridge for CutscenePlayer
-    FpvBridge.pause = pause;
-    FpvBridge.resume = resume;
-    FpvBridge.render = render;
-    FpvBridge.kick = kick;
-
-    window.addEventListener("resize", () => {
-      if (!running) return;
-      kick();
-    });
-
-    return { start, stop, pause, resume, render, kick, scene };
-  })();
 
   function renderFpv(s) {
     if (!s) return;
