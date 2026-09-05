@@ -1,47 +1,120 @@
-"""Curses frontend for Snowcrash."""
+"""Curses frontend for Snowcrash (SSH / TTY hardened)."""
 
 from __future__ import annotations
 
 import curses
+import os
+import sys
 from typing import Optional
 
-from .. import constants as C
 from ..engine import GameState, handle_action, new_game, snapshot
 
+# Minimum terminal size for playable TUI (cols x rows).
+_MIN_COLS = 40
+_MIN_ROWS = 12
 
-def run_curses(seed: Optional[int] = None) -> int:
+
+def _safe_color_pair(n: int) -> int:
+    """Return color_pair(n) or A_NORMAL if colors unavailable / pair invalid."""
+    try:
+        return curses.color_pair(n)
+    except curses.error:
+        return curses.A_NORMAL
+
+
+def _safe_init_pair(n: int, fg: int, bg: int) -> None:
+    try:
+        curses.init_pair(n, fg, bg)
+    except curses.error:
+        pass
+
+
+def _init_colors(no_color: bool = False) -> bool:
+    """Initialize color pairs safely. Returns True if colors are usable."""
+    if no_color or os.environ.get("SNOWCRASH_NO_COLOR", "").strip() in ("1", "true", "yes"):
+        return False
+    if not curses.has_colors():
+        return False
+    try:
+        curses.start_color()
+    except curses.error:
+        return False
+    try:
+        curses.use_default_colors()
+        default_bg = -1
+    except curses.error:
+        default_bg = curses.COLOR_BLACK
+    _safe_init_pair(1, curses.COLOR_CYAN, default_bg)  # player
+    _safe_init_pair(2, curses.COLOR_GREEN, default_bg)  # infected
+    _safe_init_pair(3, curses.COLOR_YELLOW, default_bg)  # thug
+    _safe_init_pair(4, curses.COLOR_MAGENTA, default_bg)  # drone
+    _safe_init_pair(5, curses.COLOR_BLUE, default_bg)  # npc
+    _safe_init_pair(6, curses.COLOR_WHITE, default_bg)  # visible
+    _safe_init_pair(7, curses.COLOR_WHITE, default_bg)  # explored dim
+    _safe_init_pair(8, curses.COLOR_RED, default_bg)
+    _safe_init_pair(9, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    return True
+
+
+def _wait_for_size(stdscr: "curses._CursesWindow") -> None:
+    """Block until terminal is at least _MIN_COLS x _MIN_ROWS."""
+    while True:
+        max_y, max_x = stdscr.getmaxyx()
+        if max_x >= _MIN_COLS and max_y >= _MIN_ROWS:
+            return
+        stdscr.erase()
+        msg = f"Terminal too small ({max_x}x{max_y}). Resize to at least {_MIN_COLS}x{_MIN_ROWS}."
+        try:
+            y = max(0, max_y // 2)
+            x = max(0, (max_x - len(msg)) // 2) if max_x > 0 else 0
+            stdscr.addnstr(y, x, msg, max(0, max_x - 1))
+        except curses.error:
+            pass
+        stdscr.refresh()
+        ch = stdscr.getch()
+        if ch in (ord("q"), 27):  # allow quit while waiting
+            raise SystemExit(0)
+
+
+def run_curses(seed: Optional[int] = None, no_color: bool = False) -> int:
+    if not sys.stdin.isatty():
+        print(
+            "error: snowcrash TUI needs an interactive TTY "
+            "(SSH session or local terminal). stdin is not a TTY.",
+            file=sys.stderr,
+        )
+        return 1
+
     def _wrapped(stdscr: "curses._CursesWindow") -> int:
-        return _game_loop(stdscr, seed)
+        return _game_loop(stdscr, seed, no_color=no_color)
 
     return curses.wrapper(_wrapped)
 
 
-def _game_loop(stdscr: "curses._CursesWindow", seed: Optional[int]) -> int:
+def _game_loop(
+    stdscr: "curses._CursesWindow",
+    seed: Optional[int],
+    no_color: bool = False,
+) -> int:
     curses.curs_set(0)
     stdscr.nodelay(False)
     stdscr.keypad(True)
-    if curses.has_colors():
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_CYAN, -1)  # player
-        curses.init_pair(2, curses.COLOR_GREEN, -1)  # infected
-        curses.init_pair(3, curses.COLOR_YELLOW, -1)  # thug
-        curses.init_pair(4, curses.COLOR_MAGENTA, -1)  # drone
-        curses.init_pair(5, curses.COLOR_BLUE, -1)  # npc
-        curses.init_pair(6, curses.COLOR_WHITE, -1)  # visible
-        curses.init_pair(7, curses.COLOR_BLACK, -1)  # explored dim — may fail
-        try:
-            curses.init_pair(7, curses.COLOR_WHITE, -1)
-        except curses.error:
-            pass
-        curses.init_pair(8, curses.COLOR_RED, -1)
-        curses.init_pair(9, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    colors_ok = _init_colors(no_color=no_color)
+
+    _wait_for_size(stdscr)
 
     gs = new_game(seed)
 
     while True:
-        _draw(stdscr, gs)
+        max_y, max_x = stdscr.getmaxyx()
+        if max_x < _MIN_COLS or max_y < _MIN_ROWS:
+            _wait_for_size(stdscr)
+            continue
+
+        _draw(stdscr, gs, colors_ok=colors_ok)
         ch = stdscr.getch()
+        if ch == curses.KEY_RESIZE:
+            continue
         action = _key_to_action(ch)
         if action is None:
             continue
@@ -52,6 +125,8 @@ def _game_loop(stdscr: "curses._CursesWindow", seed: Optional[int]) -> int:
 
 
 def _key_to_action(ch: int) -> Optional[str]:
+    if ch == curses.KEY_RESIZE:
+        return None
     if ch == curses.KEY_UP:
         return "up"
     if ch == curses.KEY_DOWN:
@@ -70,7 +145,11 @@ def _key_to_action(ch: int) -> Optional[str]:
         return None
 
 
-def _draw(stdscr: "curses._CursesWindow", gs: GameState) -> None:
+def _draw(
+    stdscr: "curses._CursesWindow",
+    gs: GameState,
+    colors_ok: bool = True,
+) -> None:
     stdscr.erase()
     max_y, max_x = stdscr.getmaxyx()
     snap = snapshot(gs)
@@ -94,27 +173,27 @@ def _draw(stdscr: "curses._CursesWindow", gs: GameState) -> None:
             if x >= max_x - 1:
                 break
             attr = curses.A_NORMAL
-            if curses.has_colors():
+            if colors_ok:
                 if not gs.gmap.visible[y][x] and gs.gmap.explored[y][x]:
-                    attr = curses.color_pair(6) | curses.A_DIM
+                    attr = _safe_color_pair(6) | curses.A_DIM
                 elif ch == "@":
-                    attr = curses.color_pair(1) | curses.A_BOLD
+                    attr = _safe_color_pair(1) | curses.A_BOLD
                 elif ch == "i":
-                    attr = curses.color_pair(2)
+                    attr = _safe_color_pair(2)
                 elif ch == "t":
-                    attr = curses.color_pair(3)
+                    attr = _safe_color_pair(3)
                 elif ch == "d":
-                    attr = curses.color_pair(4)
+                    attr = _safe_color_pair(4)
                 elif ch == "&":
-                    attr = curses.color_pair(5) | curses.A_BOLD
+                    attr = _safe_color_pair(5) | curses.A_BOLD
                 elif ch in ("*", "!", "/", "[", "}", "%"):
-                    attr = curses.color_pair(3) | curses.A_BOLD
+                    attr = _safe_color_pair(3) | curses.A_BOLD
                 elif ch == "J":
-                    attr = curses.color_pair(1) | curses.A_BOLD
+                    attr = _safe_color_pair(1) | curses.A_BOLD
                 elif ch == "U":
-                    attr = curses.color_pair(4) | curses.A_BOLD
+                    attr = _safe_color_pair(4) | curses.A_BOLD
                 else:
-                    attr = curses.color_pair(6)
+                    attr = _safe_color_pair(6)
             try:
                 stdscr.addch(y, x, ch, attr)
             except curses.error:
@@ -147,19 +226,19 @@ def _draw(stdscr: "curses._CursesWindow", gs: GameState) -> None:
             pass
 
     if gs.mode == "dead":
-        _banner(stdscr, max_y, max_x, "YOU DIED — press r to restart, q to quit", 8)
+        _banner(stdscr, max_y, max_x, "YOU DIED — press r to restart, q to quit", 8, colors_ok)
     elif gs.mode == "won":
-        _banner(stdscr, max_y, max_x, "YOU WIN — Payload cleared. r restart, q quit", 2)
+        _banner(stdscr, max_y, max_x, "YOU WIN — Payload cleared. r restart, q quit", 2, colors_ok)
 
     stdscr.refresh()
 
 
-def _banner(stdscr, max_y, max_x, text, color_pair):
+def _banner(stdscr, max_y, max_x, text, color_pair, colors_ok: bool = True):
     y = max_y // 2
     x = max(0, (max_x - len(text)) // 2)
     attr = curses.A_BOLD
-    if curses.has_colors():
-        attr |= curses.color_pair(color_pair)
+    if colors_ok:
+        attr |= _safe_color_pair(color_pair)
     try:
         stdscr.addnstr(y, x, text, max_x - 1, attr)
     except curses.error:

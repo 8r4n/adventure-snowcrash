@@ -42,6 +42,27 @@ python -m snowcrash
 python -m snowcrash --seed 42
 ```
 
+
+## Play over SSH
+
+SSH into the host, then from the repo root:
+
+```bash
+source .venv/bin/activate   # if you use a venv
+./scripts/play_ssh.sh
+# or:
+python -m snowcrash --seed 42
+# monochrome (safer on odd TERM / dumb relays):
+python -m snowcrash --no-color
+```
+
+`play_ssh.sh` checks for an interactive TTY, sets `TERM` to `xterm-256color` when unset, activates `.venv` if present, and runs the curses TUI.
+
+**Terminal size:** recommended **~80×24** (columns×rows). The TUI refuses to draw below **40×12** and shows a resize prompt instead. If the window is resized mid-play, `KEY_RESIZE` is handled safely.
+
+If stdin is not a TTY (piped/non-interactive), the game prints a clear error and exits with status 1.
+
+
 ## Run — web
 
 ```bash
@@ -209,6 +230,7 @@ adventure/
       app.py
     templates/index.html
     static/{style.css,game.js,ascii-video.js,tiles/,sfx/,cutscenes/,cutscenes/intro/}
+  scripts/play_ssh.sh    # SSH/TTY-safe TUI launcher
   scripts/gen_tiles.py   # Pillow one-shot sprite bake
   scripts/gen_sfx.py     # stdlib procedural WAV bake
   scripts/gen_cutscenes.py  # stdlib 1st-person ASCII packs
