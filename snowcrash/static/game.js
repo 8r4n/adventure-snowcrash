@@ -14,11 +14,19 @@
   const cutTitleEl = document.getElementById("cut-title");
   const cutFramesEl = document.getElementById("cut-frames");
   const fpvStatus = document.getElementById("fpv-status");
+  const introEl = document.getElementById("intro");
+  const introCanvas = document.getElementById("intro-canvas");
+  const introChapterEl = document.getElementById("intro-chapter");
+  const btnSkipIntro = document.getElementById("btn-skip-intro");
+  const btnReplayIntro = document.getElementById("btn-replay-intro");
+  const appEl = document.getElementById("app");
 
   let state = null;
   let invMode = false;
   let lastMode = null;
   let cutscenePlaying = false;
+  let gameplayReady = false;
+  let introActive = false;
 
   const SFX_PATH = "/static/sfx/";
   const CUT_PATH = "/static/cutscenes/";
@@ -236,6 +244,175 @@
       isPlaying: () => cutscenePlaying,
       setPerspective,
       load,
+    };
+  })();
+
+
+  // ---- Opening cinematic (high-fidelity colored ASCII video) ----
+  const INTRO_VIDEO = "/static/cutscenes/intro/montage.mp4";
+  const INTRO_CHAPTERS = [
+    {
+      at: 0,
+      html:
+        '<p class="intro-kicker">METAVERSE LAYER · VIDEO→ASCII</p>' +
+        '<h1 class="intro-title">SNOWCRASH</h1>' +
+        '<p class="intro-sub">Fractured LA</p>',
+    },
+    {
+      at: 5.2,
+      html:
+        '<p class="intro-kicker">COURIER DOSSIER</p>' +
+        '<h1 class="intro-title" style="letter-spacing:0.22em;font-size:clamp(1.4rem,4vw,2.2rem)">RIN VALE</h1>' +
+        '<p class="intro-body">Freelance Metaverse courier and street hacker. ' +
+        "You ride the neon seams between meatspace and the Layer — paid to move what shouldn't move.</p>",
+    },
+    {
+      at: 10.8,
+      html:
+        '<p class="intro-kicker">BRIEFING</p>' +
+        '<h1 class="intro-title" style="letter-spacing:0.18em;font-size:clamp(1.2rem,3.5vw,1.9rem)">THE STREETS</h1>' +
+        '<p class="intro-body">Fractured LA is a grid of jackpoints, uplink nodes, and hostile avatars. ' +
+        "Tonight's run: recover a linguistic weapon before it rewrites the Layer.</p>",
+    },
+    {
+      at: 16.2,
+      html:
+        '<p class="intro-kicker">THREAT VECTOR</p>' +
+        '<h1 class="intro-title" style="letter-spacing:0.16em;font-size:clamp(1.2rem,3.5vw,1.9rem)">PAYLOAD-ZERO</h1>' +
+        '<p class="intro-body">A viral utterance sealed in a courier sleeve. ' +
+        "Infected avatars hunt it. Security drones triangulate it. Deliver it to a Metaverse uplink — or burn with it.</p>",
+    },
+    {
+      at: 21.5,
+      html:
+        '<p class="intro-kicker">JACK IN</p>' +
+        '<h1 class="intro-title">SNOWCRASH</h1>' +
+        '<p class="intro-sub">Enter the streets</p>' +
+        '<p class="intro-body">WASD move · Q/E turn · recover Payload-Zero · punch the uplink.</p>',
+    },
+  ];
+
+  const IntroPlayer = (() => {
+    let ascii = null;
+    let chapterTimer = null;
+    let chapterIdx = -1;
+    let finishing = false;
+    let resolveDone = null;
+
+    function setChapter(i) {
+      if (!introChapterEl || i === chapterIdx || i < 0 || i >= INTRO_CHAPTERS.length) return;
+      chapterIdx = i;
+      introChapterEl.classList.remove("swap");
+      // force reflow for animation restart
+      void introChapterEl.offsetWidth;
+      introChapterEl.innerHTML = INTRO_CHAPTERS[i].html;
+      introChapterEl.classList.add("swap");
+    }
+
+    function tickChapters() {
+      if (!ascii || !ascii.video) return;
+      const t = ascii.video.currentTime || 0;
+      let idx = 0;
+      for (let i = 0; i < INTRO_CHAPTERS.length; i++) {
+        if (t >= INTRO_CHAPTERS[i].at) idx = i;
+      }
+      setChapter(idx);
+    }
+
+    function showUi(show) {
+      if (introEl) {
+        if (show) introEl.classList.remove("hidden");
+        else introEl.classList.add("hidden");
+      }
+      document.body.classList.toggle("intro-active", !!show);
+      if (appEl) {
+        if (show) appEl.classList.add("app-hidden");
+        else appEl.classList.remove("app-hidden");
+      }
+    }
+
+    function ensureAscii() {
+      if (ascii || !introCanvas || typeof VideoAsciiCanvas === "undefined") return ascii;
+      const cols = Math.min(200, Math.max(120, Math.floor(window.innerWidth / 7)));
+      ascii = new VideoAsciiCanvas(introCanvas, {
+        cols,
+        brightness: 1.2,
+        contrast: 1.15,
+        autoColor: true,
+        bg: "#05080c",
+      });
+      return ascii;
+    }
+
+    function finish() {
+      if (finishing) return;
+      finishing = true;
+      introActive = false;
+      if (chapterTimer) {
+        clearInterval(chapterTimer);
+        chapterTimer = null;
+      }
+      if (ascii) ascii.stop();
+      showUi(false);
+      const done = resolveDone;
+      resolveDone = null;
+      finishing = false;
+      if (done) done();
+    }
+
+    async function play() {
+      introActive = true;
+      finishing = false;
+      chapterIdx = -1;
+      showUi(true);
+      setChapter(0);
+
+      const engine = ensureAscii();
+      if (!engine) {
+        console.warn("VideoAsciiCanvas missing — skipping intro");
+        finish();
+        return;
+      }
+
+      try {
+        await engine.load(INTRO_VIDEO);
+      } catch (err) {
+        console.warn("intro video load failed", err);
+        finish();
+        return;
+      }
+
+      return new Promise((resolve) => {
+        resolveDone = resolve;
+        chapterTimer = setInterval(tickChapters, 200);
+        engine.play({
+          onEnded: () => finish(),
+        });
+        // Resize on window changes while intro runs
+        const onResize = () => {
+          if (!introActive || !ascii) return;
+          const cols = Math.min(200, Math.max(120, Math.floor(window.innerWidth / 7)));
+          ascii.setCols(cols);
+        };
+        window.addEventListener("resize", onResize);
+        const prev = resolveDone;
+        resolveDone = () => {
+          window.removeEventListener("resize", onResize);
+          if (prev) prev();
+        };
+      });
+    }
+
+    function skip() {
+      if (!introActive) return false;
+      finish();
+      return true;
+    }
+
+    return {
+      play,
+      skip,
+      isActive: () => introActive,
     };
   })();
 
@@ -657,6 +834,17 @@
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     Sound.unlock();
+    if (IntroPlayer.isActive()) {
+      if (ev.key === " " || ev.key === "Escape" || ev.key === "Enter") {
+        ev.preventDefault();
+        IntroPlayer.skip();
+      } else ev.preventDefault();
+      return;
+    }
+    if (!gameplayReady) {
+      ev.preventDefault();
+      return;
+    }
     if (CutscenePlayer.isPlaying()) {
       if (ev.key === " " || ev.key === "Escape" || ev.key === "Enter") {
         ev.preventDefault();
@@ -690,6 +878,12 @@
     }
     // space waits unless we want skip — already handled in cutscene
     if (ev.key === " " && state && (state.mode === "dead" || state.mode === "won")) return;
+    // Restart after death/win → replay opening cinematic, then new run
+    if (action === "r" && state && (state.mode === "dead" || state.mode === "won")) {
+      const seed = state.seed != null ? state.seed : null;
+      runIntroThenGame({ seed });
+      return;
+    }
     send(action);
   });
 
@@ -704,6 +898,24 @@
     window.addEventListener(evt, () => Sound.unlock(), { once: true, passive: true });
   });
 
+  async function startGameplay(opts) {
+    const replaySeed = opts && opts.seed !== undefined ? opts.seed : null;
+    gameplayReady = true;
+    try {
+      const s = await api("/api/new", { seed: replaySeed });
+      render(s);
+    } catch (err) {
+      if (fpvEl) fpvEl.textContent = "Failed to load game: " + err;
+    }
+  }
+
+  async function runIntroThenGame(opts) {
+    gameplayReady = false;
+    // Mute gameplay SFX path until intro ends (no /api/new yet)
+    await IntroPlayer.play();
+    await startGameplay(opts || {});
+  }
+
   async function boot() {
     Sound.preload();
     CutscenePlayer.setPerspective(false);
@@ -714,12 +926,22 @@
     } catch (err) {
       console.warn("cutscene index missing", err);
     }
-    try {
-      const s = await api("/api/new", { seed: null });
-      render(s);
-    } catch (err) {
-      if (fpvEl) fpvEl.textContent = "Failed to load game: " + err;
-    }
+    await runIntroThenGame({ seed: null });
+  }
+
+  if (btnSkipIntro) {
+    btnSkipIntro.addEventListener("click", () => {
+      Sound.unlock();
+      IntroPlayer.skip();
+    });
+  }
+  if (btnReplayIntro) {
+    btnReplayIntro.addEventListener("click", async () => {
+      Sound.unlock();
+      Sound.play("click");
+      const seed = state && state.seed != null ? state.seed : null;
+      await runIntroThenGame({ seed });
+    });
   }
 
   boot();

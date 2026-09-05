@@ -7,18 +7,35 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <div id="app">
+  <div id="intro" class="intro" aria-live="polite">
+    <canvas id="intro-canvas" aria-hidden="true"></canvas>
+    <div class="intro-veil"></div>
+    <div class="intro-copy">
+      <div id="intro-chapter" class="intro-chapter">
+        <p class="intro-kicker">METAVERSE LAYER · VIDEO→ASCII</p>
+        <h1 class="intro-title">SNOWCRASH</h1>
+        <p class="intro-sub">Fractured LA</p>
+      </div>
+    </div>
+    <div class="intro-controls">
+      <button type="button" id="btn-skip-intro" class="btn-skip">Skip intro</button>
+      <span class="intro-hint">Space / Esc · click Skip</span>
+    </div>
+  </div>
+
+  <div id="app" class="app-hidden">
     <header>
       <h1>SNOWCRASH</h1>
       <p class="tag">Metaverse layer · continuous video→ASCII FPV · enhanced ASCII GPS radar</p>
       <div class="toolbar">
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute sound (m)">Mute</button>
+        <button type="button" id="btn-replay-intro" title="Replay opening cinematic">Replay intro</button>
         <span id="perspective" class="perspective first" title="Camera perspective">1ST PERSON — VIDEO→ASCII</span>
         <span id="compass" class="compass" title="Facing">N</span>
         <span class="hint">
           <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move ·
           <kbd>Q</kbd>/<kbd>E</kbd> turn ·
-          <kbd>m</kbd> mute · Space/Esc skip jack-in
+          <kbd>m</kbd> mute · Space / Esc skip jack-in / intro
         </span>
       </div>
     </header>
@@ -60,7 +77,7 @@
       </aside>
     </div>
 
-    <section id="legend-panel" aria-label="Glyph legend">
+    <section id="legend-panel" aria-label="Glyph radar key">
       <h2>Glyph radar key</h2>
       <div id="legend"></div>
     </section>
@@ -74,6 +91,7 @@
       </div>
     </div>
   </div>
+  <script src="/static/ascii-video.js"></script>
   <script src="/static/game.js"></script>
 </body>
 </html>

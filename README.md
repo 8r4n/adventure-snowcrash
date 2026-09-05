@@ -38,7 +38,9 @@ python -m snowcrash.web --host 0.0.0.0 --port 8765 --seed 42
 
 Then open **http://127.0.0.1:8765/** (or your host’s IP on port **8765**).
 
-The web UI main viewport is a live **1st-person ASCII raycast** (branded video→ASCII Metaverse layer). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the same glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
+On first load (and **Replay intro** / restart after death-win) the web UI plays a fullscreen **opening cinematic**: high-fidelity **colored ASCII video** (canvas sample of a procedural MP4) with timed story beats for Rin Vale / Payload-Zero. **Space / Esc / Skip intro** dismisses it, then the playable HUD starts (`/api/new` is deferred until the intro ends so gameplay SFX do not overlap).
+
+The main viewport is a live **1st-person ASCII raycast** (branded video→ASCII Metaverse layer). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the same glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
 Short procedural SFX play for move/combat/loot — **Mute** / **m** (localStorage; default volume ~0.4).
 Jackpoint / uplink / payload / NPC / terminal / door still trigger denser **jack-in ASCII cutscenes** (Space/Esc skip). TUI has no FPV/cutscenes yet.
 Quest rooms: **J** jackpoint, **U** Metaverse uplink.
@@ -56,6 +58,7 @@ To regenerate SFX WAVs (stdlib only — no extra deps):
 ```bash
 python scripts/gen_sfx.py
 python scripts/gen_cutscenes.py   # stdlib ASCII cutscene packs
+python scripts/gen_intro_video.py # Pillow + ffmpeg → colored-ASCII intro MP4
 ```
 
 ## Controls
@@ -77,13 +80,15 @@ python scripts/gen_cutscenes.py   # stdlib ASCII cutscene packs
 | `r` | Restart (after death/win) |
 | `q` | Quit (TUI) |
 | `m` (web) | Mute / unmute SFX |
-| Space / Esc (web) | Skip 1st-person cutscene |
+| Space / Esc (web) | Skip opening intro or 1st-person cutscene |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
 
 ## Perspective / FPV + minimap
 
-**Web default:** continuous **1st-person video→ASCII FPV** (live raycaster synced to the tile world + facing). Corner **Street GPS** = enhanced ASCII minimap (glyph language, upscaled/colorized — not the PNG tile set).
+**Opening cinematic:** `snowcrash/static/ascii-video.js` (`VideoAsciiCanvas`) samples each frame of `static/cutscenes/intro/montage.mp4` onto a canvas and draws a dense charset with **per-glyph RGB from the source** (~120–200 columns, rAF loop). Source media is original procedural footage (neon grids, skyline, datastream, tunnel) — no copyrighted clips. Rebuild with `python scripts/gen_intro_video.py` (Pillow + ffmpeg).
+
+**Web default after intro:** continuous **1st-person video→ASCII FPV** (live raycaster synced to the tile world + facing). Corner **Street GPS** = enhanced ASCII minimap (glyph language, upscaled/colorized — not the PNG tile set).
 
 Movement is **relative to facing** (GTA-like): `W/S` forward/back, `A/D` strafe, `Q/E` (or arrows) turn.
 
@@ -126,10 +131,11 @@ adventure/
       __main__.py
       app.py
     templates/index.html
-    static/{style.css,game.js,tiles/,sfx/,cutscenes/}
+    static/{style.css,game.js,ascii-video.js,tiles/,sfx/,cutscenes/,cutscenes/intro/}
   scripts/gen_tiles.py   # Pillow one-shot sprite bake
   scripts/gen_sfx.py     # stdlib procedural WAV bake
   scripts/gen_cutscenes.py  # stdlib 1st-person ASCII packs
+  scripts/gen_intro_video.py  # Pillow+ffmpeg opening montage MP4
 ```
 
 ## License
