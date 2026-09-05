@@ -1171,10 +1171,18 @@ class GameWorld(YearFeaturesMixin):
                     a.x, a.y = nx, ny
                     break
 
+        now_ai = time.time()
         for a in self.npcs_enemies:
             if not a.alive or a.faction != "enemy":
                 continue
             az = int(getattr(a, "z", 0) or 0)
+            # ICE stun: frozen in place (#46)
+            if float(getattr(a, "stunned_until", 0) or 0) > now_ai:
+                continue
+            # ICE scramble: wander only, ignore chase (#46)
+            if float(getattr(a, "scrambled_until", 0) or 0) > now_ai:
+                _wander(a, az)
+                continue
             same_plane = [
                 p for p in living if int(getattr(p.actor, "z", 0) or 0) == az
             ]
@@ -1870,6 +1878,25 @@ class GameWorld(YearFeaturesMixin):
                     "hp": a.hp,
                 }
             )
+
+        # Street cameras (#46) — show when visible or recently ICE-scanned
+        now_cam = time.time()
+        for cam in getattr(self, "ice_cameras", []) or []:
+            if int(cam.get("z", 0) or 0) != az:
+                continue
+            cx, cy = int(cam["x"]), int(cam["y"])
+            if cy < 0 or cx < 0 or cy >= len(agent.visible) or cx >= len(agent.visible[0]):
+                continue
+            revealed = float(cam.get("revealed_until", 0) or 0) > now_cam
+            if not (agent.visible[cy][cx] or revealed):
+                continue
+            stunned = float(cam.get("stunned_until", 0) or 0) > now_cam
+            entities.append({
+                "x": cx, "y": cy, "glyph": "c",
+                "name": cam.get("name", "Street Cam") + (" [STUN]" if stunned else ""),
+                "faction": "ice", "hp": 1,
+                "kind": "camera",
+            })
 
         snap = {
             "mmorpg": True,

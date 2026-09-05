@@ -1163,6 +1163,7 @@
       contractsBody: document.getElementById("contracts-body"),
       seasonBody: document.getElementById("season-body"),
       raidBody: document.getElementById("raid-body"),
+      iceBody: document.getElementById("ice-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -1214,6 +1215,14 @@
         panel.open = true;
         try { panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (_) {}
       }
+
+      document.querySelectorAll("[data-panel-open]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openPanel(btn.getAttribute("data-panel-open"));
+          Sound.play("click");
+        });
+      });
+
       if (els.panelDock) {
         els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
           b.classList.toggle("active", b.getAttribute("data-panel") === name);
@@ -1839,6 +1848,46 @@
       logEl.scrollTop = logEl.scrollHeight;
     }
 
+
+    function renderIce(s) {
+      if (!els.iceBody) return;
+      const ice = defObj(s.ice);
+      const probes = defArr(ice.probes);
+      const nearby = defArr(ice.nearby);
+      const focus = defNum(ice.focus != null ? ice.focus : defObj(s.player).focus, defNum(s.focus, 0));
+      const maxF = defNum(ice.max_focus != null ? ice.max_focus : defObj(s.player).max_focus, 0);
+      if (!probes.length) {
+        els.iceBody.innerHTML = '<div class="panel-empty">ICE layer offline</div>';
+        return;
+      }
+      const probeRows = probes.map((p) => {
+        const id = defStr(p.id, "");
+        const name = defStr(p.name, id);
+        const desc = defStr(p.desc, "");
+        const cost = defNum(p.focus_cost, 0);
+        const readyIn = defNum(p.ready_in, 0);
+        const ready = !!p.ready || readyIn <= 0.05;
+        const cd = ready ? "" : ` · cd ${readyIn.toFixed(1)}s`;
+        const disabled = (!ready || focus < cost) ? " disabled" : "";
+        return `<div class="row ice-probe"><span><strong>${escapeHtml(name)}</strong> <span class="dim">(${cost} Focus${cd})</span><br/><span class="dim">${escapeHtml(desc)}</span></span><button type="button" data-ice="${escapeHtml(id)}"${disabled}>Probe</button></div>`;
+      }).join("");
+      const nearRows = nearby.length
+        ? nearby.slice(0, 8).map((t) => {
+            const kind = defStr(t.kind, "?");
+            const name = defStr(t.name, kind);
+            const dist = defNum(t.dist, 0);
+            const flags = [t.stunned ? "STUN" : null, t.scrambled ? "SCRAM" : null].filter(Boolean).join(" ");
+            return `<div class="row dim">${escapeHtml(kind)} · ${escapeHtml(name)} · d${dist}${flags ? " · " + flags : ""}</div>`;
+          }).join("")
+        : '<div class="panel-empty">No cameras / drones / thug decks in range</div>';
+      els.iceBody.innerHTML =
+        `<div class="row"><strong>Focus</strong><span>${focus}/${maxF}</span></div>` +
+        `<div class="row dim">${escapeHtml(defStr(ice.hint, "Spend Focus on StreetNet ICE probes."))}</div>` +
+        probeRows +
+        `<div class="row"><strong>Nearby ICE</strong></div>` +
+        nearRows;
+    }
+
     function renderAnalytics(s) {
       if (!els.analytics) return;
       const a = defObj(s.analytics || s.debug);
@@ -1876,6 +1925,7 @@
         renderTheater(s);
         renderSeason(s);
         renderRaid(s);
+        renderIce(s);
         renderWishToy(s);
         styleLogFees(s);
         renderAnalytics(s);
@@ -2572,6 +2622,28 @@
     if (ev.key === "m" || ev.key === "M") {
       ev.preventDefault();
       Sound.toggleMute();
+      return;
+    }
+
+    // ICE probes (#46): z stun · x reveal · c scramble · p opens ICE dock
+    if (ev.key === "p" || ev.key === "P") {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("ice");
+      return;
+    }
+    if (ev.key === "z" || ev.key === "Z") {
+      ev.preventDefault();
+      send("ice_probe", "stun");
+      return;
+    }
+    if (ev.key === "x" || ev.key === "X") {
+      ev.preventDefault();
+      send("ice_probe", "reveal");
+      return;
+    }
+    if (ev.key === "c" || ev.key === "C") {
+      ev.preventDefault();
+      send("ice_probe", "scramble");
       return;
     }
     if (state && state.mode === "inventory" && (ev.key === "e" || ev.key === "E")) {
