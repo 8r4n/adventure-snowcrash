@@ -41,11 +41,18 @@ VIEW_RADIUS = 8
 # Spawn protection (seconds) — AI cannot one-shot new joins
 SPAWN_INVULN_SEC = 12.0
 # Manhattan radius: no enemies may stand/spawn within this of any spawn pad
-SAFE_SPAWN_RADIUS = 10
+SAFE_SPAWN_RADIUS = 8
 # On join/respawn, clear threats within this smaller radius of the pad
 CLEAR_SPAWN_THREAT_RADIUS = 6
 # Cap enemy melee damage vs players (MVP anti-brutal)
 ENEMY_MELEE_CAP_VS_PLAYER = 2
+# Mapgen: keep a modest spread of pads so SAFE_SPAWN_RADIUS is bubbles, not a city-wide ban
+SPAWN_PAD_TARGET = 24
+SPAWN_PAD_MIN = 16
+SPAWN_PAD_MAX = 32
+SPAWN_PAD_MIN_SEP = 14  # Manhattan min distance between kept pads
+# Contested scoring radius when picking a join/respawn pad
+CONTESTED_SPAWN_RADIUS = 14
 
 # MVP: players cannot damage other players
 PVP_ENABLED = False

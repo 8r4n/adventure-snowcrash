@@ -331,20 +331,35 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
         seen.add((x, y))
         spawn_points.append((x, y))
 
-    # Ensure plenty of spread-out spawns: thin to max ~1 per local cell cluster
-    # Keep all if <= 40; else diversify by grid buckets
-    if len(spawn_points) > 48:
-        buckets: dict = {}
-        diversified: List[Tuple[int, int]] = []
+    # Thin to a true city-wide spread. Previous bucket thinning still allowed
+    # hundreds of pads on 200x120 maps, which made SAFE_SPAWN_RADIUS cover ~97%
+    # of walkable tiles and compressed hostiles into deadly pockets.
+    target = int(getattr(C, "SPAWN_PAD_TARGET", 24))
+    pad_max = int(getattr(C, "SPAWN_PAD_MAX", 32))
+    min_sep = int(getattr(C, "SPAWN_PAD_MIN_SEP", 14))
+    if len(spawn_points) > target:
+        rng.shuffle(spawn_points)
+        kept: List[Tuple[int, int]] = []
         for x, y in spawn_points:
-            key = (x // 12, y // 10)
-            if key not in buckets or buckets[key] < 2:
-                buckets[key] = buckets.get(key, 0) + 1
-                diversified.append((x, y))
-        spawn_points = diversified
+            if any(abs(x - kx) + abs(y - ky) < min_sep for kx, ky in kept):
+                continue
+            kept.append((x, y))
+            if len(kept) >= pad_max:
+                break
+        # If separation was too strict, relax once to hit a usable count
+        if len(kept) < int(getattr(C, "SPAWN_PAD_MIN", 16)):
+            for x, y in spawn_points:
+                if (x, y) in kept:
+                    continue
+                if any(abs(x - kx) + abs(y - ky) < max(8, min_sep // 2) for kx, ky in kept):
+                    continue
+                kept.append((x, y))
+                if len(kept) >= target:
+                    break
+        spawn_points = kept
 
     # Guarantee minimum count by adding more street corners if needed
-    if len(spawn_points) < 16:
+    if len(spawn_points) < int(getattr(C, "SPAWN_PAD_MIN", 16)):
         for sx in v_streets:
             for sy in h_streets:
                 for ox, oy in ((-3, -3), (4, -3), (-3, 4), (4, 4)):

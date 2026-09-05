@@ -140,6 +140,10 @@ class PlayerAgent:
     def is_invulnerable(self) -> bool:
         return time.time() < self.invuln_until
 
+    def spawn_shield_remaining(self) -> float:
+        """Seconds of spawn shield left (0 if expired)."""
+        return max(0.0, float(self.invuln_until) - time.time())
+
     @property
     def z(self) -> int:
         return int(getattr(self.actor, "z", 0) or 0)
@@ -536,7 +540,7 @@ class GameWorld(YearFeaturesMixin):
     def _grant_spawn_invuln(self, agent: "PlayerAgent") -> None:
         agent.invuln_until = time.time() + float(C.SPAWN_INVULN_SEC)
         agent.log(
-            "Spawn shield active (%.1fs) — AI can't flatline you yet."
+            "Spawn shield active (%.0fs) — hostiles won't aggro you yet."
             % float(C.SPAWN_INVULN_SEC)
         )
 
@@ -652,8 +656,23 @@ class GameWorld(YearFeaturesMixin):
         agent.last_good_z = int(z)
         agent.log("POS_SET (%d,%d,z=%d) — %s" % (x, y, z, reason))
 
+    def _spawn_contest_score(self, x: int, y: int) -> int:
+        """Lower is safer. Counts living enemies near the pad (contested bias)."""
+        r = int(getattr(C, "CONTESTED_SPAWN_RADIUS", 14))
+        score = 0
+        for a in self.npcs_enemies:
+            if not a.alive or a.faction != "enemy":
+                continue
+            if int(getattr(a, "z", 0) or 0) != C.PLANE_STREET:
+                continue
+            d = abs(a.x - x) + abs(a.y - y)
+            if d <= r:
+                # Closer hostiles weigh more
+                score += 1 + max(0, (r - d) // 3)
+        return score
+
     def _find_spawn(self) -> Tuple[int, int]:
-        """Pick a random free spawn point; search radius if busy. Never stack."""
+        """Pick a free spawn pad, biased away from contested pads. Never stack."""
         points = list(self.spawn_points) if self.spawn_points else [self.spawn_xy]
         self.rng.shuffle(points)
 
@@ -673,12 +692,21 @@ class GameWorld(YearFeaturesMixin):
 
         free = [p for p in points if self._can_stand(p[0], p[1])]
         if free:
-            return self.rng.choice(free)
+            # Prefer quieter pads; mild jitter so we don't always pick the same one
+            ranked = sorted(free, key=lambda p: (self._spawn_contest_score(p[0], p[1]), self.rng.random()))
+            # Pick among the quietest third (at least 1)
+            cutoff = max(1, (len(ranked) + 2) // 3)
+            return self.rng.choice(ranked[:cutoff])
 
+        # Busy pads: try neighborhoods, still prefer lower contest scores
+        candidates: List[Tuple[int, int]] = []
         for sx, sy in points:
             hit = try_around(sx, sy, max_r=10)
             if hit:
-                return hit
+                candidates.append(hit)
+        if candidates:
+            ranked = sorted(candidates, key=lambda p: (self._spawn_contest_score(p[0], p[1]), self.rng.random()))
+            return ranked[0]
 
         hit = try_around(self.spawn_xy[0], self.spawn_xy[1], max_r=20)
         if hit:
@@ -1150,8 +1178,16 @@ class GameWorld(YearFeaturesMixin):
             same_plane = [
                 p for p in living if int(getattr(p.actor, "z", 0) or 0) == az
             ]
-            # NEVER target or path toward invulnerable couriers
-            vulnerable = [p for p in same_plane if not p.is_invulnerable()]
+            # NEVER target or path toward invulnerable couriers, or anyone
+            # still standing inside a spawn safe bubble (pad camping soft-zone).
+            def _aggro_ok(p: PlayerAgent) -> bool:
+                if p.is_invulnerable():
+                    return False
+                if az == C.PLANE_STREET and self._near_any_spawn(p.actor.x, p.actor.y):
+                    return False
+                return True
+
+            vulnerable = [p for p in same_plane if _aggro_ok(p)]
             if not vulnerable:
                 _wander(a, az)
                 continue
@@ -1909,6 +1945,8 @@ class GameWorld(YearFeaturesMixin):
             "uplink": list(self.uplink_pos),
             "spawn_count": len(self.spawn_points),
             "invulnerable": agent.is_invulnerable(),
+            "spawn_shield_remaining": round(agent.spawn_shield_remaining(), 1),
+            "spawn_shield": bool(agent.is_invulnerable()),
             "z": int(getattr(p, "z", 0) or 0),
             "plane": C.PLANE_NAMES.get(int(getattr(p, "z", 0) or 0), "STREET"),
             "plane_label": C.PLANE_LABELS.get(int(getattr(p, "z", 0) or 0), ""),
