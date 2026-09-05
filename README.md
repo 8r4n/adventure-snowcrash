@@ -2,6 +2,14 @@
 
 A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev** (`adventure-dev`, port **8766**) is a shared-world Metaverse street layer: many couriers, WebSocket realtime sync, chat, and personal Payload-Zero quests. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI stays single-player overhead ASCII.
 
+## Screenshots
+
+### Opening credits
+![Snowcrash opening credits — Rin Vale courier dossier intro](docs/screenshots/opening-credits.png)
+
+### Gameplay
+![Snowcrash gameplay — video→ASCII FPV, Street GPS minimap, courier HUD](docs/screenshots/gameplay.png)
+
 Original theme inspired by the *vibe* of Cataclysm: DDA mechanics and Neal Stephenson’s Metaverse — **no copied text or assets**.
 
 You are **Rin Vale**, freelance Metaverse courier/hacker. Recover or neutralize a linguistic payload from a street jackpoint, then punch it through an uplink node.
