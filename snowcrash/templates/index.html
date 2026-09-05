@@ -7,14 +7,28 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body class="{% if is_dev %}env-dev{% else %}env-production{% endif %}">
-  <div id="intro" class="intro" aria-live="polite">
+  <div id="name-gate" class="name-gate" aria-modal="true" role="dialog">
+    <div class="name-gate-card">
+      <p class="intro-kicker">METAVERSE LAYER · MMORPG{% if is_dev %} · DEV{% endif %}</p>
+      <h1>Jack in</h1>
+      <p class="name-gate-sub">Shared streets. Pick a display name — other couriers will see you.</p>
+      <form id="name-form">
+        <label for="display-name">Courier name</label>
+        <input id="display-name" name="name" maxlength="24" autocomplete="nickname" placeholder="e.g. Rin Vale" required />
+        <button type="submit" id="btn-jack-in">Enter streets</button>
+      </form>
+      <p class="name-gate-hint">Tip: open two browsers with different names to play together. Or use <code>?name=YourName</code>.</p>
+    </div>
+  </div>
+
+  <div id="intro" class="intro hidden" aria-live="polite">
     <canvas id="intro-canvas" aria-hidden="true"></canvas>
     <div class="intro-veil"></div>
     <div class="intro-copy">
       <div id="intro-chapter" class="intro-chapter">
         <p class="intro-kicker">METAVERSE LAYER · VIDEO→ASCII</p>
         <h1 class="intro-title">SNOWCRASH</h1>
-        <p class="intro-sub">Fractured LA</p>
+        <p class="intro-sub">Fractured LA · MMORPG</p>
       </div>
     </div>
     <div class="intro-controls">
@@ -25,17 +39,19 @@
 
   <div id="app" class="app-hidden">
     <header>
-      <h1>SNOWCRASH {% if is_dev %}<span class="env-badge" title="Development deployment">DEV</span>{% endif %}</h1>
-      <p class="tag">Metaverse layer · continuous video→ASCII FPV · enhanced ASCII GPS radar</p>
+      <h1>SNOWCRASH MMORPG {% if is_dev %}<span class="env-badge" title="Development deployment">DEV</span>{% endif %}</h1>
+      <p class="tag">Shared Metaverse streets · WebSocket sync · video→ASCII FPV · ASCII GPS</p>
       <div class="toolbar">
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute sound (m)">Mute</button>
         <button type="button" id="btn-replay-intro" title="Replay opening cinematic">Replay intro</button>
         <span id="perspective" class="perspective first" title="Camera perspective">1ST PERSON — VIDEO→ASCII</span>
         <span id="compass" class="compass" title="Facing">N</span>
+        <span id="net-hud" class="net-hud" title="Network">…</span>
         <span class="hint">
           <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move ·
           <kbd>Q</kbd>/<kbd>E</kbd> turn ·
-          <kbd>m</kbd> mute · Space / Esc skip jack-in / intro
+          <kbd>Enter</kbd> chat ·
+          <kbd>m</kbd> mute
         </span>
       </div>
     </header>
@@ -44,7 +60,7 @@
       <div id="viewport">
         <div id="fpv-panel">
           <div class="fpv-chrome">
-            <span>METAVERSE LAYER · VIDEO→ASCII · LIVE FPV</span>
+            <span>METAVERSE LAYER · VIDEO→ASCII · LIVE FPV · MULTIPLAYER</span>
             <span id="fpv-status">STREETS OF FRACTURED LA</span>
           </div>
           <div id="fpv-stage" class="fpv-stage">
@@ -52,7 +68,7 @@
             <pre id="fpv" class="fpv-fallback hidden" aria-hidden="true"></pre>
           </div>
           <div class="fpv-chrome bottom">
-            <span>RELATIVE MOVE · FACING LOCK</span>
+            <span>RELATIVE MOVE · SHARED WORLD</span>
             <span>JACK-IN CUTSCENES ON OBJECTS</span>
           </div>
         </div>
@@ -69,14 +85,26 @@
       <aside id="side">
         <div class="side-kicker">COURIER HUD</div>
         <div id="stats"></div>
+        <div id="players-panel">
+          <h2>Online</h2>
+          <ul id="player-list"></ul>
+        </div>
         <div id="inv-panel">
           <h2>Inventory</h2>
           <ul id="inventory"></ul>
         </div>
+        <div id="chat-panel">
+          <h2>Chat</h2>
+          <div id="chat-log" aria-live="polite"></div>
+          <form id="chat-form">
+            <input id="chat-input" type="text" maxlength="200" placeholder="Enter to chat · /say hi" autocomplete="off" />
+            <button type="submit">Send</button>
+          </form>
+        </div>
         <div id="help-mini">
           <kbd>W</kbd> fwd · <kbd>S</kbd> back · <kbd>A</kbd>/<kbd>D</kbd> strafe ·
           <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>g</kbd> get · <kbd>f</kbd> fire/hack ·
-          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> restart · <kbd>m</kbd> mute
+          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> respawn · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute
         </div>
       </aside>
     </div>

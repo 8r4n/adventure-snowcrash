@@ -580,3 +580,155 @@ body.env-dev #minimap-wrap,
 body.env-dev #side {
   border-color: rgba(240, 180, 41, 0.35);
 }
+
+/* ---- MMORPG DEV additions ---- */
+.name-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #0a1528 0%, #05080c 70%);
+}
+.name-gate.hidden { display: none; }
+.name-gate-card {
+  max-width: 420px;
+  width: 92%;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid rgba(57, 197, 207, 0.45);
+  background: rgba(8, 14, 22, 0.92);
+  box-shadow: 0 0 40px rgba(57, 197, 207, 0.15);
+}
+.name-gate-card h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+  color: #e8fbff;
+}
+.name-gate-sub, .name-gate-hint {
+  color: #8b949e;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.name-gate-card label {
+  display: block;
+  margin: 1rem 0 0.35rem;
+  color: #39c5cf;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.name-gate-card input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.7rem;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  font-family: inherit;
+  font-size: 1rem;
+}
+.name-gate-card button {
+  margin-top: 0.85rem;
+  width: 100%;
+  padding: 0.65rem;
+  background: #39c5cf;
+  color: #05080c;
+  border: none;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.name-gate-card button:hover { filter: brightness(1.08); }
+.name-gate-card code {
+  color: #79c0ff;
+  font-size: 0.8em;
+}
+
+.net-hud {
+  font-size: 0.75rem;
+  color: #3dd68c;
+  border: 1px solid rgba(61, 214, 140, 0.35);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+}
+.net-hud.warn { color: #f0b429; border-color: rgba(240, 180, 41, 0.4); }
+.net-hud.err { color: #ff7b72; border-color: rgba(255, 123, 114, 0.45); }
+
+#players-panel, #chat-panel {
+  margin-top: 0.75rem;
+  border-top: 1px solid #21262d;
+  padding-top: 0.5rem;
+}
+#players-panel h2, #chat-panel h2 {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: #8b949e;
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+}
+#player-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 7rem;
+  overflow-y: auto;
+  font-size: 0.8rem;
+}
+#player-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  color: #c9d1d9;
+}
+#player-list .pglyph {
+  display: inline-block;
+  width: 1.2rem;
+  text-align: center;
+  font-weight: 700;
+}
+#player-list .you-tag {
+  color: #39c5cf;
+  font-size: 0.65rem;
+}
+
+#chat-log {
+  height: 7.5rem;
+  overflow-y: auto;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  margin-bottom: 0.35rem;
+}
+#chat-log .chat-sys { color: #8b949e; font-style: italic; }
+#chat-log .chat-say .cn { color: #79c0ff; font-weight: 600; }
+#chat-form {
+  display: flex;
+  gap: 0.3rem;
+}
+#chat-form input {
+  flex: 1;
+  min-width: 0;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  padding: 0.35rem 0.45rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+#chat-form button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #39c5cf;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+#chat-form button:hover { border-color: #39c5cf; }
+
+.minimap-ascii .m-other { font-weight: 700; text-shadow: 0 0 6px currentColor; }
+.intro.hidden { display: none !important; }

@@ -1,6 +1,6 @@
 # Snowcrash
 
-A short, playable cyberpunk **rogue-like** in Python: turn-based streets of fractured LA. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI stays overhead ASCII. Fog of war, inventory, melee + hack/ranged, courier quest for **Payload-Zero**.
+A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev** (`adventure-dev`, port **8766**) is a shared-world Metaverse street layer: many couriers, WebSocket realtime sync, chat, and personal Payload-Zero quests. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI stays single-player overhead ASCII.
 
 Original theme inspired by the *vibe* of Cataclysm: DDA mechanics and Neal Stephenson’s Metaverse — **no copied text or assets**.
 
@@ -64,8 +64,36 @@ git worktree add ../adventure-dev dev
 Public tunnels (optional): point one Cloudflare quick tunnel at each port.
 
 
+## MMORPG DEV (multiplayer prototype)
 
-On first load (and **Replay intro** / restart after death-win) the web UI plays a fullscreen **opening cinematic**: high-fidelity **colored ASCII video** (canvas sample of a procedural MP4) with timed story beats for Rin Vale / Payload-Zero. **Space / Esc / Skip intro** dismisses it, then the playable HUD starts (`/api/new` is deferred until the intro ends so gameplay SFX do not overlap).
+Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
+
+- **WebSocket** `/ws` — join with a display name, send movement/action intents, receive snapshots (~4 Hz AI tick + on action).
+- **Other players** appear as letter/number glyphs (unique color) in FPV billboards and the ASCII GPS.
+- **Chat** — press **Enter**, type a message (or `/say hi`), Send. Global chat for the demo.
+- **Quest (anti-grief)** — each courier can clone **Payload-Zero** into a personal sleeve; the world copy remains so others are not soft-locked. Delivering to the uplink completes *your* win only.
+- HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
+
+### Play together (two browsers)
+
+1. Start (or restart) the **dev** server only — leave production `:8765` alone:
+
+```bash
+cd /workspace/adventure-dev   # git branch `dev`
+./scripts/run_dev.sh          # 0.0.0.0:8766 --env dev
+```
+
+2. Open two windows on the same host:
+   - Local: http://127.0.0.1:8766/?name=Alice and http://127.0.0.1:8766/?name=Bob
+   - Or the Cloudflare quick tunnel pointed at **8766**
+3. Skip intro if you like. Move with WASD — each should see the other’s glyph move on GPS/FPV. Press Enter to chat.
+
+Reconnect with the **same name** to reclaim your avatar after a disconnect.
+
+
+
+
+On first load (and **Replay intro** / restart after death-win) the web UI plays a fullscreen **opening cinematic**: high-fidelity **colored ASCII video** (canvas sample of a procedural MP4) with timed story beats for Rin Vale / Payload-Zero. **Space / Esc / Skip intro** dismisses it, then the playable HUD starts (WebSocket join is deferred until the intro ends so gameplay SFX do not overlap).
 
 The main viewport is live **video→ASCII FPV**: neon raycast scene → shared colored-ASCII canvas (same pipeline as the intro). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
 Short procedural SFX play for move/combat/loot — **Mute** / **m** (localStorage; default volume ~0.4).

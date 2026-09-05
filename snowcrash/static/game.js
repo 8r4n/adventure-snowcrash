@@ -1,5 +1,4 @@
 (() => {
-  const SESSION = "browser";
   const fpvEl = document.getElementById("fpv");
   const fpvCanvas = document.getElementById("fpv-canvas");
   const fpvStage = document.getElementById("fpv-stage");
@@ -23,6 +22,14 @@
   const btnSkipIntro = document.getElementById("btn-skip-intro");
   const btnReplayIntro = document.getElementById("btn-replay-intro");
   const appEl = document.getElementById("app");
+  const nameGate = document.getElementById("name-gate");
+  const nameForm = document.getElementById("name-form");
+  const displayNameEl = document.getElementById("display-name");
+  const playerListEl = document.getElementById("player-list");
+  const chatLogEl = document.getElementById("chat-log");
+  const chatForm = document.getElementById("chat-form");
+  const chatInput = document.getElementById("chat-input");
+  const netHud = document.getElementById("net-hud");
 
   let state = null;
   let invMode = false;
@@ -30,6 +37,10 @@
   let cutscenePlaying = false;
   let gameplayReady = false;
   let introActive = false;
+  let displayName = "";
+  let myId = null;
+  let chatFocused = false;
+  let lastPingMs = null;
 
   const SFX_PATH = "/static/sfx/";
   const CUT_PATH = "/static/cutscenes/";
@@ -552,16 +563,135 @@
     };
   })();
 
+  const Net = (() => {
+    let ws = null;
+    let joined = false;
+    let reconnectTimer = null;
+    let pingTimer = null;
+    let wantOpen = false;
+
+    function setHud(text, cls) {
+      if (!netHud) return;
+      netHud.textContent = text;
+      netHud.className = "net-hud" + (cls ? " " + cls : "");
+    }
+
+    function wsUrl() {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      return proto + "//" + location.host + "/ws";
+    }
+
+    function send(obj) {
+      if (!ws || ws.readyState !== 1) return false;
+      ws.send(JSON.stringify(obj));
+      return true;
+    }
+
+    function handleMessage(msg) {
+      if (!msg || !msg.type) return;
+      if (msg.type === "welcome") {
+        myId = msg.you;
+        joined = true;
+        setHud("ONLINE · sync", "");
+        if (msg.state) render(msg.state);
+        return;
+      }
+      if (msg.type === "snapshot" && msg.state) {
+        render(msg.state);
+        return;
+      }
+      if (msg.type === "pong") {
+        if (typeof msg.t === "number") {
+          lastPingMs = Math.max(0, Math.round(performance.now() - msg.t));
+          const n = (state && state.online_count) || 0;
+          setHud((lastPingMs != null ? lastPingMs + "ms · " : "") + n + " online", "");
+        }
+        return;
+      }
+      if (msg.type === "error") {
+        console.warn("ws error", msg.error);
+      }
+    }
+
+    function startPing() {
+      stopPing();
+      pingTimer = setInterval(() => {
+        send({ type: "ping", t: performance.now() });
+      }, 2500);
+    }
+    function stopPing() {
+      if (pingTimer) clearInterval(pingTimer);
+      pingTimer = null;
+    }
+
+    function connect(name) {
+      wantOpen = true;
+      displayName = name;
+      return new Promise((resolve, reject) => {
+        try {
+          if (ws) {
+            try { ws.close(); } catch (_) {}
+          }
+          setHud("connecting…", "warn");
+          ws = new WebSocket(wsUrl());
+          ws.onopen = () => {
+            send({ type: "join", name, id: myId || undefined });
+            startPing();
+          };
+          ws.onmessage = (ev) => {
+            let msg;
+            try { msg = JSON.parse(ev.data); } catch (_) { return; }
+            const first = !joined;
+            handleMessage(msg);
+            if (first && msg.type === "welcome") resolve(msg);
+          };
+          ws.onclose = () => {
+            joined = false;
+            stopPing();
+            setHud("reconnecting…", "warn");
+            if (!wantOpen) return;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => connect(displayName).catch(() => {}), 1200);
+          };
+          ws.onerror = () => {
+            setHud("socket error", "err");
+          };
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    function action(action, arg) {
+      return send({ type: "action", action, arg: arg == null ? null : arg });
+    }
+    function chat(text) {
+      return send({ type: "chat", text });
+    }
+    function disconnect() {
+      wantOpen = false;
+      stopPing();
+      if (ws) try { ws.close(); } catch (_) {}
+    }
+
+    return { connect, action, chat, disconnect, send, isJoined: () => joined };
+  })();
+
   async function api(path, body) {
+    // Legacy HTTP fallback (bootstrap only)
     const opts = body
       ? {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session: SESSION, ...body }),
+          body: JSON.stringify({ name: displayName || "Courier", ...body }),
         }
       : {};
     const res = await fetch(path, opts);
     return res.json();
+  }
+
+  function listLen(s) {
+    return (s && s.online_count != null) ? s.online_count : ((s && s.players) || []).length;
   }
 
   function escapeHtml(t) {
@@ -756,6 +886,48 @@
         sctx.fillRect(col, drawEnd, 1, 1);
       }
 
+      function hexToRgb(hex) {
+        if (!hex || hex[0] !== "#" || hex.length < 7) return [255, 42, 109];
+        return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+      }
+      function drawBillboard(x, y, ch, rgb, label) {
+        const relX = x + 0.5 - px;
+        const relY = y + 0.5 - py;
+        const invDet = 1.0 / (planeX * dirY - dirX * planeY);
+        const transformX = invDet * (dirY * relX - dirX * relY);
+        const transformY = invDet * (-planeY * relX + planeX * relY);
+        if (transformY <= 0.15) return;
+        const spriteScreenX = Math.floor((W / 2) * (1 + transformX / transformY));
+        const spriteH = Math.abs(Math.floor(H / transformY));
+        const drawStartY = Math.max(0, Math.floor(mid - spriteH / 2));
+        const drawEndY = Math.min(H - 1, Math.floor(mid + spriteH / 2));
+        const spriteW = Math.max(4, Math.floor(spriteH * 0.4));
+        const drawStartX = Math.max(0, spriteScreenX - Math.floor(spriteW / 2));
+        const drawEndX = Math.min(W - 1, spriteScreenX + Math.floor(spriteW / 2));
+        for (let sx = drawStartX; sx <= drawEndX; sx++) {
+          if (transformY >= depths[sx]) continue;
+          const edge = sx === drawStartX || sx === drawEndX;
+          const glow = edge ? 1.25 : 1;
+          const rr = Math.min(255, rgb[0] * glow);
+          const gg = Math.min(255, rgb[1] * glow);
+          const bb = Math.min(255, rgb[2] * glow);
+          sctx.fillStyle = "rgb(" + (rr | 0) + "," + (gg | 0) + "," + (bb | 0) + ")";
+          sctx.fillRect(sx, drawStartY, 1, drawEndY - drawStartY + 1);
+          sctx.fillStyle = "rgba(255,255,255,0.35)";
+          sctx.fillRect(sx, drawStartY, 1, 2);
+          depths[sx] = transformY;
+        }
+        sctx.fillStyle = "#e8fbff";
+        sctx.font = Math.max(10, Math.floor(spriteH * 0.35)) + "px monospace";
+        sctx.textAlign = "center";
+        sctx.fillText(ch, spriteScreenX, mid + 4);
+        if (label) {
+          sctx.fillStyle = "rgba(232,251,255,0.9)";
+          sctx.font = Math.max(8, Math.floor(spriteH * 0.18)) + "px monospace";
+          sctx.fillText(label, spriteScreenX, Math.max(12, drawStartY - 2));
+        }
+      }
+
       const vis = s.visible || [];
       for (let y = 0; y < s.height; y++) {
         for (let x = 0; x < s.width; x++) {
@@ -763,39 +935,19 @@
           const ch = mapAt(s, x, y);
           if (!"itd&*!/[}%JU".includes(ch)) continue;
           if (x === s.player.x && y === s.player.y) continue;
-          const relX = x + 0.5 - px;
-          const relY = y + 0.5 - py;
-          const invDet = 1.0 / (planeX * dirY - dirX * planeY);
-          const transformX = invDet * (dirY * relX - dirX * relY);
-          const transformY = invDet * (-planeY * relX + planeX * relY);
-          if (transformY <= 0.15) continue;
-          const spriteScreenX = Math.floor((W / 2) * (1 + transformX / transformY));
-          const spriteH = Math.abs(Math.floor(H / transformY));
-          const drawStartY = Math.max(0, Math.floor(mid - spriteH / 2));
-          const drawEndY = Math.min(H - 1, Math.floor(mid + spriteH / 2));
-          const spriteW = Math.max(4, Math.floor(spriteH * 0.4));
-          const drawStartX = Math.max(0, spriteScreenX - Math.floor(spriteW / 2));
-          const drawEndX = Math.min(W - 1, spriteScreenX + Math.floor(spriteW / 2));
+          // Skip letter/number glyphs that are other players — drawn below
           const rgb = ENTITY_RGB[ch] || [57, 197, 207];
-          for (let sx = drawStartX; sx <= drawEndX; sx++) {
-            if (transformY >= depths[sx]) continue;
-            const edge = sx === drawStartX || sx === drawEndX;
-            const glow = edge ? 1.25 : 1;
-            const rr = Math.min(255, rgb[0] * glow);
-            const gg = Math.min(255, rgb[1] * glow);
-            const bb = Math.min(255, rgb[2] * glow);
-            sctx.fillStyle = "rgb(" + (rr | 0) + "," + (gg | 0) + "," + (bb | 0) + ")";
-            sctx.fillRect(sx, drawStartY, 1, drawEndY - drawStartY + 1);
-            sctx.fillStyle = "rgba(255,255,255,0.35)";
-            sctx.fillRect(sx, drawStartY, 1, 2);
-            depths[sx] = transformY;
-          }
-          sctx.fillStyle = "#e8fbff";
-          sctx.font = Math.max(10, Math.floor(spriteH * 0.35)) + "px monospace";
-          sctx.textAlign = "center";
-          sctx.fillText(ch, spriteScreenX, mid + 4);
+          drawBillboard(x, y, ch, rgb, null);
         }
       }
+      // Other couriers as distinct billboards (even if glyph overwrites map cell)
+      (s.players || []).forEach((op) => {
+        if (!op || op.id === s.you || op.id === (s.player && s.player.id)) return;
+        if (!op.alive || op.x < 0) return;
+        if (!(vis[op.y] && vis[op.y][op.x])) return;
+        const rgb = hexToRgb(op.color);
+        drawBillboard(op.x, op.y, op.glyph || "A", rgb, op.name || "");
+      });
 
       const cx = (W / 2) | 0;
       const cy = (H / 2) | 0;
@@ -987,6 +1139,8 @@
       "}": ["}}", "}}"],
       "%": ["%%", "▓▓"],
     };
+    if (pair[ch]) return pair[ch];
+    if (ch && ch.length === 1 && /[A-Z0-9]/.test(ch)) return [ch + ch, "▓▓"];
     return pair[ch] || [ch + ch, ch + ch];
   }
 
@@ -1012,10 +1166,23 @@
         const visible = !!(vis[y] && vis[y][x]);
         const explored = !!(exp[y] && exp[y][x]);
         if (x === px && y === py) ch = FACING_GLYPH[facing];
+        let otherColor = null;
+        if (!(x === px && y === py) && s.players) {
+          for (let i = 0; i < s.players.length; i++) {
+            const op = s.players[i];
+            if (op && op.alive && op.x === x && op.y === y && op.id !== s.you) {
+              ch = op.glyph || "A";
+              otherColor = op.color || "#ff2a6d";
+              break;
+            }
+          }
+        }
         const [a, b] = enhanceCell(ch, visible, explored);
-        const cls = miniClass(ch, visible, explored);
-        top += `<span class="${cls}">${escapeHtml(a)}</span>`;
-        bot += `<span class="${cls}">${escapeHtml(b)}</span>`;
+        let cls = miniClass(ch, visible, explored);
+        if (otherColor) cls = "m-other";
+        const style = otherColor ? ' style="color:' + otherColor + '"' : "";
+        top += `<span class="${cls}"${style}>${escapeHtml(a)}</span>`;
+        bot += `<span class="${cls}"${style}>${escapeHtml(b)}</span>`;
       }
       html += top + "\n" + bot + "\n";
     }
@@ -1035,6 +1202,7 @@
       ["&", "NPC"],
       ["i/t/d", "enemies"],
       ["%", "Payload-Zero"],
+      ["A-Z", "other couriers"],
     ];
     legendEl.innerHTML = items
       .map(
@@ -1067,20 +1235,50 @@
     renderMinimap(s);
 
     const p = s.player;
+    myId = s.you || myId;
     statsEl.innerHTML = `
-      <div><strong>${escapeHtml(p.name)}</strong></div>
+      <div><strong>${escapeHtml(p.name)}</strong> <span style="color:${escapeHtml(p.color || "#39c5cf")}">[${escapeHtml(p.glyph || "@")}]</span></div>
       <div class="hp">HP ${p.hp}/${p.max_hp}</div>
       <div class="focus">Focus ${p.focus}/${p.max_focus}</div>
       <div>Atk ${p.attack} · Def ${p.defense} · Hack ${p.hack}</div>
-      <div>Facing ${escapeHtml(p.facing_name || FACING_NAMES[p.facing] || "?")} · Turn ${s.turn}</div>
-      <div>Seed ${s.seed}</div>
+      <div>Facing ${escapeHtml(p.facing_name || FACING_NAMES[p.facing] || "?")} · Tick ${s.tick != null ? s.tick : s.turn}</div>
+      <div>Seed ${s.seed} · ${s.online_count != null ? s.online_count : (s.players || []).length} online</div>
       <div class="${p.has_payload ? "ok" : ""}">Payload-Zero: ${
-        p.has_payload ? "IN SLEEVE" : "missing"
+        p.has_payload ? "IN SLEEVE (yours)" : "missing"
       }</div>
       <div style="margin-top:0.5rem;color:#6e7681">Quest: ${
         Object.keys(s.quest_flags || {}).join(", ") || "—"
       }</div>
     `;
+    if (playerListEl) {
+      const list = s.players || [];
+      playerListEl.innerHTML = list
+        .map((op) => {
+          const you = op.id === s.you;
+          return `<li><span class="pglyph" style="color:${escapeHtml(op.color || "#fff")}">${escapeHtml(
+            op.glyph || "?"
+          )}</span><span>${escapeHtml(op.name)}${you ? ' <span class="you-tag">YOU</span>' : ""}${
+            op.has_payload ? " · %" : ""
+          }${op.won ? " · WIN" : ""}</span></li>`;
+        })
+        .join("");
+    }
+    if (chatLogEl && Array.isArray(s.chat)) {
+      chatLogEl.innerHTML = s.chat
+        .map((c) => {
+          if (c.kind === "system") {
+            return `<div class="chat-sys">* ${escapeHtml(c.text)}</div>`;
+          }
+          return `<div class="chat-say"><span class="cn">${escapeHtml(c.name)}</span>: ${escapeHtml(
+            c.text
+          )}</div>`;
+        })
+        .join("");
+      chatLogEl.scrollTop = chatLogEl.scrollHeight;
+    }
+    if (netHud && lastPingMs != null) {
+      netHud.textContent = lastPingMs + "ms · " + (s.online_count || listLen(s)) + " online";
+    }
     invEl.innerHTML = "";
     (s.inventory || []).forEach((it, i) => {
       const li = document.createElement("li");
@@ -1105,7 +1303,7 @@
       overlay.innerHTML = `<div class="box banner">YOU DIED<br/><span style="font-size:0.85rem;color:#c9d1d9">Press <kbd>r</kbd> to restart</span></div>`;
     } else if (s.mode === "won") {
       overlay.classList.remove("hidden");
-      overlay.innerHTML = `<div class="box banner">YOU WIN<br/><span style="font-size:0.85rem;color:#c9d1d9">Payload cleared. <kbd>r</kbd> restart</span></div>`;
+      overlay.innerHTML = `<div class="box banner">YOU WIN<br/><span style="font-size:0.85rem;color:#c9d1d9">Personal quest done. <kbd>r</kbd> respawn</span></div>`;
     } else if (s.mode === "inventory") {
       invMode = true;
       overlay.classList.add("hidden");
@@ -1117,6 +1315,10 @@
 
   async function send(action, arg) {
     Sound.unlock();
+    if (Net.isJoined()) {
+      Net.action(action, arg);
+      return;
+    }
     const s = await api("/api/action", { action, arg });
     render(s);
   }
@@ -1152,6 +1354,22 @@
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     Sound.unlock();
+    if (chatFocused || (chatInput && document.activeElement === chatInput)) {
+      if (ev.key === "Escape") {
+        chatInput.blur();
+        chatFocused = false;
+        ev.preventDefault();
+      }
+      return;
+    }
+    if (ev.key === "Enter" && gameplayReady && !CutscenePlayer.isPlaying() && !IntroPlayer.isActive()) {
+      ev.preventDefault();
+      if (chatInput) {
+        chatInput.focus();
+        chatFocused = true;
+      }
+      return;
+    }
     if (IntroPlayer.isActive()) {
       if (ev.key === " " || ev.key === "Escape" || ev.key === "Enter") {
         ev.preventDefault();
@@ -1217,25 +1435,49 @@
   });
 
   async function startGameplay(opts) {
-    const replaySeed = opts && opts.seed !== undefined ? opts.seed : null;
     gameplayReady = true;
     FpvEngine.start();
     try {
-      const s = await api("/api/new", { seed: replaySeed });
-      render(s);
+      await Net.connect(displayName);
       FpvEngine.kick();
     } catch (err) {
-      console.error("Failed to load game:", err);
-      if (fpvStatus) fpvStatus.textContent = "Failed to load game";
+      console.error("Failed to join world:", err);
+      if (fpvStatus) fpvStatus.textContent = "Failed to join world";
+      // HTTP fallback join
+      try {
+        const s = await api("/api/new", { name: displayName });
+        render(s);
+      } catch (e2) {
+        console.error(e2);
+      }
     }
   }
 
   async function runIntroThenGame(opts) {
     gameplayReady = false;
     FpvEngine.pause();
-    // Mute gameplay SFX path until intro ends (no /api/new yet)
+    if (introEl) introEl.classList.remove("hidden");
     await IntroPlayer.play();
+    if (introEl) introEl.classList.add("hidden");
     await startGameplay(opts || {});
+  }
+
+  function resolveNameFromUrl() {
+    try {
+      const u = new URL(location.href);
+      const n = u.searchParams.get("name");
+      if (n && n.trim()) return n.trim().slice(0, 24);
+    } catch (_) {}
+    return "";
+  }
+
+  async function beginWithName(name) {
+    displayName = (name || "Courier").trim().slice(0, 24) || "Courier";
+    try {
+      localStorage.setItem("snowcrash_name", displayName);
+    } catch (_) {}
+    if (nameGate) nameGate.classList.add("hidden");
+    await runIntroThenGame({});
   }
 
   async function boot() {
@@ -1248,7 +1490,26 @@
     } catch (err) {
       console.warn("cutscene index missing", err);
     }
-    await runIntroThenGame({ seed: null });
+
+    const fromUrl = resolveNameFromUrl();
+    let saved = "";
+    try { saved = localStorage.getItem("snowcrash_name") || ""; } catch (_) {}
+    if (displayNameEl) displayNameEl.value = fromUrl || saved || "";
+
+    if (fromUrl) {
+      await beginWithName(fromUrl);
+      return;
+    }
+    if (nameForm) {
+      nameForm.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        Sound.unlock();
+        const n = displayNameEl ? displayNameEl.value : "Courier";
+        beginWithName(n);
+      });
+    }
+    if (nameGate) nameGate.classList.remove("hidden");
+    if (displayNameEl) setTimeout(() => displayNameEl.focus(), 50);
   }
 
   if (btnSkipIntro) {
@@ -1264,6 +1525,23 @@
       const seed = state && state.seed != null ? state.seed : null;
       await runIntroThenGame({ seed });
     });
+  }
+
+
+  if (chatForm && chatInput) {
+    chatForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const raw = (chatInput.value || "").trim();
+      if (!raw) return;
+      let text = raw;
+      if (text.toLowerCase().startsWith("/say ")) text = text.slice(5);
+      Net.chat(text);
+      chatInput.value = "";
+      chatInput.blur();
+      chatFocused = false;
+    });
+    chatInput.addEventListener("focus", () => { chatFocused = true; });
+    chatInput.addEventListener("blur", () => { chatFocused = false; });
   }
 
   boot();
