@@ -48,7 +48,8 @@ header h1 {
   color: var(--dim);
   font-size: 0.75rem;
 }
-#btn-ascii {
+#btn-ascii,
+#btn-mute {
   background: #21262d;
   color: var(--fg);
   border: 1px solid #30363d;
@@ -59,7 +60,9 @@ header h1 {
   cursor: pointer;
 }
 #btn-ascii:hover,
-#btn-ascii[aria-pressed="true"] {
+#btn-ascii[aria-pressed="true"],
+#btn-mute:hover,
+#btn-mute[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: 0 0 10px rgba(57, 197, 207, 0.25);

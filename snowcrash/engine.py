@@ -31,11 +31,16 @@ class GameState:
     selected_inv: int = 0
     mode: str = "play"  # play, inventory, help, dead, won
     story_seen: List[str] = field(default_factory=list)
+    pending_sfx: List[str] = field(default_factory=list)
 
     def log(self, msg: str) -> None:
         self.messages.append(msg)
         if len(self.messages) > 80:
             self.messages = self.messages[-80:]
+
+    def sfx(self, event_id: str) -> None:
+        """Queue a one-shot sound event for the next snapshot."""
+        self.pending_sfx.append(event_id)
 
     def actor_at(self, x: int, y: int) -> Optional[Actor]:
         for a in self.actors:
@@ -123,11 +128,20 @@ def melee_attack(gs: GameState, attacker: Actor, defender: Actor) -> None:
     raw = atk + gs.rng.randint(0, 2)
     dmg = defender.take_damage(raw)
     gs.log(f"{attacker.name} hits {defender.name} for {dmg}.")
+    if attacker.is_player():
+        gs.sfx("melee")
     if not defender.alive:
         gs.log(f"{defender.name} collapses into pixel dust.")
-        if defender.faction == "enemy" and attacker.is_player():
-            # small focus restore on kill
-            attacker.restore_focus(2)
+        if defender.faction == "enemy":
+            gs.sfx("kill")
+            if attacker.is_player():
+                # small focus restore on kill
+                attacker.restore_focus(2)
+        elif defender.is_player():
+            # death sfx emitted when mode flips in enemy_turn / callers
+            pass
+    elif defender.faction == "enemy":
+        gs.sfx("hurt")
 
 
 def try_ranged_or_hack(gs: GameState) -> bool:
@@ -157,8 +171,12 @@ def try_ranged_or_hack(gs: GameState) -> bool:
         player.focus -= cost
         dmg = target.take_damage(weapon.ranged_damage + gs.rng.randint(0, 2))
         gs.log(f"You pulse-fire {weapon.name} at {target.name} for {dmg}.")
+        gs.sfx("pulse")
         if not target.alive:
             gs.log(f"{target.name} fries.")
+            gs.sfx("kill")
+        else:
+            gs.sfx("hurt")
         return True
 
     # Hack attack
@@ -172,8 +190,12 @@ def try_ranged_or_hack(gs: GameState) -> bool:
         power += 2  # drones are vulnerable to hack
     dmg = target.take_damage(power)
     gs.log(f"You inject a glitch into {target.name} for {dmg} (hack).")
+    gs.sfx("pulse")
     if not target.alive:
         gs.log(f"{target.name} bluescreens.")
+        gs.sfx("kill")
+    else:
+        gs.sfx("hurt")
     return True
 
 
@@ -192,6 +214,7 @@ def enemy_turn(gs: GameState) -> None:
             if not player.alive:
                 gs.lost = True
                 gs.mode = "dead"
+                gs.sfx("death")
                 gs.log("Your avatar flatlines. Press r to restart or q to quit.")
             continue
         if can_see and dist <= C.VIEW_RADIUS + 2 and a.ai == "chase":
@@ -251,6 +274,7 @@ def check_win(gs: GameState) -> None:
         gs.won = True
         gs.mode = "won"
         gs.quest_flags["payload_cleared"] = True
+        gs.sfx("win")
         gs.log(
             "Node Custodian slots the Faraday sleeve. Payload-Zero dissolves into "
             "harmless checksums — or rides a clean packet into the Metaverse. "
@@ -340,6 +364,7 @@ def _replace_state(dst: GameState, src: GameState) -> None:
 def _try_move(gs: GameState, dx: int, dy: int) -> None:
     px, py = gs.player.x + dx, gs.player.y + dy
     if not gs.gmap.in_bounds(px, py):
+        gs.sfx("bump")
         return
     target = gs.actor_at(px, py)
     if target and target.alive:
@@ -349,6 +374,7 @@ def _try_move(gs: GameState, dx: int, dy: int) -> None:
             return
         if target.faction == "npc":
             gs.log(f'{target.name}: "{target.talk}"')
+            gs.sfx("talk")
             if target.quest_flag and target.quest_flag not in gs.quest_flags:
                 gs.quest_flags[target.quest_flag] = True
                 if target.quest_flag not in gs.story_seen:
@@ -358,8 +384,13 @@ def _try_move(gs: GameState, dx: int, dy: int) -> None:
             return
     if not gs.gmap.walkable(px, py):
         gs.log("Blocked.")
+        gs.sfx("bump")
         return
     gs.player.x, gs.player.y = px, py
+    if gs.gmap.tiles[py][px] == C.DOOR:
+        gs.sfx("door")
+    else:
+        gs.sfx("step")
     # auto-describe items
     here = gs.items_at(px, py)
     for fi in here:
@@ -382,6 +413,7 @@ def _pickup(gs: GameState) -> None:
     gs.floor_items.remove(fi)
     gs.player.inventory.append(fi.item)
     gs.log(f"Picked up {fi.item.name}.")
+    gs.sfx("pickup")
     if fi.item.id == "payload_zero":
         gs.quest_flags["got_payload"] = True
         if "got_payload" not in gs.story_seen:
@@ -454,6 +486,8 @@ def _use_item(gs: GameState, idx: int) -> None:
             gs.player.hack += item.hack_bonus
             gs.log(f"Hack skill +{item.hack_bonus}.")
         used = True
+    if used:
+        gs.sfx("use")
     if used and item.consumable:
         inv.pop(idx)
         if gs.selected_inv >= len(inv):
@@ -531,6 +565,8 @@ def render_ascii(gs: GameState) -> List[str]:
 
 def snapshot(gs: GameState) -> Dict[str, Any]:
     p = gs.player
+    sfx_events = list(gs.pending_sfx)
+    gs.pending_sfx.clear()
     return {
         "seed": gs.seed,
         "turn": gs.turn,
@@ -572,4 +608,5 @@ def snapshot(gs: GameState) -> Dict[str, Any]:
         "explored": [row[:] for row in gs.gmap.explored],
         "jackpoint": list(gs.jackpoint_pos),
         "uplink": list(gs.uplink_pos),
+        "sfx": sfx_events,
     }

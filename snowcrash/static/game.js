@@ -8,12 +8,153 @@
   const overlay = document.getElementById("overlay");
   const legendEl = document.getElementById("legend");
   const btnAscii = document.getElementById("btn-ascii");
+  const btnMute = document.getElementById("btn-mute");
 
   let state = null;
   let invMode = false;
   let useTiles = true;
   let tilesMeta = null;
+  let lastMode = null;
   const TILE_PATH = "/static/tiles/";
+  const SFX_PATH = "/static/sfx/";
+  const SFX_IDS = [
+    "step",
+    "bump",
+    "melee",
+    "hurt",
+    "kill",
+    "pulse",
+    "pickup",
+    "use",
+    "talk",
+    "door",
+    "win",
+    "death",
+    "click",
+  ];
+
+  const Sound = (() => {
+    const STORAGE_KEY = "snowcrash_mute";
+    const DEFAULT_VOL = 0.4;
+    let muted = localStorage.getItem(STORAGE_KEY) === "1";
+    let volume = DEFAULT_VOL;
+    let unlocked = false;
+    const cache = {};
+    let ctx = null;
+
+    function ensureCtx() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ctx = new AC();
+      }
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+      return ctx;
+    }
+
+    function unlock() {
+      if (unlocked) return;
+      unlocked = true;
+      ensureCtx();
+    }
+
+    async function load(id) {
+      if (cache[id]) return cache[id];
+      try {
+        const res = await fetch(SFX_PATH + id + ".wav");
+        if (!res.ok) return null;
+        const buf = await res.arrayBuffer();
+        const ac = ensureCtx();
+        if (ac) {
+          const decoded = await ac.decodeAudioData(buf.slice(0));
+          cache[id] = { type: "buffer", data: decoded };
+          return cache[id];
+        }
+      } catch (err) {
+        console.warn("sfx load failed", id, err);
+      }
+      // HTMLAudioElement fallback
+      const audio = new Audio(SFX_PATH + id + ".wav");
+      audio.preload = "auto";
+      cache[id] = { type: "html", data: audio };
+      return cache[id];
+    }
+
+    function play(id) {
+      if (muted || !id) return;
+      unlock();
+      const entry = cache[id];
+      if (!entry) {
+        load(id).then(() => play(id));
+        return;
+      }
+      try {
+        if (entry.type === "buffer") {
+          const ac = ensureCtx();
+          if (!ac) return;
+          const src = ac.createBufferSource();
+          src.buffer = entry.data;
+          const gain = ac.createGain();
+          gain.gain.value = volume;
+          src.connect(gain);
+          gain.connect(ac.destination);
+          src.start(0);
+        } else {
+          const a = entry.data.cloneNode ? entry.data.cloneNode() : entry.data;
+          a.volume = volume;
+          a.currentTime = 0;
+          a.play().catch(() => {});
+        }
+      } catch (err) {
+        console.warn("sfx play failed", id, err);
+      }
+    }
+
+    function playList(ids) {
+      if (!ids || !ids.length) return;
+      // stagger slightly so overlapping events stay distinct
+      ids.forEach((id, i) => {
+        setTimeout(() => play(id), i * 28);
+      });
+    }
+
+    function setMuted(m) {
+      muted = !!m;
+      localStorage.setItem(STORAGE_KEY, muted ? "1" : "0");
+      syncUi();
+    }
+
+    function toggleMute() {
+      setMuted(!muted);
+      if (!muted) play("click");
+      return muted;
+    }
+
+    function syncUi() {
+      if (!btnMute) return;
+      btnMute.setAttribute("aria-pressed", muted ? "true" : "false");
+      btnMute.textContent = muted ? "Unmute" : "Mute";
+      btnMute.title = muted
+        ? "Unmute sound (m)"
+        : "Mute sound (m)";
+    }
+
+    function preload() {
+      SFX_IDS.forEach((id) => load(id));
+    }
+
+    return {
+      play,
+      playList,
+      toggleMute,
+      setMuted,
+      isMuted: () => muted,
+      unlock,
+      preload,
+      syncUi,
+    };
+  })();
 
   async function api(path, body) {
     const opts = body
@@ -123,6 +264,7 @@
 
   function toggleAscii() {
     useTiles = !useTiles;
+    Sound.play("click");
     applyViewMode();
     if (state) {
       if (useTiles) renderTiles(state);
@@ -130,7 +272,21 @@
     }
   }
 
+  function handleSfx(s) {
+    const events = Array.isArray(s.sfx) ? s.sfx.slice() : [];
+    // Backup: mode change to dead/won if server omitted event
+    if (s.mode === "dead" && lastMode !== "dead" && !events.includes("death")) {
+      events.push("death");
+    }
+    if (s.mode === "won" && lastMode !== "won" && !events.includes("win")) {
+      events.push("win");
+    }
+    lastMode = s.mode;
+    Sound.playList(events);
+  }
+
   function render(s) {
+    handleSfx(s);
     state = s;
     if (useTiles) {
       renderTiles(s);
@@ -159,7 +315,10 @@
       if (it.equipped) li.classList.add("equipped");
       if (i === s.selected_inv) li.classList.add("sel");
       li.title = it.description;
-      li.addEventListener("click", () => send("u", String(i)));
+      li.addEventListener("click", () => {
+        Sound.play("click");
+        send("u", String(i));
+      });
       invEl.appendChild(li);
     });
     logEl.innerHTML = (s.messages || [])
@@ -197,6 +356,7 @@
   }
 
   async function send(action, arg) {
+    Sound.unlock();
     const s = await api("/api/action", { action, arg });
     render(s);
   }
@@ -229,6 +389,12 @@
 
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    Sound.unlock();
+    if (ev.key === "m" || ev.key === "M") {
+      ev.preventDefault();
+      Sound.toggleMute();
+      return;
+    }
     if (ev.key === "A") {
       ev.preventDefault();
       toggleAscii();
@@ -253,8 +419,21 @@
   if (btnAscii) {
     btnAscii.addEventListener("click", toggleAscii);
   }
+  if (btnMute) {
+    btnMute.addEventListener("click", () => {
+      Sound.unlock();
+      Sound.toggleMute();
+    });
+  }
+  Sound.syncUi();
+
+  // First gesture unlocks audio (browser autoplay policy)
+  ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
+    window.addEventListener(evt, () => Sound.unlock(), { once: true, passive: true });
+  });
 
   async function boot() {
+    Sound.preload();
     try {
       tilesMeta = await fetch(TILE_PATH + "tiles.json").then((r) => r.json());
       buildLegend();

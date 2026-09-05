@@ -70,6 +70,7 @@ CONTROLS
   ?                     — this help
   q                     — quit
   A (web)               — toggle tiles / ASCII
+  m (web)               — mute / unmute SFX
 
 GOAL
   Recover or neutralize the rogue Payload-Zero from the jackpoint (J),

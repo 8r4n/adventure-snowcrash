@@ -40,6 +40,7 @@ Then open **http://127.0.0.1:8765/** (or your host’s IP on port **8765**).
 
 The web UI renders a neon 32×32 tile map (not bare ASCII) with a legend under the grid.
 Press **A** or use the **ASCII view** button to switch back to the classic glyph map.
+Short procedural SFX play for move/combat/loot — **Mute** button or **m** (remembered in localStorage; default volume ~0.4).
 Quest rooms show **J** (jackpoint) and **U** (Metaverse uplink) as distinct tiles.
 
 To regenerate sprites after editing `scripts/gen_tiles.py`:
@@ -48,6 +49,12 @@ To regenerate sprites after editing `scripts/gen_tiles.py`:
 source .venv/bin/activate
 pip install pillow   # generator only; not a runtime dep
 python scripts/gen_tiles.py
+```
+
+To regenerate SFX WAVs (stdlib only — no extra deps):
+
+```bash
+python scripts/gen_sfx.py
 ```
 
 ## Controls
@@ -65,6 +72,8 @@ python scripts/gen_tiles.py
 | `?` | Help |
 | `r` | Restart (after death/win) |
 | `q` | Quit (TUI) |
+| `A` (web) | Toggle tiles / ASCII |
+| `m` (web) | Mute / unmute SFX |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
 
@@ -94,8 +103,9 @@ adventure/
       __main__.py
       app.py
     templates/index.html
-    static/{style.css,game.js,tiles/}
+    static/{style.css,game.js,tiles/,sfx/}
   scripts/gen_tiles.py   # Pillow one-shot sprite bake
+  scripts/gen_sfx.py     # stdlib procedural WAV bake
 ```
 
 ## License
