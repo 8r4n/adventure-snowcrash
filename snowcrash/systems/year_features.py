@@ -331,8 +331,19 @@ class YearFeaturesMixin:
         roll = self.rng.random()
         living = [p for p in self.players.values() if p.connected and p.actor.alive]
         if roll < 0.34 and living:
-            # Ambush near a random player
-            p = self.rng.choice(living)
+            # Ambush near a random player — never fresh-spawn / shielded / on-pad
+            candidates = [
+                p for p in living
+                if not p.is_invulnerable()
+                and not (
+                    int(getattr(p.actor, "z", 0) or 0) == C.PLANE_STREET
+                    and self._near_any_spawn(p.actor.x, p.actor.y)
+                )
+            ]
+            if not candidates:
+                self.next_event_tick = self.tick + self.rng.randint(20, 40)
+                return
+            p = self.rng.choice(candidates)
             spawned = 0
             for _ in range(3):
                 for _try in range(20):
@@ -443,6 +454,10 @@ class YearFeaturesMixin:
             # Place near spawn but mark at_home
             agent.housing["at_home"] = True
             agent.log("Respawned into safehouse instance (stash available).")
+            n = self.clear_spawn_threats(agent.actor.x, agent.actor.y, C.PLANE_STREET)
+            if n:
+                agent.log("Cleared %d hostiles near safehouse pad." % n)
+            self._grant_spawn_invuln(agent)
         elif choice == "district":
             d = self._district_at(agent.last_good_x, agent.last_good_y)
             # nudge toward district center
@@ -456,6 +471,10 @@ class YearFeaturesMixin:
                         if self._can_stand(nx, ny, z=C.PLANE_STREET):
                             self._force_set_pos(agent, nx, ny, C.PLANE_STREET, "district respawn")
                             agent.log("Respawned at %s node." % d.get("name", "district"))
+                            n = self.clear_spawn_threats(nx, ny, C.PLANE_STREET)
+                            if n:
+                                agent.log("Cleared %d hostiles near district pad." % n)
+                            self._grant_spawn_invuln(agent)
                             self.update_fov(agent)
                             return
 
