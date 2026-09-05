@@ -316,6 +316,8 @@ header h1 {
 #inventory li:hover { background: #1c2330; }
 #inventory li.equipped { color: var(--ok); }
 #inventory li.sel { outline: 1px solid var(--accent); }
+#inventory li.wish { color: #f0b429; }
+#inventory li.wish::after { content: ' · petition'; opacity: 0.6; font-size: 0.75em; }
 #help-mini {
   margin-top: 0.85rem;
   font-size: 0.72rem;
@@ -793,3 +795,14 @@ body:not(.intro-active) {
   .fpv-stage { min-height: 42vh; }
   #minimap-wrap { width: min(280px, 48vw); }
 }
+
+#btn-wish {
+  background: #1c2330;
+  color: #f0b429;
+  border: 1px solid #f0b429;
+  border-radius: 4px;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  font: inherit;
+}
+#btn-wish:hover { background: #2a3344; }

@@ -36,6 +36,13 @@ SCENES = {
     "payload": {"hue": (240, 180, 41), "accent": (255, 42, 109), "label": "PAYLOAD"},
     "terminal": {"hue": (57, 197, 207), "accent": (240, 180, 41), "label": "TERM"},
     "door": {"hue": (240, 180, 41), "accent": (57, 197, 207), "label": "DOOR"},
+    "briefing_librarian": {"hue": (180, 200, 255), "accent": (57, 197, 207), "label": "ARCHIVE"},
+    "club_black_neon": {"hue": (255, 42, 109), "accent": (210, 168, 255), "label": "NEON"},
+    "flotilla_signal": {"hue": (40, 160, 220), "accent": (240, 180, 41), "label": "FLOTILLA"},
+    "namshub_counter": {"hue": (255, 90, 60), "accent": (61, 214, 140), "label": "BABEL"},
+    "street_victory": {"hue": (61, 214, 140), "accent": (240, 180, 41), "label": "VICTORY"},
+    "babel_clear": {"hue": (57, 197, 207), "accent": (180, 220, 255), "label": "CLEAR"},
+    "wish_granted": {"hue": (240, 180, 41), "accent": (255, 42, 109), "label": "WISH"},
 }
 
 

@@ -286,6 +286,9 @@ def check_win(gs: GameState) -> None:
         gs.quest_flags["payload_cleared"] = True
         gs.sfx("win")
         gs.cutscene("uplink")
+        gs.cutscene("namshub_counter")
+        gs.cutscene("street_victory")
+        gs.cutscene("babel_clear")
         gs.log(
             "Node Custodian slots the Faraday sleeve. Payload-Zero dissolves into "
             "harmless checksums — or rides a clean packet into the Metaverse. "
@@ -437,6 +440,10 @@ def _try_move(gs: GameState, dx: int, dy: int) -> None:
                 gs.quest_flags[target.quest_flag] = True
                 if target.quest_flag not in gs.story_seen:
                     gs.story_seen.append(target.quest_flag)
+            if target.quest_flag in ("briefing", "archive_briefing"):
+                gs.cutscene("briefing_librarian")
+            if target.quest_flag == "club_tip" or "Glassline" in target.name:
+                gs.cutscene("club_black_neon")
             # bump into NPC doesn't consume? still a turn of talking
             end_player_turn(gs)
             return
@@ -546,6 +553,29 @@ def _use_item(gs: GameState, idx: int) -> None:
         got = gs.player.restore_focus(item.focus_restore)
         gs.log(f"Used {item.name}: +{got} focus.")
         used = True
+    if item.kind == "wish":
+        from .wishes import make_backlog_token, match_wish_grant, prototype_for_grant, grant_label
+        wish_text = item.extra.get("wish_text") or item.description.split("\n")[0]
+        gs.cutscene("wish_granted", once=False)
+        gs.sfx("use")
+        inv.pop(idx)
+        grant = match_wish_grant(wish_text)
+        if grant:
+            proto = prototype_for_grant(grant)
+            if proto:
+                inv.append(proto)
+                gs.log(f"Wish granted: {grant_label(grant)}")
+            else:
+                inv.append(make_backlog_token(wish_text))
+                gs.log("Wish logged to Metaverse backlog.")
+        else:
+            inv.append(make_backlog_token(wish_text))
+            gs.log("Wish logged to Metaverse backlog.")
+        if gs.selected_inv >= len(inv):
+            gs.selected_inv = max(0, len(inv) - 1)
+        end_player_turn(gs)
+        gs.mode = "play"
+        return
     if item.kind == "datachip":
         gs.log(f"You jack the chip: {item.description}")
         if item.hack_bonus:
@@ -553,7 +583,10 @@ def _use_item(gs: GameState, idx: int) -> None:
             gs.player.hack += item.hack_bonus
             gs.log(f"Hack skill +{item.hack_bonus}.")
         used = True
-        gs.cutscene("terminal")
+        gs.cutscene(item.extra.get("cutscene") or "terminal")
+        qf = item.extra.get("quest_flag")
+        if qf:
+            gs.quest_flags[qf] = True
     if used:
         gs.sfx("use")
     if used and item.consumable:

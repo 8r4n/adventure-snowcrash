@@ -20,6 +20,15 @@ from . import constants as C
 from .entities import Actor, make_player
 from .items import Item, make_mono_knife, make_payload_zero, make_stimpack
 from .mapgen import FloorItem, GameMap, generate_world
+from .wishes import (
+    MAX_WISHES,
+    grant_label,
+    make_backlog_token,
+    make_wish_item,
+    match_wish_grant,
+    prototype_for_grant,
+    wish_hash,
+)
 
 # Distinct glyphs / neon colors for other avatars
 PLAYER_GLYPHS = list("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
@@ -83,6 +92,11 @@ class PlayerAgent:
     last_good_x: int = 0
     last_good_y: int = 0
     last_good_z: int = 0
+    haste_steps: int = 0
+    view_bonus: int = 0
+    view_bonus_until_tick: int = 0
+    companion: bool = False
+    private_chat: List[ChatLine] = field(default_factory=list)
 
     def is_invulnerable(self) -> bool:
         return time.time() < self.invuln_until
@@ -140,6 +154,9 @@ class GameWorld:
             self.planes[C.PLANE_STREET] = self.gmap
         self.gmap = self.planes[C.PLANE_STREET]
         self.shafts: set = set(getattr(world, "shafts", None) or [])
+        self.club_rects: List[Tuple[int, int, int, int]] = list(
+            getattr(world, "club_rects", None) or []
+        )
         # Ensure street actors default z=0; keep under/air as tagged
         for a in self.npcs_enemies:
             if not hasattr(a, "z") or a.z is None:
@@ -181,9 +198,48 @@ class GameWorld:
         if now - agent.last_chat_ts < 1.0 / CHAT_RATE_HZ:
             return "rate"
         agent.last_chat_ts = now
+        low = text.lower()
+        if low.startswith("/wish ") or low.startswith("/feature "):
+            body = text.split(" ", 1)[1].strip() if " " in text else ""
+            return self._handle_wish(agent, body)
+        if low in ("/wish", "/feature"):
+            agent.log("Usage: /wish <feature request>  (alias: /feature)")
+            return None
         self.chat.append(ChatLine(now, agent.name, text, "say"))
         if len(self.chat) > CHAT_MAX:
             self.chat = self.chat[-CHAT_MAX:]
+        return None
+
+    def _handle_wish(self, agent: PlayerAgent, body: str) -> Optional[str]:
+        if not body:
+            agent.log("Usage: /wish <feature request>")
+            return None
+        wishes = [i for i in agent.actor.inventory if i.kind == "wish"]
+        h = wish_hash(body)
+        existing = next((i for i in wishes if i.id == f"wish_{h}"), None)
+        if existing:
+            existing.description = body.strip() + "\nUse to petition the street layer."
+            existing.name = "Wish: " + (body.strip()[:28] + ("…" if len(body.strip()) > 28 else ""))
+            existing.extra["wish_text"] = body.strip()
+            agent.log("Wish refreshed in inventory: %s" % existing.name)
+        else:
+            if len(wishes) >= MAX_WISHES:
+                # drop oldest wish
+                for i, it in enumerate(agent.actor.inventory):
+                    if it.kind == "wish":
+                        agent.actor.inventory.pop(i)
+                        agent.log("Oldest wish discarded (max %d)." % MAX_WISHES)
+                        break
+            item = make_wish_item(body)
+            agent.actor.inventory.append(item)
+            agent.log("Wish filed as inventory item: %s" % item.name)
+        agent.sfx("pickup")
+        # soft self-log only (not global spam)
+        agent.private_chat.append(
+            ChatLine(time.time(), "SYSTEM", "%s requested: %s" % (agent.name, body.strip()[:80]), "system")
+        )
+        if len(agent.private_chat) > 12:
+            agent.private_chat = agent.private_chat[-12:]
         return None
 
     def _alloc_glyph_color(self) -> Tuple[str, str]:
@@ -530,7 +586,10 @@ class GameWorld:
         px, py = agent.actor.x, agent.actor.y
         if px < 0:
             return
-        r = C.VIEW_RADIUS
+        # Expire view bonus
+        if agent.view_bonus and self.tick >= agent.view_bonus_until_tick:
+            agent.view_bonus = 0
+        r = C.VIEW_RADIUS + max(0, int(agent.view_bonus))
         pad = r + 2
         for y in range(max(0, py - pad), min(gmap.height, py + pad + 1)):
             for x in range(max(0, px - pad), min(gmap.width, px + pad + 1)):
@@ -731,9 +790,13 @@ class GameWorld:
             agent.quest_flags["payload_cleared"] = True
             agent.sfx("win")
             agent.cutscene("uplink")
+            agent.cutscene("namshub_counter")
+            agent.cutscene("street_victory")
+            agent.cutscene("babel_clear")
             agent.log(
-                "Node Custodian slots YOUR Faraday sleeve. Payload-Zero dissolves — "
-                "personal run complete. Others can still finish theirs. YOU WIN."
+                "Node Custodian slots YOUR Faraday sleeve. Counter-incantation "
+                "fractures Payload-Zero into harmless checksums — personal run complete. "
+                "Others can still finish theirs. YOU WIN."
             )
             self.system_chat("%s cleared Payload-Zero." % agent.name)
 
@@ -891,6 +954,11 @@ class GameWorld:
                     agent.quest_flags[target.quest_flag] = True
                     if target.quest_flag not in agent.story_seen:
                         agent.story_seen.append(target.quest_flag)
+                # Story cutscenes
+                if target.quest_flag in ("briefing", "archive_briefing"):
+                    agent.cutscene("briefing_librarian")
+                if target.quest_flag == "club_tip" or "Glassline" in target.name:
+                    agent.cutscene("club_black_neon")
                 self.update_fov(agent)
                 return
             if target.faction == "player":
@@ -934,6 +1002,24 @@ class GameWorld:
                 if not agent.has_payload():
                     agent.story_seen.append("uplink_approach")
                     agent.log("Uplink node thrums — needs YOUR Payload-Zero in the sleeve.")
+            # Enter club room → Black Neon cutscene
+            for cx, cy, cw, ch in self.club_rects:
+                if cx <= px < cx + cw and cy <= py < cy + ch:
+                    if "club_enter" not in agent.story_seen:
+                        agent.story_seen.append("club_enter")
+                        agent.log("Bass hits like a firewall. Black Neon swallows the street noise.")
+                        agent.cutscene("club_black_neon")
+                    break
+        # Haste: free extra step in same direction
+        if agent.haste_steps > 0 and (dx or dy) and not agent.won and agent.actor.alive:
+            agent.haste_steps -= 1
+            nx, ny = agent.actor.x + dx, agent.actor.y + dy
+            if gmap.in_bounds(nx, ny) and gmap.walkable(nx, ny):
+                if not self.actor_at(nx, ny, ignore=agent.actor, z=z):
+                    agent.actor.x, agent.actor.y = nx, ny
+                    self._remember_pos(agent)
+                    if agent.haste_steps == 0:
+                        agent.log("Haste fades.")
         self.update_fov(agent)
         self.check_win(agent)
 
@@ -1040,25 +1126,47 @@ class GameWorld:
         if item.kind == "quest":
             agent.log("Quest items can't be 'used' here — deliver to the uplink.")
             return
-        if item.equippable:
+        if item.kind == "wish":
+            self._use_wish(agent, idx)
+            return
+        if item.equippable and not item.extra.get("grant"):
             self._equip_item(agent, idx)
             return
         used = False
+        # Prototype grant extras (from wish catalog toys)
+        grant = item.extra.get("grant")
+        if grant:
+            self._apply_grant(agent, grant, item)
+            used = True
         if item.heal:
             healed = agent.actor.heal(item.heal)
             agent.log("Used %s: +%d HP." % (item.name, healed))
             used = True
-        if item.focus_restore:
+        if item.focus_restore and not grant:
             got = agent.actor.restore_focus(item.focus_restore)
             agent.log("Used %s: +%d focus." % (item.name, got))
             used = True
-        if item.kind == "datachip":
+        if item.kind == "datachip" or item.id == "flotilla_radio":
             agent.log("You jack the chip: %s" % item.description)
             if item.hack_bonus:
                 agent.actor.hack += item.hack_bonus
                 agent.log("Hack skill +%d." % item.hack_bonus)
             used = True
-            agent.cutscene("terminal")
+            cs = item.extra.get("cutscene") or "terminal"
+            agent.cutscene(cs)
+            qf = item.extra.get("quest_flag")
+            if qf:
+                agent.quest_flags[qf] = True
+                if qf not in agent.story_seen:
+                    agent.story_seen.append(qf)
+        if item.kind == "misc" and item.extra.get("grant") and not used:
+            used = True
+        if not used and item.equippable:
+            self._equip_item(agent, idx)
+            return
+        if not used:
+            agent.log("Can't use %s." % item.name)
+            return
         if used:
             agent.sfx("use")
         if used and item.consumable:
@@ -1066,6 +1174,76 @@ class GameWorld:
             if agent.selected_inv >= len(inv):
                 agent.selected_inv = max(0, len(inv) - 1)
             agent.mode = "play"
+
+    def _use_wish(self, agent: PlayerAgent, idx: int) -> None:
+        inv = agent.actor.inventory
+        item = inv[idx]
+        wish_text = item.extra.get("wish_text") or item.description.split("\n")[0]
+        agent.cutscene("wish_granted", once=False)
+        agent.sfx("use")
+        grant = match_wish_grant(wish_text)
+        inv.pop(idx)
+        if agent.selected_inv >= len(inv):
+            agent.selected_inv = max(0, len(inv) - 1)
+        agent.mode = "play"
+        if grant == "pulse" and any(i.id == "pulse_pistol" for i in agent.actor.inventory):
+            agent.log("Wish granted — you already pack a Pulse Pistol. Backlog Token instead.")
+            agent.actor.inventory.append(make_backlog_token(wish_text))
+            agent.log("Wish logged to Metaverse backlog.")
+            return
+        if grant:
+            proto = prototype_for_grant(grant)
+            if proto:
+                # pulse / heal grant the real item directly; others are usable prototypes
+                if grant in ("pulse", "heal"):
+                    agent.actor.inventory.append(proto)
+                    agent.log("Wish granted: %s" % grant_label(grant))
+                else:
+                    agent.actor.inventory.append(proto)
+                    agent.log("Wish granted prototype: %s — use it from inventory." % grant_label(grant))
+                return
+        agent.actor.inventory.append(make_backlog_token(wish_text))
+        agent.log("Wish logged to Metaverse backlog.")
+
+    def _apply_grant(self, agent: PlayerAgent, grant: str, item: Item) -> None:
+        if grant == "haste":
+            steps = int(item.extra.get("haste_steps", 8))
+            agent.haste_steps = max(agent.haste_steps, steps)
+            if item.focus_restore:
+                agent.actor.restore_focus(item.focus_restore)
+            agent.log("Haste online — double-step for %d moves." % agent.haste_steps)
+        elif grant == "reveal":
+            rad = int(item.extra.get("reveal_radius", 14))
+            self._reveal_fog(agent, rad)
+            if item.hack_bonus:
+                agent.actor.hack += item.hack_bonus
+            agent.log("Fog flare — explored radius %d." % rad)
+            agent.cutscene("terminal")
+        elif grant == "shield":
+            sec = float(item.extra.get("shield_sec", 10))
+            agent.invuln_until = max(agent.invuln_until, time.time() + sec)
+            agent.log("Hardlight shield up for %.0fs." % sec)
+        elif grant == "companion":
+            agent.companion = True
+            agent.log("Drone pet beacon latched — companion flag on your snapshot.")
+        elif grant == "flashlight":
+            bonus = int(item.extra.get("view_bonus", 4))
+            ticks = int(item.extra.get("view_ticks", 80))
+            agent.view_bonus = max(agent.view_bonus, bonus)
+            agent.view_bonus_until_tick = self.tick + ticks
+            agent.log("Night lens online — VIEW_RADIUS +%d for a while." % bonus)
+            self.update_fov(agent)
+
+    def _reveal_fog(self, agent: PlayerAgent, radius: int) -> None:
+        z = int(getattr(agent.actor, "z", 0) or 0)
+        self._bind_agent_fog(agent, z)
+        gmap = self.plane_map(z)
+        px, py = agent.actor.x, agent.actor.y
+        r2 = radius * radius
+        for y in range(max(0, py - radius), min(gmap.height, py + radius + 1)):
+            for x in range(max(0, px - radius), min(gmap.width, px + radius + 1)):
+                if (x - px) ** 2 + (y - py) ** 2 <= r2:
+                    agent.explored[y][x] = True
 
     def _equip_item(self, agent: PlayerAgent, idx: int) -> None:
         inv = agent.actor.inventory
@@ -1225,6 +1403,7 @@ class GameWorld:
             "entities": entities,
             "inventory": [
                 {
+                    "id": it.id,
                     "name": it.name,
                     "kind": it.kind,
                     "equipped": it.equipped,
@@ -1237,7 +1416,7 @@ class GameWorld:
             "messages": agent.messages[-12:],
             "chat": [
                 {"t": c.t, "name": c.name, "text": c.text, "kind": c.kind}
-                for c in self.chat[-20:]
+                for c in (list(self.chat[-16:]) + list(agent.private_chat[-4:]))
             ],
             "quest_flags": dict(agent.quest_flags),
             "story_seen": list(agent.story_seen),

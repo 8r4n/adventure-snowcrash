@@ -149,6 +149,7 @@ class WorldBundle:
     spawn_points: List[Tuple[int, int]] = field(default_factory=list)
     planes: Dict[int, GameMap] = field(default_factory=dict)
     shafts: List[Tuple[int, int]] = field(default_factory=list)  # free vertical (x,y)
+    club_rects: List[Tuple[int, int, int, int]] = field(default_factory=list)
 
 
 def generate_world(seed: Optional[int] = None) -> WorldBundle:
@@ -389,6 +390,26 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
             )
         )
         occupied.add((sx0 + 4, sy0 + 2))
+        # Archive Daemon — librarian briefing interface
+        ax, ay = sx0 + 6, sy0 + 2
+        if gmap.walkable(ax, ay) and (ax, ay) not in occupied:
+            actors.append(
+                make_npc(
+                    ax,
+                    ay,
+                    "Archive Daemon",
+                    (
+                        "Query accepted. Payload-Zero is neurolinguistic malware — "
+                        "a speech-act that rewrites wetware and avatars alike. "
+                        "Cassian Vox, the Cable Baron, is pushing The Flotilla: "
+                        "refugee signal-ships broadcasting into the Metaverse overlay. "
+                        "Counter-incantation at the uplink fractures the Babel stack. "
+                        "Do not speak the payload's true syllables."
+                    ),
+                    quest_flag="archive_briefing",
+                )
+            )
+            occupied.add((ax, ay))
     if clubs:
         cx0, cy0, cw0, ch0 = clubs[0]
         actors.append(
@@ -397,9 +418,10 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
                 cy0 + 3,
                 "DJ Glassline",
                 (
-                    "Club's loud so the drones don't hear the deals. Infected avatars "
-                    "are glitching hard tonight. Pulse pistols in alley lockers. "
-                    "Uplink's locked until you've got the core."
+                    "Welcome to Black Neon — loud so the drones don't hear the deals. "
+                    "Infected avatars are glitching hard tonight. Pulse pistols in the lockers. "
+                    "Vox's Flotilla chatter is bleeding into the bassline. "
+                    "Uplink stays quiet until you've got the core."
                 ),
                 quest_flag="club_tip",
             )
@@ -498,6 +520,25 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
             ),
         )
     )
+    floor_items.append(
+        FloorItem(
+            w // 2 + 8,
+            h // 2,
+            Item(
+                id="flotilla_radio",
+                name="Flotilla Band Radio",
+                glyph="*",
+                kind="datachip",
+                description=(
+                    "Salt-corroded receiver tuned to Cassian Vox's Flotilla broadcast. "
+                    "Use to petition the street layer — or just listen to the refugee signal."
+                ),
+                hack_bonus=1,
+                consumable=True,
+                extra={"cutscene": "flotilla_signal", "quest_flag": "flotilla_signal"},
+            ),
+        )
+    )
 
     for _ in range(40):
         ix = rng.randint(2, w - 3)
@@ -508,11 +549,12 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
                 floor_items.append(FloorItem(ix, iy, loot))
 
     story = [
-        "Briefing: Relay Tran wants Payload-Zero recovered from the jackpoint.",
-        "Rumor: Club Glassline knows about street weapons and infected avatars.",
-        "Discovery: Payload-Zero sits in a Faraday sleeve in the south jackpoint.",
-        "Choice: Bring the core to the Metaverse uplink to scrub or transmit.",
-        "Victory: Payload neutralized / couriered — fractured LA breathes easier.",
+        "Briefing: Relay Tran and the Archive Daemon want Payload-Zero recovered.",
+        "Rumor: Club Black Neon (Glassline) knows street weapons and infected avatars.",
+        "Signal: Cassian Vox's Flotilla bleeds refugee propaganda across the Layer.",
+        "Discovery: Payload-Zero sits in a Faraday sleeve at the jackpoint.",
+        "Choice: Bring the core to the Metaverse uplink for a Babel counter-scrub.",
+        "Victory: Payload neutralized — babel_clear; fractured LA breathes easier.",
     ]
 
     # ---- Multiplane: UNDER / STREET / AIR ----
@@ -640,4 +682,5 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
         spawn_points=spawn_points,
         planes=planes,
         shafts=shafts,
+        club_rects=list(clubs),
     )
