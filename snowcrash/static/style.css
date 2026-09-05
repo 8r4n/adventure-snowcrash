@@ -707,12 +707,12 @@ body.env-dev #side {
 .net-hud.warn { color: #f0b429; border-color: rgba(240, 180, 41, 0.4); }
 .net-hud.err { color: #ff7b72; border-color: rgba(255, 123, 114, 0.45); }
 
-#players-panel, #chat-panel {
+#players-panel {
   margin-top: 0.75rem;
   border-top: 1px solid #21262d;
   padding-top: 0.5rem;
 }
-#players-panel h2, #chat-panel h2 {
+#players-panel h2 {
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   color: #8b949e;
@@ -745,41 +745,191 @@ body.env-dev #side {
   font-size: 0.65rem;
 }
 
-#chat-log {
-  height: 7.5rem;
-  overflow-y: auto;
-  background: #0d1117;
-  border: 1px solid #21262d;
-  padding: 0.35rem 0.45rem;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  margin-bottom: 0.35rem;
-}
-#chat-log .chat-sys { color: #8b949e; font-style: italic; }
-#chat-log .chat-say .cn { color: #79c0ff; font-weight: 600; }
-#chat-form {
+
+/* —— StreetNet IRC messenger —— */
+#chat-panel.irc-panel {
+  margin-top: 0.75rem;
+  border: 1px solid #1a3d2a;
+  background: #020804;
+  padding: 0;
   display: flex;
-  gap: 0.3rem;
+  flex-direction: column;
+  font-family: "IBM Plex Mono", "Courier New", ui-monospace, monospace;
+  box-shadow: inset 0 0 24px rgba(0, 40, 20, 0.55);
 }
-#chat-form input {
+.irc-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.45rem;
+  background: linear-gradient(180deg, #0a2a14, #04150a);
+  border-bottom: 1px solid #1f5c38;
+}
+.irc-titlebar h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #3dd68c;
+  flex: 1;
+}
+.irc-ver {
+  color: #7ee787;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+.irc-mark { color: #3dd68c; font-size: 0.55rem; }
+.irc-chan-label {
+  font-size: 0.68rem;
+  color: #9be9a8;
+  border: 1px solid #1f5c38;
+  padding: 0.05rem 0.35rem;
+}
+.irc-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.3rem 0.35rem;
+  background: #03150b;
+  border-bottom: 1px solid #143d24;
+}
+.irc-ch {
+  appearance: none;
+  background: #061a0e;
+  border: 1px solid #1a4d2e;
+  color: #6bcf8e;
+  font-family: inherit;
+  font-size: 0.65rem;
+  padding: 0.12rem 0.35rem;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.irc-ch:hover { border-color: #3dd68c; color: #b6f0c4; }
+.irc-ch.dim { opacity: 0.55; }
+.irc-ch.active {
+  background: #0d3b22;
+  border-color: #3dd68c;
+  color: #e6ffe9;
+  box-shadow: 0 0 8px rgba(61, 214, 140, 0.25);
+}
+.irc-body {
+  display: grid;
+  grid-template-columns: 1fr 4.6rem;
+  min-height: 9.5rem;
+  max-height: 12rem;
+}
+.irc-log, #chat-log.irc-log {
+  height: auto;
+  max-height: 12rem;
+  overflow-y: auto;
+  background: #010503;
+  border: none;
+  border-right: 1px solid #143d24;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  margin: 0;
+  color: #b6f0c4;
+}
+.irc-nicks-wrap {
+  background: #031109;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.irc-nicks-head {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3d7a55;
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid #143d24;
+}
+.irc-nicks {
+  list-style: none;
+  margin: 0;
+  padding: 0.2rem 0.25rem;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 0.65rem;
+}
+.irc-nicks li {
+  color: #7ee787;
+  padding: 0.08rem 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.irc-nicks li.you { color: #e6ffe9; font-weight: 700; }
+.irc-nicks .op { color: #f0b429; }
+.irc-topic {
+  font-size: 0.62rem;
+  color: #5a9a70;
+  padding: 0.2rem 0.45rem;
+  border-top: 1px solid #143d24;
+  border-bottom: 1px solid #143d24;
+  background: #02140a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.irc-form, #chat-form.irc-form {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  background: #03150b;
+}
+.irc-prompt {
+  color: #3dd68c;
+  font-size: 0.68rem;
+  flex-shrink: 0;
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#chat-form.irc-form input {
   flex: 1;
   min-width: 0;
-  background: #0d1117;
-  border: 1px solid #30363d;
-  color: #e6edf3;
-  padding: 0.35rem 0.45rem;
+  background: #010503;
+  border: 1px solid #1a4d2e;
+  color: #e6ffe9;
+  padding: 0.3rem 0.4rem;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
+  caret-color: #3dd68c;
 }
-#chat-form button {
-  background: #21262d;
-  border: 1px solid #30363d;
-  color: #39c5cf;
-  padding: 0.35rem 0.55rem;
+#chat-form.irc-form input:focus {
+  outline: none;
+  border-color: #3dd68c;
+  box-shadow: 0 0 0 1px rgba(61, 214, 140, 0.25);
+}
+#chat-form.irc-form button {
+  background: #0d3b22;
+  border: 1px solid #3dd68c;
+  color: #b6f0c4;
+  padding: 0.3rem 0.5rem;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-family: inherit;
+  font-size: 0.68rem;
+  text-transform: lowercase;
 }
-#chat-form button:hover { border-color: #39c5cf; }
+#chat-form.irc-form button:hover { background: #145c34; color: #fff; }
+
+/* IRC line kinds */
+.irc-log .irc-ts { color: #3d7a55; margin-right: 0.35rem; }
+.irc-log .irc-sys { color: #6ea882; }
+.irc-log .irc-join { color: #3dd68c; }
+.irc-log .irc-part { color: #8b949e; }
+.irc-log .irc-nick { color: #f0b429; }
+.irc-log .irc-action { color: #d2a8ff; font-style: italic; }
+.irc-log .irc-pm { color: #ff9bce; }
+.irc-log .irc-notice { color: #79c0ff; }
+.irc-log .irc-say .cn { color: #7ee787; font-weight: 700; }
+.irc-log .irc-say .cn::before { content: "<"; color: #3d7a55; }
+.irc-log .irc-say .cn::after { content: ">"; color: #3d7a55; margin-right: 0.25rem; }
 
 .minimap-ascii .m-other { font-weight: 700; text-shadow: 0 0 6px currentColor; }
 .intro.hidden { display: none !important; }
@@ -806,3 +956,175 @@ body:not(.intro-active) {
   font: inherit;
 }
 #btn-wish:hover { background: #2a3344; }
+
+/* —— Decluttered layout —— */
+#app.declutter > header.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  margin: 0;
+  border-bottom: 1px solid #21262d;
+  min-height: 0;
+}
+#app.declutter .brand h1 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.16em;
+}
+#app.declutter .tag,
+#app.declutter #help-mini,
+#app.declutter #players-panel { display: none !important; }
+#app.declutter .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+#app.declutter .toolbar .hint { display: none; }
+#app.declutter .pill {
+  font-size: 0.68rem;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  color: #8b949e;
+  background: #0d1117;
+}
+#app.declutter .pill.compass { color: #39c5cf; border-color: rgba(57,197,207,0.4); }
+#app.declutter .pill.obj-compass {
+  color: #f0b429;
+  border-color: rgba(240,180,41,0.45);
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#app.declutter .btn-ghost {
+  opacity: 0.7;
+  font-size: 0.7rem;
+}
+#app.declutter #layout {
+  grid-template-columns: 1fr minmax(220px, 260px);
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem 0.25rem;
+}
+#app.declutter #fpv-panel .fpv-chrome.slim,
+#app.declutter #minimap-wrap .mini-chrome.slim {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+#app.declutter #fpv-panel .fpv-chrome.bottom { display: none; }
+#app.declutter .fpv-chrome .dim { color: #6e7681; margin-left: auto; }
+#app.declutter #side {
+  padding: 0.4rem 0.5rem;
+  gap: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 3.2rem);
+  min-height: 0;
+  overflow-y: auto;
+}
+#app.declutter .side-kicker { display: none; }
+#app.declutter .stats-compact {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #c9d1d9;
+}
+#app.declutter .stats-compact .obj {
+  color: #f0b429;
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+}
+#app.declutter .stats-compact .row { color: #8b949e; }
+#app.declutter .stats-compact .hp { color: #3dd68c; }
+#app.declutter .side-fold {
+  border-top: 1px solid #21262d;
+  padding-top: 0.25rem;
+}
+#app.declutter .side-fold summary {
+  cursor: pointer;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8b949e;
+  list-style: none;
+}
+#app.declutter .side-fold summary::-webkit-details-marker { display: none; }
+#app.declutter .side-fold summary::before {
+  content: "▸ ";
+  color: #39c5cf;
+}
+#app.declutter .side-fold[open] summary::before { content: "▾ "; }
+#app.declutter #inventory {
+  max-height: 4.5rem;
+  overflow-y: auto;
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+}
+#app.declutter .irc-panel.compact {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.25rem;
+  overflow: hidden;
+}
+#app.declutter .irc-panel.compact .irc-body {
+  flex: 1;
+  min-height: 6rem;
+  max-height: none;
+  overflow: hidden;
+}
+#app.declutter .irc-panel.compact .irc-log {
+  max-height: none;
+  overflow-y: auto;
+}
+#app.declutter .irc-panel.compact .irc-nicks-wrap {
+  width: 4.2rem;
+}
+#app.declutter .irc-topic {
+  font-size: 0.58rem;
+  padding: 0.12rem 0.35rem;
+}
+#app.declutter .legend-fold {
+  margin: 0.25rem 0.5rem 0.35rem;
+  border: 1px solid #21262d;
+  background: #0c1219;
+  padding: 0.2rem 0.5rem;
+}
+#app.declutter .legend-fold summary {
+  cursor: pointer;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6e7681;
+}
+#app.declutter .legend-fold[open] #legend {
+  margin-top: 0.35rem;
+}
+#app.declutter .help-line {
+  font-size: 0.68rem;
+  color: #6e7681;
+  margin: 0.35rem 0 0.2rem;
+}
+#app.declutter .log-slim {
+  max-height: 2.6rem;
+  overflow-y: auto;
+  font-size: 0.68rem;
+  margin: 0 0.5rem 0.4rem;
+  padding: 0.25rem 0.4rem;
+  opacity: 0.85;
+}
+#app.declutter #minimap-wrap {
+  /* slightly smaller GPS so FPV dominates */
+  width: min(34vw, 280px);
+}
+@media (max-width: 900px) {
+  #app.declutter #layout {
+    grid-template-columns: 1fr;
+  }
+}
