@@ -25,10 +25,18 @@
   const nameGate = document.getElementById("name-gate");
   const nameForm = document.getElementById("name-form");
   const displayNameEl = document.getElementById("display-name");
-  const playerListEl = document.getElementById("player-list");
+  const playerListEl = document.getElementById("player-list"); // optional (decluttered)
   const chatLogEl = document.getElementById("chat-log");
   const chatForm = document.getElementById("chat-form");
   const chatInput = document.getElementById("chat-input");
+  const ircChannelsEl = document.getElementById("irc-channels");
+  const ircNicksEl = document.getElementById("irc-nicks");
+  const ircTopicEl = document.getElementById("irc-topic");
+  const ircChanLabel = document.getElementById("irc-chan-label");
+  const ircPromptEl = document.getElementById("irc-prompt");
+  const objCompassEl = document.getElementById("obj-compass");
+  const fpvPosEl = document.getElementById("fpv-pos");
+  const miniPlaneEl = document.getElementById("mini-plane");
   const netHud = document.getElementById("net-hud");
 
   let state = null;
@@ -166,12 +174,17 @@
 
     function setPerspective(intensive, title) {
       if (!perspectiveEl) return;
-      if (intensive) {
-        perspectiveEl.classList.add("first");
-        perspectiveEl.textContent = title || "1ST PERSON — JACK-IN";
+      const long = intensive
+        ? (title || "1ST PERSON — JACK-IN")
+        : "1ST PERSON — VIDEO→ASCII";
+      perspectiveEl.classList.add("first");
+      const declutter = appEl && appEl.classList.contains("declutter");
+      if (declutter) {
+        perspectiveEl.textContent = "FPV";
+        perspectiveEl.title = long;
       } else {
-        perspectiveEl.classList.add("first");
-        perspectiveEl.textContent = "1ST PERSON — VIDEO→ASCII";
+        perspectiveEl.textContent = long;
+        perspectiveEl.title = "Camera perspective";
       }
     }
 
@@ -581,7 +594,8 @@
     function setHud(text, cls) {
       if (!netHud) return;
       netHud.textContent = text;
-      netHud.className = "net-hud" + (cls ? " " + cls : "");
+      // keep pill class so #app.declutter .pill.net-hud styles apply
+      netHud.className = "pill net-hud" + (cls ? " " + cls : "");
     }
 
     function wsUrl() {
@@ -1181,8 +1195,12 @@
     const facing = (s.player.facing || 0) % 4;
     const myZ = s.player.z != null ? s.player.z : (s.z != null ? s.z : 0);
     const planeName = s.plane || s.player.plane || "STREET";
-    const miniChrome = document.querySelector("#minimap-wrap .mini-chrome span:last-child");
-    if (miniChrome) miniChrome.textContent = planeName + " · Z" + myZ;
+    if (miniPlaneEl) {
+      miniPlaneEl.textContent = planeName + " · Z" + myZ;
+    } else {
+      const miniChrome = document.querySelector("#minimap-wrap .mini-chrome span:last-child");
+      if (miniChrome) miniChrome.textContent = planeName + " · Z" + myZ;
+    }
     const vis = s.visible || [];
     const exp = s.explored || [];
     const x0 = Math.max(0, px - MINI_R);
@@ -1200,6 +1218,18 @@
         const visible = !!(vis[y] && vis[y][x]);
         const explored = !!(exp[y] && exp[y][x]);
         if (x === px && y === py) ch = FACING_GLYPH[facing];
+        // Quest landmarks (always show on GPS)
+        let landmarkHit = false;
+        if (!(x === px && y === py) && Array.isArray(s.landmarks)) {
+          for (let li = 0; li < s.landmarks.length; li++) {
+            const lm = s.landmarks[li];
+            if (lm && lm.x === x && lm.y === y) {
+              ch = lm.glyph || "•";
+              landmarkHit = true;
+              break;
+            }
+          }
+        }
         let otherColor = null;
         if (!(x === px && y === py) && s.players) {
           for (let i = 0; i < s.players.length; i++) {
@@ -1218,6 +1248,7 @@
         }
         const [a, b] = enhanceCell(ch, visible, explored);
         let cls = miniClass(ch, visible, explored);
+        if (landmarkHit) cls = "m-land";
         if (otherColor) cls = "m-other";
         const style = otherColor ? ' style="color:' + otherColor + '"' : "";
         top += `<span class="${cls}"${style}>${escapeHtml(a)}</span>`;
@@ -1266,76 +1297,175 @@
     if (ids.length) CutscenePlayer.enqueue(ids);
   }
 
+  function ircTime(ts) {
+    try {
+      const d = new Date((ts || 0) * 1000);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return hh + ":" + mm;
+    } catch (e) {
+      return "--:--";
+    }
+  }
+
+  function renderIrcLine(c) {
+    const ts = `<span class="irc-ts">[${ircTime(c.t)}]</span>`;
+    const kind = c.kind || "say";
+    if (kind === "system" || kind === "join" || kind === "part" || kind === "nick") {
+      const cls = kind === "system" ? "irc-sys" : "irc-" + kind;
+      return `<div class="${cls}">${ts}*** ${escapeHtml(c.text)}</div>`;
+    }
+    if (kind === "notice") {
+      return `<div class="irc-notice">${ts}-irc- ${escapeHtml(c.text)}</div>`;
+    }
+    if (kind === "action") {
+      return `<div class="irc-action">${ts}* ${escapeHtml(c.name)} ${escapeHtml(c.text)}</div>`;
+    }
+    if (kind === "pm") {
+      return `<div class="irc-pm">${ts}[${escapeHtml(c.name)}] ${escapeHtml(c.text)}</div>`;
+    }
+    return `<div class="irc-say">${ts}<span class="cn">${escapeHtml(c.name)}</span>${escapeHtml(
+      c.text
+    )}</div>`;
+  }
+
+  const IRC_DEFAULT_CHANS = ["#streets", "#metaverse", "#flotilla", "#wish"];
+
+  function renderIrc(s) {
+    const irc = s.irc || {};
+    const cur = irc.channel || "#streets";
+    const joined = Array.isArray(irc.channels) && irc.channels.length ? irc.channels : ["#streets"];
+    const topics = irc.topics || {};
+    const nicks = Array.isArray(irc.nicks) ? irc.nicks : [];
+
+    if (ircChanLabel) ircChanLabel.textContent = cur;
+    if (ircTopicEl) {
+      const topic = topics[cur] || (cur.startsWith("@") ? "private query" : "");
+      ircTopicEl.textContent = cur + " — " + (topic || "no topic");
+    }
+    if (ircPromptEl && s.player) {
+      ircPromptEl.textContent = "<" + (s.player.name || "courier") + ">";
+    }
+
+    if (ircChannelsEl) {
+      const shown = Array.from(new Set(IRC_DEFAULT_CHANS.concat(joined)));
+      ircChannelsEl.innerHTML = shown
+        .map((ch) => {
+          const on = ch === cur ? " active" : "";
+          const mine = joined.indexOf(ch) >= 0 ? "" : " dim";
+          return `<button type="button" class="irc-ch${on}${mine}" data-chan="${escapeHtml(
+            ch
+          )}">${escapeHtml(ch)}</button>`;
+        })
+        .join("");
+    }
+
+    if (ircNicksEl) {
+      const list =
+        nicks.length > 0
+          ? nicks
+          : (s.players || []).map((op) => ({
+              name: op.name,
+              you: op.id === s.you,
+              glyph: op.glyph,
+            }));
+      ircNicksEl.innerHTML = list
+        .map((n) => {
+          const cls = n.you ? "you" : "";
+          return `<li class="${cls}" data-name="${escapeHtml(n.name)}" title="${escapeHtml(n.name)}">${escapeHtml(
+            n.glyph ? n.glyph + " " : ""
+          )}${escapeHtml(n.name)}</li>`;
+        })
+        .join("");
+    }
+
+    if (chatLogEl && Array.isArray(s.chat)) {
+      chatLogEl.innerHTML = s.chat.map(renderIrcLine).join("");
+      chatLogEl.scrollTop = chatLogEl.scrollHeight;
+    }
+  }
+
   function render(s) {
     handleSfx(s);
     handleCutscenes(s);
     state = s;
     renderFpv(s);
     renderMinimap(s);
+    if (minimapEl && Array.isArray(s.landmarks) && s.player) {
+      const marks = s.landmarks.map((m) => m.glyph + ":" + m.name).join(" · ");
+      minimapEl.title = marks || "Street GPS";
+    }
 
     const p = s.player;
     myId = s.you || myId;
-    statsEl.innerHTML = `
-      <div><strong>${escapeHtml(p.name)}</strong> <span style="color:${escapeHtml(p.color || "#39c5cf")}">[${escapeHtml(p.glyph || "@")}]</span></div>
-      <div class="hp">HP ${p.hp}/${p.max_hp}</div>
-      <div class="focus">Focus ${p.focus}/${p.max_focus}</div>
-      <div>Atk ${p.attack} · Def ${p.defense} · Hack ${p.hack}</div>
-      <div>Facing ${escapeHtml(p.facing_name || FACING_NAMES[p.facing] || "?")} · Plane ${escapeHtml(s.plane || p.plane || "STREET")} (z${p.z != null ? p.z : (s.z != null ? s.z : 0)}) · Tick ${s.tick != null ? s.tick : s.turn}</div>
-      <div>Seed ${s.seed} · ${s.online_count != null ? s.online_count : (s.players || []).length} online</div>
-      <div class="${p.has_payload ? "ok" : ""}">Payload-Zero: ${
-        p.has_payload ? "IN SLEEVE (yours)" : "missing"
-      }</div>
-      <div style="margin-top:0.5rem;color:#6e7681">Quest: ${
-        Object.keys(s.quest_flags || {}).join(", ") || "—"
-      }</div>
+    const obj = s.objective || null;
+    const lv = s.level != null ? s.level : 1;
+    const xp = s.xp != null ? s.xp : 0;
+    const xpNext = s.xp_next != null ? s.xp_next : 40;
+    const credits = s.credits != null ? s.credits : 0;
+    if (statsEl) {
+      statsEl.innerHTML = `
+      <div class="obj">${obj ? escapeHtml(obj.compass + " " + obj.bearing + " · " + obj.text + (obj.dist != null ? " (" + obj.dist + ")" : "")) : "—"}</div>
+      <div><strong>${escapeHtml(p.name)}</strong> <span style="color:${escapeHtml(p.color || "#39c5cf")}">[${escapeHtml(p.glyph || "@")}]</span>
+        · Lv ${lv} · <span class="hp">${p.hp}/${p.max_hp}</span></div>
+      <div class="row">XP ${xp}/${xpNext} · $${credits} · Atk ${p.attack} Def ${p.defense} Hack ${p.hack}
+        ${p.has_payload ? ' · <span class="ok">PAYLOAD</span>' : ""}</div>
     `;
-    if (playerListEl) {
+    }
+    if (objCompassEl) {
+      if (obj) {
+        objCompassEl.textContent = (obj.compass || "★") + " " + (obj.bearing || "") + (obj.dist != null ? " " + obj.dist : "");
+        objCompassEl.title = obj.text || "Objective";
+      } else {
+        objCompassEl.textContent = "★ · —";
+        objCompassEl.title = "Objective bearing";
+      }
+    }
+    if (fpvPosEl && p) {
+      fpvPosEl.textContent = (p.x != null ? p.x + "," + p.y : "") + " · t" + (s.tick != null ? s.tick : "");
+    }
+    if (miniPlaneEl) {
+      miniPlaneEl.textContent = (s.plane || "STREET") + " · Z" + (p.z != null ? p.z : 0);
+    }
+    if (typeof playerListEl !== "undefined" && playerListEl) {
       const list = s.players || [];
       playerListEl.innerHTML = list
         .map((op) => {
           const you = op.id === s.you;
           return `<li><span class="pglyph" style="color:${escapeHtml(op.color || "#fff")}">${escapeHtml(
             op.glyph || "?"
-          )}</span><span>${escapeHtml(op.name)}${you ? ' <span class="you-tag">YOU</span>' : ""}${
-            op.has_payload ? " · %" : ""
-          }${op.won ? " · WIN" : ""}</span></li>`;
+          )}</span><span>${escapeHtml(op.name)}${you ? " YOU" : ""}</span></li>`;
         })
         .join("");
     }
-    if (chatLogEl && Array.isArray(s.chat)) {
-      chatLogEl.innerHTML = s.chat
-        .map((c) => {
-          if (c.kind === "system") {
-            return `<div class="chat-sys">* ${escapeHtml(c.text)}</div>`;
-          }
-          return `<div class="chat-say"><span class="cn">${escapeHtml(c.name)}</span>: ${escapeHtml(
-            c.text
-          )}</div>`;
-        })
-        .join("");
-      chatLogEl.scrollTop = chatLogEl.scrollHeight;
-    }
+    renderIrc(s);
     if (netHud && lastPingMs != null) {
       netHud.textContent = lastPingMs + "ms · " + (s.online_count || listLen(s)) + " online";
     }
-    invEl.innerHTML = "";
-    (s.inventory || []).forEach((it, i) => {
-      const li = document.createElement("li");
-      li.textContent = `${i}: ${it.glyph} ${it.name}`;
-      if (it.equipped) li.classList.add("equipped");
-      if (it.kind === "wish") li.classList.add("wish");
-      if (i === s.selected_inv) li.classList.add("sel");
-      li.title = it.description;
-      li.addEventListener("click", () => {
-        Sound.play("click");
-        send("u", String(i));
+    if (invEl) {
+      invEl.innerHTML = "";
+      (s.inventory || []).forEach((it, i) => {
+        const li = document.createElement("li");
+        li.textContent = `${i}: ${it.glyph} ${it.name}`;
+        if (it.equipped) li.classList.add("equipped");
+        if (it.kind === "wish") li.classList.add("wish");
+        if (i === s.selected_inv) li.classList.add("sel");
+        li.title = it.description;
+        li.addEventListener("click", () => {
+          Sound.play("click");
+          send("u", String(i));
+        });
+        invEl.appendChild(li);
       });
-      invEl.appendChild(li);
-    });
-    logEl.innerHTML = (s.messages || []).map((m) => `<div>${escapeHtml(m)}</div>`).join("");
-    logEl.scrollTop = logEl.scrollHeight;
+    }
+    if (logEl) {
+      logEl.innerHTML = (s.messages || []).map((m) => `<div>${escapeHtml(m)}</div>`).join("");
+      logEl.scrollTop = logEl.scrollHeight;
+    }
 
-    if (s.mode === "help") {
+    if (!overlay) {
+      /* no overlay node */
+    } else if (s.mode === "help") {
       overlay.classList.remove("hidden");
       overlay.innerHTML = `<pre>${escapeHtml(s.help)}\n\n[any key / Esc to close]</pre>`;
     } else if (s.mode === "dead") {
@@ -1652,6 +1782,26 @@
   }
 
 
+  if (ircChannelsEl) {
+    ircChannelsEl.addEventListener("click", (ev) => {
+      const btn = ev.target && ev.target.closest ? ev.target.closest("[data-chan]") : null;
+      if (!btn) return;
+      const ch = btn.getAttribute("data-chan");
+      if (!ch) return;
+      Net.chat("/join " + ch);
+    });
+  }
+  if (ircNicksEl) {
+    ircNicksEl.addEventListener("dblclick", (ev) => {
+      const li = ev.target && ev.target.closest ? ev.target.closest("li") : null;
+      if (!li) return;
+      const nick = (li.getAttribute("data-name") || "").trim();
+      if (!nick || !chatInput) return;
+      chatInput.value = "/msg " + nick + " ";
+      chatInput.focus();
+      chatFocused = true;
+    });
+  }
   if (chatForm && chatInput) {
     chatForm.addEventListener("submit", (ev) => {
       ev.preventDefault();

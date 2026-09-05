@@ -37,85 +37,82 @@
     </div>
   </div>
 
-  <div id="app" class="app-hidden">
-    <header>
-      <h1>SNOWCRASH MMORPG {% if is_dev %}<span class="env-badge" title="Development deployment">DEV</span>{% endif %}</h1>
-      <p class="tag">Shared Metaverse streets · WebSocket sync · video→ASCII FPV · ASCII GPS</p>
+  <div id="app" class="app-hidden declutter">
+    <header class="topbar">
+      <div class="brand">
+        <h1>SNOWCRASH {% if is_dev %}<span class="env-badge" title="Development deployment">DEV</span>{% endif %}</h1>
+      </div>
       <div class="toolbar">
-        <button type="button" id="btn-mute" aria-pressed="false" title="Mute sound (m)">Mute</button>
-        <button type="button" id="btn-replay-intro" title="Replay opening cinematic">Replay intro</button>
-        <button type="button" id="btn-wish" title="Petition the street layer (/wish)">Wish</button>
-        <span id="perspective" class="perspective first" title="Camera perspective">1ST PERSON — VIDEO→ASCII</span>
-        <span id="compass" class="compass" title="Facing">N</span>
-        <span id="net-hud" class="net-hud" title="Network">…</span>
-        <span class="hint">
-          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 8-way (chords) ·
-          <kbd>Q</kbd>/<kbd>E</kbd> turn ·
-          <kbd>t</kbd>/<kbd>b</kbd> plane ·
-          <kbd>Enter</kbd> chat ·
-          <kbd>m</kbd> mute
-        </span>
+        <button type="button" id="btn-mute" aria-pressed="false" title="Mute (m)">Mute</button>
+        <button type="button" id="btn-wish" title="/wish">Wish</button>
+        <button type="button" id="btn-replay-intro" class="btn-ghost" title="Replay intro">Intro</button>
+        <span id="perspective" class="pill" title="Camera">FPV</span>
+        <span id="compass" class="pill compass" title="Facing">N</span>
+        <span id="obj-compass" class="pill obj-compass" title="Objective bearing">★ · —</span>
+        <span id="net-hud" class="pill net-hud" title="Network">…</span>
       </div>
     </header>
 
     <div id="layout">
       <div id="viewport">
         <div id="fpv-panel">
-          <div class="fpv-chrome">
-            <span>METAVERSE LAYER · VIDEO→ASCII · LIVE FPV · MULTIPLAYER</span>
-            <span id="fpv-status">STREETS OF FRACTURED LA</span>
+          <div class="fpv-chrome slim">
+            <span id="fpv-status">STREETS</span>
+            <span id="fpv-pos" class="dim"></span>
           </div>
           <div id="fpv-stage" class="fpv-stage">
             <canvas id="fpv-canvas" aria-label="First-person colored ASCII view"></canvas>
             <pre id="fpv" class="fpv-fallback hidden" aria-hidden="true"></pre>
           </div>
-          <div class="fpv-chrome bottom">
-            <span>RELATIVE MOVE · SHARED WORLD</span>
-            <span>JACK-IN CUTSCENES ON OBJECTS</span>
-          </div>
         </div>
 
         <div id="minimap-wrap" aria-label="Street GPS minimap">
-          <div class="mini-chrome">
-            <span>STREET GPS · METAVERSE LAYER</span>
-            <span>ENHANCED ASCII · 3RD</span>
+          <div class="mini-chrome slim">
+            <span>GPS</span>
+            <span id="mini-plane">Z0</span>
           </div>
           <pre id="minimap" class="minimap-ascii"></pre>
         </div>
       </div>
 
       <aside id="side">
-        <div class="side-kicker">COURIER HUD</div>
-        <div id="stats"></div>
-        <div id="players-panel">
-          <h2>Online</h2>
-          <ul id="player-list"></ul>
-        </div>
-        <div id="inv-panel">
-          <h2>Inventory</h2>
+        <div id="stats" class="stats-compact"></div>
+
+        <details id="inv-panel" class="side-fold" open>
+          <summary>Inventory</summary>
           <ul id="inventory"></ul>
-        </div>
-        <div id="chat-panel">
-          <h2>Chat</h2>
-          <div id="chat-log" aria-live="polite"></div>
-          <form id="chat-form">
-            <input id="chat-input" type="text" maxlength="200" placeholder="Enter chat · /wish · /say" autocomplete="off" />
-            <button type="submit">Send</button>
+        </details>
+
+        <div id="chat-panel" class="irc-panel compact">
+          <div class="irc-titlebar">
+            <span class="irc-mark">●</span>
+            <h2>StreetNet</h2>
+            <span id="irc-chan-label" class="irc-chan-label">#streets</span>
+          </div>
+          <div id="irc-channels" class="irc-channels" role="tablist" aria-label="IRC channels"></div>
+          <div class="irc-body">
+            <div id="chat-log" class="irc-log" aria-live="polite"></div>
+            <div class="irc-nicks-wrap">
+              <div class="irc-nicks-head">online</div>
+              <ul id="irc-nicks" class="irc-nicks"></ul>
+            </div>
+          </div>
+          <div id="irc-topic" class="irc-topic"></div>
+          <form id="chat-form" class="irc-form">
+            <span id="irc-prompt" class="irc-prompt">&lt;you&gt;</span>
+            <input id="chat-input" type="text" maxlength="240" placeholder="message · /join · /msg · /help" autocomplete="off" spellcheck="false" />
+            <button type="submit">↵</button>
           </form>
-        </div>
-        <div id="help-mini">
-          <kbd>WASD</kbd> 8-way · chords WA/WD/SA/SD · <kbd>Q</kbd>/<kbd>E</kbd> turn ·
-          <kbd>t</kbd> ascend / <kbd>b</kbd> descend · <kbd>g</kbd> get · <kbd>f</kbd> fire ·
-          <kbd>i</kbd> inv · <kbd>r</kbd> respawn · <kbd>Enter</kbd> chat
         </div>
       </aside>
     </div>
 
-    <section id="legend-panel" aria-label="Glyph radar key">
-      <h2>Glyph radar key</h2>
+    <details id="legend-panel" class="legend-fold">
+      <summary>Glyph key · controls</summary>
       <div id="legend"></div>
-    </section>
-    <div id="log"></div>
+      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute</p>
+    </details>
+    <div id="log" class="log-slim"></div>
     <div id="overlay" class="hidden"></div>
     <div id="cutscene" class="hidden" aria-live="polite">
       <div class="cut-inner">
