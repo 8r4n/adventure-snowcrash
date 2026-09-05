@@ -78,9 +78,18 @@ class PlayerAgent:
     last_chat_ts: float = 0.0
     connected: bool = True
     invuln_until: float = 0.0  # spawn protection timestamp
+    explored_planes: Dict[int, List[List[bool]]] = field(default_factory=dict)
+    visible_planes: Dict[int, List[List[bool]]] = field(default_factory=dict)
+    last_good_x: int = 0
+    last_good_y: int = 0
+    last_good_z: int = 0
 
     def is_invulnerable(self) -> bool:
         return time.time() < self.invuln_until
+
+    @property
+    def z(self) -> int:
+        return int(getattr(self.actor, "z", 0) or 0)
 
     def log(self, msg: str) -> None:
         self.messages.append(msg)
@@ -123,6 +132,18 @@ class GameWorld:
         )
         if not self.spawn_points:
             self.spawn_points = [self.spawn_xy]
+        # Multiplane stack
+        self.planes: Dict[int, GameMap] = dict(getattr(world, "planes", None) or {})
+        if not self.planes:
+            self.planes = {C.PLANE_STREET: self.gmap}
+        elif C.PLANE_STREET not in self.planes:
+            self.planes[C.PLANE_STREET] = self.gmap
+        self.gmap = self.planes[C.PLANE_STREET]
+        self.shafts: set = set(getattr(world, "shafts", None) or [])
+        # Ensure street actors default z=0; keep under/air as tagged
+        for a in self.npcs_enemies:
+            if not hasattr(a, "z") or a.z is None:
+                a.z = C.PLANE_STREET
         self.players: Dict[str, PlayerAgent] = {}
         self.name_index: Dict[str, str] = {}  # lower name -> id
         self.chat: List[ChatLine] = []
@@ -170,12 +191,55 @@ class GameWorld:
         self._glyph_i += 1
         return g, c
 
+    def plane_map(self, z: int) -> GameMap:
+        return self.planes.get(int(z), self.gmap)
+
+    def _blank_fog(self, z: int) -> Tuple[List[List[bool]], List[List[bool]]]:
+        g = self.plane_map(z)
+        return (
+            [[False] * g.width for _ in range(g.height)],
+            [[False] * g.width for _ in range(g.height)],
+        )
+
+    def _bind_agent_fog(self, agent: PlayerAgent, z: int) -> None:
+        z = int(z)
+        if z not in agent.explored_planes:
+            exp, vis = self._blank_fog(z)
+            agent.explored_planes[z] = exp
+            agent.visible_planes[z] = vis
+        agent.explored = agent.explored_planes[z]
+        agent.visible = agent.visible_planes[z]
+
     def _grant_spawn_invuln(self, agent: "PlayerAgent") -> None:
         agent.invuln_until = time.time() + float(C.SPAWN_INVULN_SEC)
         agent.log(
             "Spawn shield active (%.1fs) — AI can't flatline you yet."
             % float(C.SPAWN_INVULN_SEC)
         )
+
+    def _remember_pos(self, agent: PlayerAgent) -> None:
+        """Persist last stable tile — used to survive WS blips."""
+        if agent.actor.x >= 0 and agent.actor.y >= 0:
+            agent.last_good_x = int(agent.actor.x)
+            agent.last_good_y = int(agent.actor.y)
+            agent.last_good_z = int(getattr(agent.actor, "z", 0) or 0)
+
+    def _force_set_pos(
+        self,
+        agent: PlayerAgent,
+        x: int,
+        y: int,
+        z: int,
+        reason: str,
+    ) -> None:
+        """Only path that forcibly relocates a courier (logged)."""
+        agent.actor.x = int(x)
+        agent.actor.y = int(y)
+        agent.actor.z = int(z)
+        agent.last_good_x = int(x)
+        agent.last_good_y = int(y)
+        agent.last_good_z = int(z)
+        agent.log("POS_SET (%d,%d,z=%d) — %s" % (x, y, z, reason))
 
     def _find_spawn(self) -> Tuple[int, int]:
         """Pick a random free spawn point; search radius if busy. Never stack."""
@@ -210,80 +274,120 @@ class GameWorld:
             return hit
         return self.spawn_xy
 
-    def _can_stand(self, x: int, y: int, ignore: Optional[Actor] = None) -> bool:
-        if not self.gmap.walkable(x, y):
+    def _can_stand(
+        self,
+        x: int,
+        y: int,
+        ignore: Optional[Actor] = None,
+        z: Optional[int] = None,
+    ) -> bool:
+        if z is None:
+            z = C.PLANE_STREET if ignore is None else int(getattr(ignore, "z", 0) or 0)
+        gmap = self.plane_map(z)
+        if not gmap.walkable(x, y):
             return False
         for a in self._all_actors():
             if ignore is not None and a is ignore:
                 continue
-            if a.alive and a.x == x and a.y == y:
+            if not a.alive:
+                continue
+            if int(getattr(a, "z", 0) or 0) != int(z):
+                continue
+            if a.x == x and a.y == y:
                 return False
         return True
 
     def _all_actors(self) -> List[Actor]:
         out = list(self.npcs_enemies)
         for p in self.players.values():
-            if p.connected or p.actor.alive:
+            # Disconnected bodies stay at last_good coords but do not block tiles
+            if p.connected:
                 out.append(p.actor)
         return out
 
-    def actor_at(self, x: int, y: int, ignore: Optional[Actor] = None) -> Optional[Actor]:
+    def actor_at(
+        self,
+        x: int,
+        y: int,
+        ignore: Optional[Actor] = None,
+        z: Optional[int] = None,
+    ) -> Optional[Actor]:
+        if z is None and ignore is not None:
+            z = int(getattr(ignore, "z", 0) or 0)
         for a in self._all_actors():
             if ignore is not None and a is ignore:
                 continue
-            if a.alive and a.x == x and a.y == y:
+            if not a.alive:
+                continue
+            if z is not None and int(getattr(a, "z", 0) or 0) != int(z):
+                continue
+            if a.x == x and a.y == y:
                 return a
         return None
 
-    def items_at(self, x: int, y: int) -> List[FloorItem]:
-        return [fi for fi in self.floor_items if fi.x == x and fi.y == y]
+    def items_at(self, x: int, y: int, z: int = 0) -> List[FloorItem]:
+        return [
+            fi
+            for fi in self.floor_items
+            if fi.x == x and fi.y == y and int(getattr(fi, "z", 0) or 0) == int(z)
+        ]
 
     def join(self, name: str, reconnect_id: Optional[str] = None) -> PlayerAgent:
         name = (name or "").strip()[:24] or "Courier"
-        # Reconnect by id
+        # Reconnect by id — restore last_good, never re-roll spawn
         if reconnect_id and reconnect_id in self.players:
             agent = self.players[reconnect_id]
             agent.connected = True
             agent.name = name
             self.name_index[name.lower()] = agent.id
+            self._restore_last_good(agent, reason="reconnect-id")
             self.system_chat("%s reconnected." % name)
-            agent.log("Rejacked into the street layer.")
+            agent.log("Rejacked — same pad (%d,%d,z=%d)." % (
+                agent.actor.x, agent.actor.y, int(getattr(agent.actor, "z", 0) or 0)
+            ))
+            self.update_fov(agent)
             return agent
-        # Reconnect by name (easy demo)
+        # Reconnect by name — same rule
         existing = self.name_index.get(name.lower())
         if existing and existing in self.players:
             agent = self.players[existing]
             agent.connected = True
-            self.reconnect_parked(agent)
+            self._restore_last_good(agent, reason="reconnect-name")
             self.system_chat("%s reconnected." % name)
-            agent.log("Rejacked into the street layer.")
+            agent.log("Rejacked — same pad (%d,%d,z=%d)." % (
+                agent.actor.x, agent.actor.y, int(getattr(agent.actor, "z", 0) or 0)
+            ))
+            self.update_fov(agent)
             return agent
 
         pid = uuid.uuid4().hex[:10]
         glyph, color = self._alloc_glyph_color()
         x, y = self._find_spawn()
         actor = make_player(x, y, name=name)
-        actor.glyph = glyph  # others see this; self still rendered as @
+        actor.glyph = glyph
         actor.color = color
         actor.inventory.append(make_stimpack())
         actor.inventory.append(make_mono_knife())
         actor.inventory[-1].equipped = True
-        w, h = self.gmap.width, self.gmap.height
+        actor.z = C.PLANE_STREET
         agent = PlayerAgent(
             id=pid,
             name=name,
             actor=actor,
             glyph=glyph,
             color=color,
-            explored=[[False] * w for _ in range(h)],
-            visible=[[False] * w for _ in range(h)],
+            last_good_x=x,
+            last_good_y=y,
+            last_good_z=C.PLANE_STREET,
         )
+        self._bind_agent_fog(agent, C.PLANE_STREET)
         self.players[pid] = agent
         self.name_index[name.lower()] = pid
         self.system_chat("%s jacked in (%s)." % (name, glyph))
         agent.log("You jack into the shared street layer. Fractured LA hums under neon rain.")
         agent.log("Talk to Relay Tran. Open chat with Enter. Personal Payload-Zero quest — others keep theirs.")
         agent.log("Seed: %s · You are glyph %s · spawn (%d,%d)" % (self.seed, glyph, x, y))
+        self._force_set_pos(agent, x, y, C.PLANE_STREET, "new join spawn")
         self._grant_spawn_invuln(agent)
         self.update_fov(agent)
         return agent
@@ -292,31 +396,42 @@ class GameWorld:
         agent = self.players.get(player_id)
         if not agent:
             return
+        # Remember pad BEFORE marking disconnected — never limbo to (-1,-1)
+        self._remember_pos(agent)
         agent.connected = False
         self.system_chat("%s jacked out." % agent.name)
-        # Soft leave: keep body for a bit? For MVP remove from blocking immediately
-        # Keep agent for reconnect-by-name but park them off-grid? Better: leave body
-        # but mark disconnected so AI ignores; free the tile by moving to limbo
-        agent.actor.x, agent.actor.y = -1, -1
+        # Body stays at last_good coords (ghost). AI/collision ignore disconnected.
+
+    def _restore_last_good(self, agent: PlayerAgent, reason: str = "reconnect") -> None:
+        """Restore last_good if coords invalid. Never calls _find_spawn."""
+        ax, ay = agent.actor.x, agent.actor.y
+        if ax >= 0 and ay >= 0:
+            self._remember_pos(agent)
+            return
+        lx, ly, lz = agent.last_good_x, agent.last_good_y, agent.last_good_z
+        if lx >= 0 and ly >= 0:
+            self._force_set_pos(agent, lx, ly, lz, "%s restore last_good" % reason)
+            self._bind_agent_fog(agent, lz)
+            return
+        # Truly missing last_good (should be rare) — only then spawn once
+        x, y = self._find_spawn()
+        self._force_set_pos(agent, x, y, C.PLANE_STREET, "%s fallback spawn (no last_good)" % reason)
+        self._bind_agent_fog(agent, C.PLANE_STREET)
 
     def reconnect_parked(self, agent: PlayerAgent) -> None:
-        if agent.actor.x < 0:
-            agent.actor.x, agent.actor.y = self._find_spawn()
-            if not agent.actor.alive:
-                agent.actor.alive = True
-                agent.actor.hp = max(1, agent.actor.max_hp // 2)
-                agent.lost = False
-                agent.mode = "play"
-            self._grant_spawn_invuln(agent)
+        """Safe reconnect hook — restores last_good, never random teleport while alive."""
+        self._restore_last_good(agent, reason="reconnect_parked")
+        # Do not auto-revive / re-invuln here — that is explicit respawn only
 
     # ---- FOV ----
     def update_fov(self, agent: PlayerAgent) -> None:
-        gmap = self.gmap
+        z = int(getattr(agent.actor, "z", 0) or 0)
+        self._bind_agent_fog(agent, z)
+        gmap = self.plane_map(z)
         px, py = agent.actor.x, agent.actor.y
         if px < 0:
             return
         r = C.VIEW_RADIUS
-        # Clear a local window only (huge maps — full wipe is wasteful)
         pad = r + 2
         for y in range(max(0, py - pad), min(gmap.height, py + pad + 1)):
             for x in range(max(0, px - pad), min(gmap.width, px + pad + 1)):
@@ -382,10 +497,16 @@ class GameWorld:
 
     def try_ranged_or_hack(self, agent: PlayerAgent) -> bool:
         player = agent.actor
+        pz = int(getattr(agent.actor, "z", 0) or 0)
         enemies = [
             a
             for a in self.npcs_enemies
-            if a.alive and a.faction == "enemy" and agent.visible[a.y][a.x]
+            if a.alive
+            and a.faction == "enemy"
+            and int(getattr(a, "z", 0) or 0) == pz
+            and 0 <= a.y < len(agent.visible)
+            and 0 <= a.x < len(agent.visible[0])
+            and agent.visible[a.y][a.x]
         ]
         if not enemies:
             agent.log("No hostile targets in sight.")
@@ -437,11 +558,18 @@ class GameWorld:
         for a in self.npcs_enemies:
             if not a.alive or a.faction != "enemy":
                 continue
+            az = int(getattr(a, "z", 0) or 0)
+            same_plane = [
+                p for p in living if int(getattr(p.actor, "z", 0) or 0) == az
+            ]
+            if not same_plane:
+                continue
+
             def _chase_key(p: PlayerAgent) -> Tuple[int, int]:
                 d = abs(p.actor.x - a.x) + abs(p.actor.y - a.y)
                 return (1 if p.is_invulnerable() else 0, d)
 
-            target_agent = min(living, key=_chase_key)
+            target_agent = min(same_plane, key=_chase_key)
             player = target_agent.actor
             dx = player.x - a.x
             dy = player.y - a.y
@@ -455,20 +583,20 @@ class GameWorld:
                 step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
                 if abs(dx) >= abs(dy):
                     nx, ny = a.x + step_x, a.y
-                    if not self._can_stand(nx, ny, ignore=a):
+                    if not self._can_stand(nx, ny, ignore=a, z=az):
                         nx, ny = a.x, a.y + step_y
                 else:
                     nx, ny = a.x, a.y + step_y
-                    if not self._can_stand(nx, ny, ignore=a):
+                    if not self._can_stand(nx, ny, ignore=a, z=az):
                         nx, ny = a.x + step_x, a.y
-                if self._can_stand(nx, ny, ignore=a):
+                if self._can_stand(nx, ny, ignore=a, z=az):
                     a.x, a.y = nx, ny
             else:
                 opts = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)]
                 self.rng.shuffle(opts)
                 for ox, oy in opts:
                     nx, ny = a.x + ox, a.y + oy
-                    if self._can_stand(nx, ny, ignore=a):
+                    if self._can_stand(nx, ny, ignore=a, z=az):
                         a.x, a.y = nx, ny
                         break
         self.tick += 1
@@ -482,6 +610,8 @@ class GameWorld:
 
     def check_win(self, agent: PlayerAgent) -> None:
         if agent.won or agent.lost:
+            return
+        if int(getattr(agent.actor, "z", 0) or 0) != C.PLANE_STREET:
             return
         px, py = agent.actor.x, agent.actor.y
         ux, uy = self.uplink_pos
@@ -508,7 +638,8 @@ class GameWorld:
             agent.last_action_ts = now
 
         if agent.actor.x < 0 and action not in ("r", "restart"):
-            self.reconnect_parked(agent)
+            # Restore last pad only — never random mid-action teleport
+            self._restore_last_good(agent, reason="action-while-invalid-pos")
 
         if agent.mode == "help":
             if action in ("?", "escape", "Esc", " ", "enter", "q"):
@@ -543,8 +674,21 @@ class GameWorld:
             agent.sfx("click")
             return
 
-        if action in ("forward", "back", "strafe_left", "strafe_right"):
+        if action in ("plane_up", "ascend", "fly_up"):
+            self._change_plane(agent, +1)
+            return
+        if action in ("plane_down", "descend", "fly_down"):
+            self._change_plane(agent, -1)
+            return
+
+        if action in C.REL_MOVE_ACTIONS:
             dx, dy = _relative_delta(agent.actor.facing, action)
+            self._try_move(agent, dx, dy)
+            return
+
+        if action in C.MOVE_8:
+            dx, dy = C.MOVE_8[action]
+            _face_toward(agent.actor, dx, dy)
             self._try_move(agent, dx, dy)
             return
 
@@ -592,10 +736,12 @@ class GameWorld:
         agent.actor.inventory = [i for i in agent.actor.inventory if i.id != "payload_zero"]
         if not any(i.id == "stimpack" for i in agent.actor.inventory):
             agent.actor.inventory.append(make_stimpack())
-        agent.actor.x, agent.actor.y = self._find_spawn()
+        sx, sy = self._find_spawn()
+        self._force_set_pos(agent, sx, sy, C.PLANE_STREET, "explicit death respawn")
+        self._bind_agent_fog(agent, C.PLANE_STREET)
         agent.pending_cutscenes.clear()
         agent.pending_sfx.clear()
-        agent.log("Respawned at a safe pad. Streets still shared.")
+        agent.log("Respawned at a safe street pad. Streets still shared.")
         self._grant_spawn_invuln(agent)
         self._ensure_world_payload()
         self.update_fov(agent)
@@ -604,11 +750,22 @@ class GameWorld:
     def _try_move(self, agent: PlayerAgent, dx: int, dy: int) -> None:
         if agent.lost or not agent.actor.alive:
             return
+        if dx == 0 and dy == 0:
+            return
+        z = int(getattr(agent.actor, "z", 0) or 0)
+        gmap = self.plane_map(z)
         px, py = agent.actor.x + dx, agent.actor.y + dy
-        if not self.gmap.in_bounds(px, py):
+        if not gmap.in_bounds(px, py):
             agent.sfx("bump")
             return
-        target = self.actor_at(px, py, ignore=agent.actor)
+        # No corner-cutting on diagonals — both adjacent cardinals must be open
+        if dx != 0 and dy != 0:
+            if not gmap.walkable(agent.actor.x + dx, agent.actor.y) or not gmap.walkable(
+                agent.actor.x, agent.actor.y + dy
+            ):
+                agent.sfx("bump")
+                return
+        target = self.actor_at(px, py, ignore=agent.actor, z=z)
         if target and target.alive:
             if target.faction == "enemy":
                 self.melee_attack(agent.actor, target, observer=agent)
@@ -627,7 +784,6 @@ class GameWorld:
             if target.faction == "player":
                 other = self._agent_for_actor(target)
                 label = other.name if other else target.name
-                # Never auto-attack other players on bump (PvP off for MVP)
                 if C.PVP_ENABLED:
                     self.melee_attack(agent.actor, target, observer=agent)
                 else:
@@ -635,34 +791,88 @@ class GameWorld:
                     agent.sfx("bump")
                 self.update_fov(agent)
                 return
-        if not self.gmap.walkable(px, py):
+        if not gmap.walkable(px, py):
             agent.log("Blocked.")
             agent.sfx("bump")
             return
         agent.actor.x, agent.actor.y = px, py
-        if self.gmap.tiles[py][px] == C.DOOR:
+        self._remember_pos(agent)
+        tile = gmap.tiles[py][px]
+        if tile == C.DOOR:
             agent.sfx("door")
             agent.cutscene("door")
         else:
             agent.sfx("step")
-        for fi in self.items_at(px, py):
+        # Auto-use stairs/manhole when stepping on them (optional nudge)
+        if tile in (C.STAIRS_UP, C.MANHOLE) and z < C.PLANE_AIR:
+            agent.log("Vertical access here — press t to ascend / b to descend.")
+        elif tile == C.STAIRS_DOWN and z > C.PLANE_UNDER:
+            agent.log("Shaft down — press b to descend.")
+        for fi in self.items_at(px, py, z=z):
             agent.log("You see here: %s." % fi.item.name)
-        jx, jy = self.jackpoint_pos
-        if abs(px - jx) + abs(py - jy) <= 1:
-            if "jackpoint" not in agent.story_seen:
-                agent.story_seen.append("jackpoint")
-                agent.log("Jackpoint air tastes like ozone and old prayers.")
-                agent.cutscene("jackpoint")
-        ux, uy = self.uplink_pos
-        if abs(px - ux) + abs(py - uy) <= 1 and "uplink_approach" not in agent.story_seen:
-            if not agent.has_payload():
-                agent.story_seen.append("uplink_approach")
-                agent.log("Uplink node thrums — needs YOUR Payload-Zero in the sleeve.")
+        if z == C.PLANE_STREET:
+            jx, jy = self.jackpoint_pos
+            if abs(px - jx) + abs(py - jy) <= 1:
+                if "jackpoint" not in agent.story_seen:
+                    agent.story_seen.append("jackpoint")
+                    agent.log("Jackpoint air tastes like ozone and old prayers.")
+                    agent.cutscene("jackpoint")
+            ux, uy = self.uplink_pos
+            if abs(px - ux) + abs(py - uy) <= 1 and "uplink_approach" not in agent.story_seen:
+                if not agent.has_payload():
+                    agent.story_seen.append("uplink_approach")
+                    agent.log("Uplink node thrums — needs YOUR Payload-Zero in the sleeve.")
         self.update_fov(agent)
         self.check_win(agent)
 
+    def _change_plane(self, agent: PlayerAgent, delta: int) -> None:
+        if agent.lost or not agent.actor.alive:
+            return
+        old_z = int(getattr(agent.actor, "z", 0) or 0)
+        new_z = old_z + int(delta)
+        if new_z not in self.planes:
+            agent.log("No plane that way.")
+            agent.sfx("bump")
+            return
+        x, y = agent.actor.x, agent.actor.y
+        on_shaft = (x, y) in self.shafts
+        g_old = self.plane_map(old_z)
+        tile = g_old.tiles[y][x] if g_old.in_bounds(x, y) else C.WALL
+        free = on_shaft or tile in (C.STAIRS_UP, C.STAIRS_DOWN, C.MANHOLE)
+        # Street ↔ air free-fly with focus cost when not on shaft
+        if not free:
+            if {old_z, new_z} == {C.PLANE_STREET, C.PLANE_AIR}:
+                cost = int(C.FLY_FOCUS_COST)
+                if agent.actor.focus < cost:
+                    agent.log("Need %d focus to jump planes off-shaft." % cost)
+                    return
+                agent.actor.focus -= cost
+                agent.log("You kick into the Metaverse vertical — focus -%d." % cost)
+            elif {old_z, new_z} == {C.PLANE_STREET, C.PLANE_UNDER}:
+                agent.log("Need a manhole (o) or stairs to reach the sewers.")
+                agent.sfx("bump")
+                return
+            else:
+                agent.log("Need a shaft or stairs for that transition.")
+                agent.sfx("bump")
+                return
+        if not self._can_stand(x, y, ignore=agent.actor, z=new_z):
+            # Stay put — do NOT jump to a random nearby tile (teleport bug)
+            agent.log(
+                "Landing blocked on %s — stay put." % C.PLANE_NAMES.get(new_z, str(new_z))
+            )
+            agent.sfx("bump")
+            return
+        agent.actor.z = new_z
+        self._remember_pos(agent)
+        self._bind_agent_fog(agent, new_z)
+        label = C.PLANE_NAMES.get(new_z, str(new_z))
+        agent.log("Plane shift → %s (%s)." % (label, C.PLANE_LABELS.get(new_z, "")))
+        agent.sfx("door")
+        self.update_fov(agent)
+
     def _pickup(self, agent: PlayerAgent) -> None:
-        here = self.items_at(agent.actor.x, agent.actor.y)
+        here = self.items_at(agent.actor.x, agent.actor.y, z=int(getattr(agent.actor, "z", 0) or 0))
         if not here:
             agent.log("Nothing to pick up.")
             return
@@ -767,7 +977,9 @@ class GameWorld:
         item = inv.pop(idx)
         item.equipped = False
         # Dropping personal payload clones a floor copy (others can still get world one)
-        self.floor_items.append(FloorItem(agent.actor.x, agent.actor.y, item))
+        self.floor_items.append(
+            FloorItem(agent.actor.x, agent.actor.y, item, z=int(getattr(agent.actor, "z", 0) or 0))
+        )
         agent.log("Dropped %s." % item.name)
         if agent.selected_inv >= len(inv):
             agent.selected_inv = max(0, len(inv) - 1)
@@ -775,17 +987,22 @@ class GameWorld:
 
     # ---- Rendering / snapshot ----
     def render_ascii_for(self, agent: PlayerAgent) -> List[str]:
-        gmap = self.gmap
+        z = int(getattr(agent.actor, "z", 0) or 0)
+        gmap = self.plane_map(z)
         overlay: Dict[Tuple[int, int], str] = {}
         for fi in self.floor_items:
+            if int(getattr(fi, "z", 0) or 0) != z:
+                continue
             overlay[(fi.x, fi.y)] = fi.item.glyph
         for a in self.npcs_enemies:
-            if a.alive:
+            if a.alive and int(getattr(a, "z", 0) or 0) == z:
                 overlay[(a.x, a.y)] = a.glyph
         for p in self.players.values():
             if not p.connected or p.actor.x < 0 or not p.actor.alive:
                 continue
             if p.id == agent.id:
+                continue
+            if int(getattr(p.actor, "z", 0) or 0) != z:
                 continue
             overlay[(p.actor.x, p.actor.y)] = p.glyph
         if agent.actor.x >= 0 and agent.actor.alive:
@@ -817,12 +1034,15 @@ class GameWorld:
                 continue
             if not other.connected:
                 continue
+            oz = int(getattr(other.actor, "z", 0) or 0)
             players_list.append(
                 {
                     "id": other.id,
                     "name": other.name,
                     "x": other.actor.x,
                     "y": other.actor.y,
+                    "z": oz,
+                    "plane": C.PLANE_NAMES.get(oz, str(oz)),
                     "facing": other.actor.facing % 4,
                     "hp": other.actor.hp,
                     "max_hp": other.actor.max_hp,
@@ -835,10 +1055,13 @@ class GameWorld:
             )
 
         entities = []
+        az = int(getattr(agent.actor, "z", 0) or 0)
         for a in self.npcs_enemies:
             if not a.alive:
                 continue
             if a.y < 0 or a.x < 0:
+                continue
+            if int(getattr(a, "z", 0) or 0) != az:
                 continue
             if not agent.visible[a.y][a.x]:
                 continue
@@ -870,6 +1093,8 @@ class GameWorld:
                 "name": p.name,
                 "x": p.x,
                 "y": p.y,
+                "z": int(getattr(p, "z", 0) or 0),
+                "plane": C.PLANE_NAMES.get(int(getattr(p, "z", 0) or 0), "STREET"),
                 "hp": p.hp,
                 "max_hp": p.max_hp,
                 "focus": p.focus,
@@ -913,6 +1138,9 @@ class GameWorld:
             "uplink": list(self.uplink_pos),
             "spawn_count": len(self.spawn_points),
             "invulnerable": agent.is_invulnerable(),
+            "z": int(getattr(p, "z", 0) or 0),
+            "plane": C.PLANE_NAMES.get(int(getattr(p, "z", 0) or 0), "STREET"),
+            "plane_label": C.PLANE_LABELS.get(int(getattr(p, "z", 0) or 0), ""),
             "sfx": sfx_events,
             "cutscenes": cutscene_events,
         }
@@ -941,16 +1169,28 @@ def _los(gmap: GameMap, x0: int, y0: int, x1: int, y1: int) -> bool:
 
 
 def _relative_delta(facing: int, action: str) -> Tuple[int, int]:
+    """8-way deltas relative to facing (0=N,1=E,2=S,3=W)."""
     fx, fy = C.FACING_DIRS[facing % 4]
-    if action == "forward":
-        return fx, fy
-    if action == "back":
-        return -fx, -fy
-    if action == "strafe_left":
-        return fy, -fx
-    if action == "strafe_right":
-        return -fy, fx
-    return 0, 0
+    # left strafe = rotate forward 90° CCW: (fx,fy)->(fy,-fx)
+    lx, ly = fy, -fx
+    rx, ry = -fy, fx
+    table = {
+        "forward": (fx, fy),
+        "back": (-fx, -fy),
+        "strafe_left": (lx, ly),
+        "strafe_right": (rx, ry),
+        "forward_left": (fx + lx, fy + ly),
+        "forward_right": (fx + rx, fy + ry),
+        "back_left": (-fx + lx, -fy + ly),
+        "back_right": (-fx + rx, -fy + ry),
+    }
+    dx, dy = table.get(action, (0, 0))
+    # Normalize octile step to -1..1
+    if dx != 0:
+        dx = 1 if dx > 0 else -1
+    if dy != 0:
+        dy = 1 if dy > 0 else -1
+    return dx, dy
 
 
 def _face_toward(actor: Actor, dx: int, dy: int) -> None:

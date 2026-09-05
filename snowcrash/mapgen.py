@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from . import constants as C
 from .entities import (
@@ -33,6 +33,7 @@ class FloorItem:
     x: int
     y: int
     item: Item
+    z: int = 0
 
 
 @dataclass
@@ -52,7 +53,17 @@ class GameMap:
         if not self.in_bounds(x, y):
             return False
         t = self.tiles[y][x]
-        return t in (C.FLOOR, C.DOOR, C.STREET, C.GRASS, C.JACKPOINT, C.UPLINK)
+        return t in (
+            C.FLOOR,
+            C.DOOR,
+            C.STREET,
+            C.GRASS,
+            C.JACKPOINT,
+            C.UPLINK,
+            C.STAIRS_UP,
+            C.STAIRS_DOWN,
+            C.MANHOLE,
+        )
 
     def blocks_sight(self, x: int, y: int) -> bool:
         if not self.in_bounds(x, y):
@@ -136,6 +147,8 @@ class WorldBundle:
     jackpoint_pos: Tuple[int, int]
     story_beats: List[str]
     spawn_points: List[Tuple[int, int]] = field(default_factory=list)
+    planes: Dict[int, GameMap] = field(default_factory=dict)
+    shafts: List[Tuple[int, int]] = field(default_factory=list)  # free vertical (x,y)
 
 
 def generate_world(seed: Optional[int] = None) -> WorldBundle:
@@ -502,6 +515,118 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
         "Victory: Payload neutralized / couriered — fractured LA breathes easier.",
     ]
 
+    # ---- Multiplane: UNDER / STREET / AIR ----
+    shafts: List[Tuple[int, int]] = []
+    # Place manholes / shafts on street intersections & plazas
+    for sx in v_streets[::2]:
+        for sy in h_streets[::2]:
+            mx, my = sx + 1, sy + 1
+            if gmap.walkable(mx, my) and not _near_danger(mx, my):
+                tiles[my][mx] = C.MANHOLE
+                shafts.append((mx, my))
+    # Extra stair shafts near safehouses
+    for sh in safehouses[:6]:
+        tx, ty = sh[0] + sh[2] // 2, sh[1] + sh[3] - 1
+        if gmap.in_bounds(tx, ty + 1) and gmap.walkable(tx, ty + 1):
+            tiles[ty + 1][tx] = C.STAIRS_DOWN
+            shafts.append((tx, ty + 1))
+        elif gmap.walkable(tx, ty):
+            tiles[ty][tx] = C.STAIRS_DOWN
+            shafts.append((tx, ty))
+
+    under_tiles = _fill(w, h, C.WALL)
+    air_tiles = _fill(w, h, C.WALL)
+    for y in range(h):
+        for x in range(w):
+            st = tiles[y][x]
+            if st in (C.STREET, C.MANHOLE, C.STAIRS_DOWN, C.STAIRS_UP):
+                under_tiles[y][x] = C.FLOOR if st != C.MANHOLE else C.STAIRS_UP
+                air_tiles[y][x] = C.FLOOR
+            elif st in (C.FLOOR, C.DOOR, C.GRASS, C.JACKPOINT, C.UPLINK):
+                # Building interiors → solid under; rooftops above rooms
+                if st == C.FLOOR or st == C.DOOR:
+                    air_tiles[y][x] = C.FLOOR  # rooftop
+                elif st == C.GRASS:
+                    air_tiles[y][x] = C.GRASS  # open sky over yards
+                else:
+                    air_tiles[y][x] = C.FLOOR
+            # Open sky corridors over streets already set
+
+    # Sewers: carve tunnel grid following streets more thickly
+    for sy in h_streets:
+        for x in range(2, w - 2):
+            under_tiles[sy][x] = C.FLOOR
+            if sy + 1 < h - 1:
+                under_tiles[sy + 1][x] = C.FLOOR
+    for sx in v_streets:
+        for y in range(2, h - 2):
+            under_tiles[y][sx] = C.FLOOR
+            if sx + 1 < w - 1:
+                under_tiles[y][sx + 1] = C.FLOOR
+
+    # Sync shaft markers onto under/air
+    for mx, my in shafts:
+        if 0 <= my < h and 0 <= mx < w:
+            under_tiles[my][mx] = C.STAIRS_UP
+            air_tiles[my][mx] = C.STAIRS_DOWN
+            if tiles[my][mx] not in (C.MANHOLE, C.STAIRS_DOWN, C.STAIRS_UP):
+                tiles[my][mx] = C.MANHOLE
+
+    # A few sewer chambers
+    for _ in range(12):
+        rx = rng.randint(4, w - 12)
+        ry = rng.randint(4, h - 10)
+        for yy in range(ry, ry + 5):
+            for xx in range(rx, rx + 7):
+                if 0 < yy < h - 1 and 0 < xx < w - 1:
+                    under_tiles[yy][xx] = C.FLOOR
+
+    # Air: widen open sky (treat remaining walls over grass as open)
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            if tiles[y][x] == C.GRASS:
+                air_tiles[y][x] = C.GRASS
+            elif tiles[y][x] == C.STREET:
+                air_tiles[y][x] = C.STREET
+
+    under_map = GameMap(
+        w, h, under_tiles,
+        [[False] * w for _ in range(h)],
+        [[False] * w for _ in range(h)],
+        [],
+    )
+    air_map = GameMap(
+        w, h, air_tiles,
+        [[False] * w for _ in range(h)],
+        [[False] * w for _ in range(h)],
+        [],
+    )
+    planes = {
+        C.PLANE_UNDER: under_map,
+        C.PLANE_STREET: gmap,
+        C.PLANE_AIR: air_map,
+    }
+
+    # Some sewer dwellers
+    for _ in range(18):
+        ex = rng.randint(2, w - 3)
+        ey = rng.randint(2, h - 3)
+        if under_map.walkable(ex, ey):
+            if any(abs(ex - sx) + abs(ey - sy) < 3 for sx, sy in spawn_points):
+                continue
+            mon = make_infected(ex, ey) if rng.random() < 0.6 else make_thug(ex, ey)
+            mon.z = C.PLANE_UNDER
+            actors.append(mon)
+
+    # A few air drones
+    for _ in range(10):
+        ex = rng.randint(2, w - 3)
+        ey = rng.randint(2, h - 3)
+        if air_map.walkable(ex, ey):
+            mon = make_drone(ex, ey)
+            mon.z = C.PLANE_AIR
+            actors.append(mon)
+
     return WorldBundle(
         gmap=gmap,
         player=player,
@@ -511,4 +636,6 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
         jackpoint_pos=jack_pos,
         story_beats=story,
         spawn_points=spawn_points,
+        planes=planes,
+        shafts=shafts,
     )

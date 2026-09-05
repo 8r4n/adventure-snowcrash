@@ -34,6 +34,7 @@ class Actor:
     xp_value: int = 0
     color: str = "white"
     facing: int = 0  # 0=N 1=E 2=S 3=W (player camera)
+    z: int = 0  # plane: -1 under, 0 street, +1 air
 
     def is_player(self) -> bool:
         return self.faction == "player"

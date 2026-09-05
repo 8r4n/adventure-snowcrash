@@ -12,6 +12,11 @@ GRASS = ","
 EMPTY = " "
 JACKPOINT = "J"
 UPLINK = "U"
+# Vertical transitions (walkable)
+STAIRS_DOWN = ">"  # descend to lower plane
+STAIRS_UP = "<"  # ascend to higher plane
+SHAFT = "*"  # open shaft (fly/climb) — note: item glyph also *; shafts marked in shaft list
+MANHOLE = "o"
 
 # Entities (display glyphs)
 PLAYER = "@"
@@ -39,6 +44,23 @@ SPAWN_INVULN_SEC = 2.5
 # MVP: players cannot damage other players
 PVP_ENABLED = False
 
+# Multiplanar stack
+PLANE_UNDER = -1
+PLANE_STREET = 0
+PLANE_AIR = 1
+PLANE_NAMES = {
+    PLANE_UNDER: "UNDER",
+    PLANE_STREET: "STREET",
+    PLANE_AIR: "AIR",
+}
+PLANE_LABELS = {
+    PLANE_UNDER: "sewers / tunnels",
+    PLANE_STREET: "street level",
+    PLANE_AIR: "air / rooftops",
+}
+# Focus cost to free-fly street ↔ air (shafts are free)
+FLY_FOCUS_COST = 1
+
 # Player facing: 0=N, 1=E, 2=S, 3=W
 FACING_DIRS = ((0, -1), (1, 0), (0, 1), (-1, 0))
 FACING_NAMES = ("N", "E", "S", "W")
@@ -50,50 +72,78 @@ START_ATTACK = 4
 START_DEFENSE = 2
 START_HACK = 3
 
-# Keys that move (dx, dy)
-MOVE_KEYS = {
-    "w": (0, -1),
+# Absolute 8-way (octile) deltas
+MOVE_8 = {
+    "n": (0, -1),
+    "ne": (1, -1),
+    "e": (1, 0),
+    "se": (1, 1),
     "s": (0, 1),
-    "a": (-1, 0),
-    "d": (1, 0),
-    "k": (0, -1),
-    "j": (0, 1),
-    "h": (-1, 0),
-    "l": (1, 0),
-    "ArrowUp": (0, -1),
-    "ArrowDown": (0, 1),
-    "ArrowLeft": (-1, 0),
-    "ArrowRight": (1, 0),
-    "up": (0, -1),
-    "down": (0, 1),
-    "left": (-1, 0),
-    "right": (1, 0),
+    "sw": (-1, 1),
+    "w": (-1, 0),
+    "nw": (-1, -1),
 }
 
+# Absolute keys (avoid letters used for plane/use/fire on web)
+MOVE_KEYS = {
+    "h": (-1, 0),
+    "j": (0, 1),
+    "k": (0, -1),
+    "l": (1, 0),
+    "y": (-1, -1),  # NW (vi)
+    "n": (1, 1),  # SE (vi) — only when not chatting
+    # Named absolute octile actions (preferred from web client)
+    "n_abs": (0, -1),
+    "ne": (1, -1),
+    "e_abs": (1, 0),
+    "se": (1, 1),
+    "s_abs": (0, 1),
+    "sw": (-1, 1),
+    "w_abs": (-1, 0),
+    "nw": (-1, -1),
+}
+
+# Relative 8-way action names
+REL_MOVE_ACTIONS = (
+    "forward",
+    "back",
+    "strafe_left",
+    "strafe_right",
+    "forward_left",
+    "forward_right",
+    "back_left",
+    "back_right",
+)
+
 HELP_TEXT = """\
-CONTROLS
-  W / Up                — move forward (relative to facing)
-  S / Down              — move backward
-  A / D                 — strafe left / right
-  Q / E / Left / Right  — turn left / right (web; no step)
-  hjkl (TUI)            — absolute move (N/S/W/E on map)
-  g                     — get / pick up item
-  i                     — inventory
-  u                     — use selected inventory item (TUI: number after)
-  f                     — ranged / hack attack (adjacent or in FOV)
-  . / space             — wait a turn
-  ?                     — this help
-  q (TUI)               — quit
-  m (web)               — mute / unmute SFX
-  Space/Esc (web)       — skip intensive cutscene
+CONTROLS — 8-WAY + MULTIPLANE
+  W/A/S/D           — move relative to facing (chord WA/WD/SA/SD = diagonals)
+  Q / E             — turn left / right
+  Arrows            — turn (Left/Right) or step (Up/Down) relative
+  y u h j k l b n   — absolute octile (TUI / fallback)
+  Numpad 1-9        — absolute octile
+  t / [ / PgUp      — ascend plane (street→air, under→street)
+  b / ] / PgDn      — descend plane (street→under, air→street)
+  g                 — get / pick up item
+  i                 — inventory
+  f                 — ranged / hack attack
+  r                 — respawn (when dead)
+  . / space         — wait
+  ?                 — this help
+  m (web)           — mute SFX
+  Enter             — chat
+
+PLANES
+  UNDER (-1)  sewers / tunnels — enter via manholes (o) or descend
+  STREET (0)  fractured LA streets — spawn here
+  AIR (+1)    rooftops / Metaverse sky — fly up (costs focus off-shaft)
+  Shafts/stairs (< > o) are free vertical transitions.
 
 GOAL
-  Recover or neutralize the rogue Payload-Zero from the jackpoint (J),
-  then reach the Metaverse uplink node (U). Talk to NPCs, loot terminals,
-  survive the streets of fractured LA.
+  Recover Payload-Zero from the jackpoint (J), then reach the uplink (U).
 
 MAP
   # wall  . floor  + door  = street  , grass  ~ water
+  o manhole  < stairs up  > stairs down
   J jackpoint  U uplink  @ you  & NPC  i infected  t thug  d drone
-  ! med  / weapon  [ armor  } pistol  % Payload-Zero  * loot
 """

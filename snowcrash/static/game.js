@@ -805,16 +805,33 @@
       const planeX = -dirY * 0.66;
       const planeY = dirX * 0.66;
       const mid = H / 2;
+      const plane = (s.plane || (s.player && s.player.plane) || "STREET").toUpperCase();
 
       const ceil = sctx.createLinearGradient(0, 0, 0, mid);
-      ceil.addColorStop(0, "#060a14");
-      ceil.addColorStop(1, "#0a1528");
+      if (plane === "AIR") {
+        ceil.addColorStop(0, "#1a3a5c");
+        ceil.addColorStop(1, "#3d7ea6");
+      } else if (plane === "UNDER") {
+        ceil.addColorStop(0, "#050308");
+        ceil.addColorStop(1, "#1a0a12");
+      } else {
+        ceil.addColorStop(0, "#060a14");
+        ceil.addColorStop(1, "#0a1528");
+      }
       sctx.fillStyle = ceil;
       sctx.fillRect(0, 0, W, mid);
 
       const floor = sctx.createLinearGradient(0, mid, 0, H);
-      floor.addColorStop(0, "#0a1018");
-      floor.addColorStop(1, "#121c28");
+      if (plane === "AIR") {
+        floor.addColorStop(0, "#1a2838");
+        floor.addColorStop(1, "#0c1824");
+      } else if (plane === "UNDER") {
+        floor.addColorStop(0, "#12080c");
+        floor.addColorStop(1, "#080406");
+      } else {
+        floor.addColorStop(0, "#0a1018");
+        floor.addColorStop(1, "#121c28");
+      }
       sctx.fillStyle = floor;
       sctx.fillRect(0, mid, W, H - mid);
 
@@ -1154,6 +1171,10 @@
     const px = s.player.x;
     const py = s.player.y;
     const facing = (s.player.facing || 0) % 4;
+    const myZ = s.player.z != null ? s.player.z : (s.z != null ? s.z : 0);
+    const planeName = s.plane || s.player.plane || "STREET";
+    const miniChrome = document.querySelector("#minimap-wrap .mini-chrome span:last-child");
+    if (miniChrome) miniChrome.textContent = planeName + " · Z" + myZ;
     const vis = s.visible || [];
     const exp = s.explored || [];
     const x0 = Math.max(0, px - MINI_R);
@@ -1175,11 +1196,16 @@
         if (!(x === px && y === py) && s.players) {
           for (let i = 0; i < s.players.length; i++) {
             const op = s.players[i];
-            if (op && op.alive && op.x === x && op.y === y && op.id !== s.you) {
+            if (!op || !op.alive || op.x !== x || op.y !== y || op.id === s.you) continue;
+            const oz = op.z != null ? op.z : 0;
+            if (oz === myZ) {
               ch = op.glyph || "A";
               otherColor = op.color || "#ff2a6d";
-              break;
+            } else {
+              ch = "·";
+              otherColor = "rgba(200,200,220,0.35)";
             }
+            break;
           }
         }
         const [a, b] = enhanceCell(ch, visible, explored);
@@ -1246,7 +1272,7 @@
       <div class="hp">HP ${p.hp}/${p.max_hp}</div>
       <div class="focus">Focus ${p.focus}/${p.max_focus}</div>
       <div>Atk ${p.attack} · Def ${p.defense} · Hack ${p.hack}</div>
-      <div>Facing ${escapeHtml(p.facing_name || FACING_NAMES[p.facing] || "?")} · Tick ${s.tick != null ? s.tick : s.turn}</div>
+      <div>Facing ${escapeHtml(p.facing_name || FACING_NAMES[p.facing] || "?")} · Plane ${escapeHtml(s.plane || p.plane || "STREET")} (z${p.z != null ? p.z : (s.z != null ? s.z : 0)}) · Tick ${s.tick != null ? s.tick : s.turn}</div>
       <div>Seed ${s.seed} · ${s.online_count != null ? s.online_count : (s.players || []).length} online</div>
       <div class="${p.has_payload ? "ok" : ""}">Payload-Zero: ${
         p.has_payload ? "IN SLEEVE (yours)" : "missing"
@@ -1328,23 +1354,12 @@
     render(s);
   }
 
-  // GTA-like: WASD relative to facing; Q/E or arrows turn
+  // 8-way relative (WASD + chords) · Q/E turn · t/b/[ /] plane shift
   const KEYMAP = {
-    w: "forward",
-    ArrowUp: "forward",
-    s: "back",
-    ArrowDown: "back",
-    a: "strafe_left",
-    d: "strafe_right",
     q: "turn_left",
     ArrowLeft: "turn_left",
     e: "turn_right",
     ArrowRight: "turn_right",
-    // absolute leftovers for hjkl (TUI-parity)
-    h: "h",
-    j: "j",
-    k: "k",
-    l: "l",
     g: "g",
     f: "f",
     i: "i",
@@ -1354,7 +1369,59 @@
     " ": ".",
     "?": "?",
     Escape: "escape",
+    t: "plane_up",
+    "[": "plane_up",
+    b: "plane_down",
+    "]": "plane_down",
+    h: "w_abs",
+    j: "s_abs",
+    k: "n_abs",
+    l: "e_abs",
+    y: "nw",
+    // note: letter n is SE absolute — avoid during chat; gameplay ok
   };
+
+  const NUMPAD_8 = {
+    8: "n",
+    9: "ne",
+    6: "e",
+    3: "se",
+    2: "s",
+    1: "sw",
+    4: "w",
+    7: "nw",
+    5: ".",
+  };
+
+  const moveKeysHeld = new Set();
+
+  function normalizeMoveKey(key) {
+    if (key === "ArrowUp") return "w";
+    if (key === "ArrowDown") return "s";
+    return key.length === 1 ? key.toLowerCase() : key;
+  }
+
+  function chordMoveAction() {
+    const w = moveKeysHeld.has("w");
+    const a = moveKeysHeld.has("a");
+    const s = moveKeysHeld.has("s");
+    const d = moveKeysHeld.has("d");
+    if (w && a && !s && !d) return "forward_left";
+    if (w && d && !s && !a) return "forward_right";
+    if (s && a && !w && !d) return "back_left";
+    if (s && d && !w && !a) return "back_right";
+    if (w && !s) return "forward";
+    if (s && !w) return "back";
+    if (a && !d) return "strafe_left";
+    if (d && !a) return "strafe_right";
+    return null;
+  }
+
+  window.addEventListener("keyup", (ev) => {
+    const nk = normalizeMoveKey(ev.key);
+    if (nk === "w" || nk === "a" || nk === "s" || nk === "d") moveKeysHeld.delete(nk);
+  });
+  window.addEventListener("blur", () => moveKeysHeld.clear());
 
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -1398,13 +1465,46 @@
       Sound.toggleMute();
       return;
     }
-    // inventory: e = equip
     if (state && state.mode === "inventory" && (ev.key === "e" || ev.key === "E")) {
       ev.preventDefault();
       send("e");
       return;
     }
-    const action = KEYMAP[ev.key];
+    if (ev.key === "PageUp") {
+      ev.preventDefault();
+      if (!(state && state.mode === "inventory")) send("plane_up");
+      return;
+    }
+    if (ev.key === "PageDown") {
+      ev.preventDefault();
+      if (!(state && state.mode === "inventory")) send("plane_down");
+      return;
+    }
+    if (ev.code && ev.code.startsWith("Numpad")) {
+      const digit = ev.code.replace("Numpad", "");
+      if (NUMPAD_8[digit]) {
+        ev.preventDefault();
+        send(NUMPAD_8[digit]);
+        return;
+      }
+    }
+
+    const nk = normalizeMoveKey(ev.key);
+    if (nk === "w" || nk === "a" || nk === "s" || nk === "d") {
+      moveKeysHeld.add(nk);
+      const moveAct = chordMoveAction();
+      if (moveAct) {
+        ev.preventDefault();
+        if (state && state.mode === "help") {
+          send("escape");
+          return;
+        }
+        send(moveAct);
+      }
+      return;
+    }
+
+    const action = KEYMAP[ev.key] || KEYMAP[nk];
     if (!action) {
       if (/^[0-9]$/.test(ev.key)) {
         ev.preventDefault();
@@ -1417,12 +1517,13 @@
       send("escape");
       return;
     }
-    // space waits unless we want skip — already handled in cutscene
     if (ev.key === " " && state && (state.mode === "dead" || state.mode === "won")) return;
-    // Restart after death/win → replay opening cinematic, then new run
     if (action === "r" && state && (state.mode === "dead" || state.mode === "won")) {
       const seed = state.seed != null ? state.seed : null;
       runIntroThenGame({ seed });
+      return;
+    }
+    if ((action === "plane_down" || action === "plane_up") && state && state.mode === "inventory") {
       return;
     }
     send(action);
