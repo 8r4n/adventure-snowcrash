@@ -18,7 +18,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import constants as C
 from .entities import Actor, make_player
-from .items import Item, make_mono_knife, make_payload_zero, make_stimpack
+from .items import (
+    Item,
+    make_mono_knife,
+    make_payload_zero,
+    make_stimpack,
+    make_street_credits,
+    make_pulse_shim,
+    make_kevlar_vest,
+    make_focus_tab,
+)
 from .mapgen import FloorItem, GameMap, generate_world
 from .wishes import (
     MAX_WISHES,
@@ -61,7 +70,8 @@ class ChatLine:
     t: float
     name: str
     text: str
-    kind: str = "say"  # say | system
+    kind: str = "say"  # say | system | action | notice | pm | join | part | nick
+    channel: str = "#streets"
 
 
 @dataclass
@@ -97,6 +107,12 @@ class PlayerAgent:
     view_bonus_until_tick: int = 0
     companion: bool = False
     private_chat: List[ChatLine] = field(default_factory=list)
+    irc_channel: str = "#streets"
+    irc_channels: List[str] = field(default_factory=lambda: ["#streets"])
+    xp: int = 0
+    level: int = 1
+    credits: int = 0
+    kills: int = 0
 
     def is_invulnerable(self) -> bool:
         return time.time() < self.invuln_until
@@ -164,11 +180,25 @@ class GameWorld:
         self.players: Dict[str, PlayerAgent] = {}
         self.name_index: Dict[str, str] = {}  # lower name -> id
         self.chat: List[ChatLine] = []
+        # IRC-style channel logs (default street net + topic channels)
+        self.channel_chat: Dict[str, List[ChatLine]] = {
+            "#streets": [],
+            "#metaverse": [],
+            "#flotilla": [],
+            "#wish": [],
+        }
+        self.channel_topics: Dict[str, str] = {
+            "#streets": "Shared Metaverse street layer — keep it civil, courier.",
+            "#metaverse": "Overlay gossip, jackpoint rumors, uplink chatter.",
+            "#flotilla": "Cassian Vox signal-rim · refugee broadcasts · propaganda scrub.",
+            "#wish": "Feature petitions · /wish spills here as notices.",
+        }
         self.tick = 0
         self.created_at = time.time()
         self._glyph_i = 0
         self._ensure_world_payload()
         self._purge_enemies_near_spawns()
+        self._seed_extra_encounters()
         self.system_chat("Metaverse street layer online. Seed %s." % seed)
 
     def _ensure_world_payload(self) -> None:
@@ -183,29 +213,241 @@ class GameWorld:
             # place near jack center
             self.floor_items.append(FloorItem(jx, jy, make_payload_zero()))
 
-    def system_chat(self, text: str) -> None:
-        self.chat.append(ChatLine(time.time(), "SYSTEM", text, "system"))
+    def system_chat(self, text: str, channel: str = "#streets") -> None:
+        ch = self._norm_channel(channel)
+        line = ChatLine(time.time(), "SYSTEM", text, "system", ch)
+        self._push_channel(ch, line)
+        # legacy mirror for older clients
+        self.chat.append(line)
         if len(self.chat) > CHAT_MAX:
             self.chat = self.chat[-CHAT_MAX:]
+
+    def _norm_channel(self, name: str) -> str:
+        n = (name or "").strip().lower()
+        if not n:
+            return "#streets"
+        if not n.startswith("#") and not n.startswith("&"):
+            n = "#" + n
+        return n[:24]
+
+    def _push_channel(self, channel: str, line: ChatLine) -> None:
+        ch = self._norm_channel(channel)
+        bucket = self.channel_chat.setdefault(ch, [])
+        bucket.append(line)
+        if len(bucket) > CHAT_MAX:
+            self.channel_chat[ch] = bucket[-CHAT_MAX:]
+
+    def _irc_notice(self, agent: PlayerAgent, text: str) -> None:
+        agent.private_chat.append(
+            ChatLine(time.time(), "irc", text, "notice", agent.irc_channel or "#streets")
+        )
+        if len(agent.private_chat) > 24:
+            agent.private_chat = agent.private_chat[-24:]
+
+    def _ensure_irc(self, agent: PlayerAgent) -> None:
+        if not getattr(agent, "irc_channel", None):
+            agent.irc_channel = "#streets"
+        if not getattr(agent, "irc_channels", None):
+            agent.irc_channels = ["#streets"]
+        if "#streets" not in agent.irc_channels:
+            agent.irc_channels.insert(0, "#streets")
 
     def say(self, agent: PlayerAgent, text: str) -> Optional[str]:
         text = (text or "").strip()
         if not text:
             return "empty"
-        if len(text) > 200:
-            text = text[:200]
+        if len(text) > 240:
+            text = text[:240]
         now = time.time()
         if now - agent.last_chat_ts < 1.0 / CHAT_RATE_HZ:
             return "rate"
         agent.last_chat_ts = now
+        self._ensure_irc(agent)
         low = text.lower()
-        if low.startswith("/wish ") or low.startswith("/feature "):
-            body = text.split(" ", 1)[1].strip() if " " in text else ""
-            return self._handle_wish(agent, body)
-        if low in ("/wish", "/feature"):
-            agent.log("Usage: /wish <feature request>  (alias: /feature)")
+
+        # --- slash commands (IRC aesthetic) ---
+        if low.startswith("/"):
+            parts = text.split(None, 2)
+            cmd = parts[0].lower()
+            arg1 = parts[1] if len(parts) > 1 else ""
+            rest = parts[2] if len(parts) > 2 else ""
+
+            if cmd in ("/wish", "/feature"):
+                body = text.split(" ", 1)[1].strip() if " " in text else ""
+                if not body:
+                    agent.log("Usage: /wish <feature request>  (alias: /feature)")
+                    return None
+                err = self._handle_wish(agent, body)
+                # echo petition into #wish as notice
+                self._push_channel(
+                    "#wish",
+                    ChatLine(now, "SYSTEM", "%s filed a wish: %s" % (agent.name, body[:120]), "notice", "#wish"),
+                )
+                return err
+
+            if cmd in ("/help", "/irc"):
+                self._irc_notice(
+                    agent,
+                    "IRC: /join #chan · /part [#chan] · /msg nick text · /me action · "
+                    "/nick newname · /names · /list · /topic · /query nick · /wish …",
+                )
+                return None
+
+            if cmd == "/list":
+                names = sorted(self.channel_chat.keys())
+                self._irc_notice(agent, "Channels: " + ", ".join(names))
+                return None
+
+            if cmd == "/topic":
+                ch = self._norm_channel(arg1) if arg1.startswith("#") else agent.irc_channel
+                topic = self.channel_topics.get(ch, "(no topic)")
+                self._irc_notice(agent, "Topic for %s: %s" % (ch, topic))
+                return None
+
+            if cmd == "/names":
+                ch = self._norm_channel(arg1) if arg1 else agent.irc_channel
+                nicks = [
+                    p.name
+                    for p in self.players.values()
+                    if p.connected and ch in getattr(p, "irc_channels", ["#streets"])
+                ]
+                self._irc_notice(agent, "Names on %s: %s" % (ch, " ".join(nicks) or "(empty)"))
+                return None
+
+            if cmd == "/join":
+                if not arg1:
+                    self._irc_notice(agent, "Usage: /join #channel")
+                    return None
+                ch = self._norm_channel(arg1)
+                fresh = ch not in agent.irc_channels
+                if fresh:
+                    agent.irc_channels.append(ch)
+                agent.irc_channel = ch
+                self.channel_chat.setdefault(ch, [])
+                self.channel_topics.setdefault(ch, "Courier ad-hoc channel.")
+                if fresh:
+                    self._push_channel(
+                        ch,
+                        ChatLine(now, "SYSTEM", "%s has joined %s" % (agent.name, ch), "join", ch),
+                    )
+                topic = self.channel_topics.get(ch, "")
+                self._irc_notice(
+                    agent,
+                    ("Joined %s — %s" % (ch, topic)) if fresh else ("Now talking on %s — %s" % (ch, topic)),
+                )
+                return None
+
+            if cmd == "/part":
+                ch = self._norm_channel(arg1) if arg1 else agent.irc_channel
+                if ch == "#streets":
+                    self._irc_notice(agent, "Cannot part #streets (home channel).")
+                    return None
+                if ch in agent.irc_channels:
+                    agent.irc_channels = [c for c in agent.irc_channels if c != ch]
+                self._push_channel(
+                    ch,
+                    ChatLine(now, "SYSTEM", "%s has left %s" % (agent.name, ch), "part", ch),
+                )
+                if agent.irc_channel == ch:
+                    agent.irc_channel = agent.irc_channels[0] if agent.irc_channels else "#streets"
+                self._irc_notice(agent, "Left %s · now on %s" % (ch, agent.irc_channel))
+                return None
+
+            if cmd in ("/nick", "/name"):
+                new_name = (arg1 or "").strip()[:24]
+                if not new_name:
+                    self._irc_notice(agent, "Usage: /nick <newname>")
+                    return None
+                if self.name_index.get(new_name.lower()) not in (None, agent.id):
+                    self._irc_notice(agent, "Nickname already in use.")
+                    return None
+                old = agent.name
+                self.name_index.pop(old.lower(), None)
+                agent.name = new_name
+                agent.actor.name = new_name
+                self.name_index[new_name.lower()] = agent.id
+                for ch in list(getattr(agent, "irc_channels", ["#streets"])):
+                    self._push_channel(
+                        ch,
+                        ChatLine(now, "SYSTEM", "%s is now known as %s" % (old, new_name), "nick", ch),
+                    )
+                return None
+
+            if cmd in ("/me", "/action"):
+                body = text.split(" ", 1)[1].strip() if " " in text else ""
+                if not body:
+                    self._irc_notice(agent, "Usage: /me <action>")
+                    return None
+                ch = agent.irc_channel
+                line = ChatLine(now, agent.name, body, "action", ch)
+                self._push_channel(ch, line)
+                self.chat.append(line)
+                if len(self.chat) > CHAT_MAX:
+                    self.chat = self.chat[-CHAT_MAX:]
+                return None
+
+            if cmd in ("/msg", "/privmsg", "/query"):
+                if not arg1 or (cmd != "/query" and not rest and " " not in text):
+                    # /query nick  OR  /msg nick text
+                    if cmd == "/query" and arg1:
+                        agent.irc_channel = "@" + arg1[:24]
+                        self._irc_notice(agent, "Query window → %s (type /msg %s hi)" % (arg1, arg1))
+                        return None
+                    self._irc_notice(agent, "Usage: /msg <nick> <text> · /query <nick>")
+                    return None
+                target_name = arg1
+                msg = rest if rest else (text.split(" ", 2)[2] if len(text.split(" ", 2)) > 2 else "")
+                if cmd == "/query" and not msg:
+                    agent.irc_channel = "@" + target_name[:24]
+                    self._irc_notice(agent, "Query → %s" % target_name)
+                    return None
+                tid = self.name_index.get(target_name.lower())
+                target = self.players.get(tid) if tid else None
+                if not target or not target.connected:
+                    self._irc_notice(agent, "No such nick online: %s" % target_name)
+                    return None
+                pm = ChatLine(now, agent.name, msg, "pm", "@" + target.name)
+                target.private_chat.append(pm)
+                if len(target.private_chat) > 24:
+                    target.private_chat = target.private_chat[-24:]
+                # echo to sender
+                agent.private_chat.append(
+                    ChatLine(now, agent.name, "→ %s: %s" % (target.name, msg), "pm", "@" + target.name)
+                )
+                if len(agent.private_chat) > 24:
+                    agent.private_chat = agent.private_chat[-24:]
+                self._irc_notice(agent, "PM sent to %s" % target.name)
+                return None
+
+            if cmd == "/say":
+                text = text.split(" ", 1)[1].strip() if " " in text else ""
+                if not text:
+                    return "empty"
+                low = text.lower()
+            else:
+                self._irc_notice(agent, "Unknown command %s — try /help" % cmd)
+                return None
+
+        # Plain channel say (or after /say)
+        ch = agent.irc_channel or "#streets"
+        if ch.startswith("@"):
+            # treat as PM shortcut to open query target
+            target_name = ch[1:]
+            tid = self.name_index.get(target_name.lower())
+            target = self.players.get(tid) if tid else None
+            if not target or not target.connected:
+                self._irc_notice(agent, "Query target offline — /join #streets")
+                return None
+            pm = ChatLine(now, agent.name, text, "pm", ch)
+            target.private_chat.append(pm)
+            agent.private_chat.append(
+                ChatLine(now, agent.name, "→ %s: %s" % (target.name, text), "pm", ch)
+            )
             return None
-        self.chat.append(ChatLine(now, agent.name, text, "say"))
+
+        line = ChatLine(now, agent.name, text, "say", ch)
+        self._push_channel(ch, line)
+        self.chat.append(line)
         if len(self.chat) > CHAT_MAX:
             self.chat = self.chat[-CHAT_MAX:]
         return None
@@ -535,9 +777,16 @@ class GameWorld:
         self._bind_agent_fog(agent, C.PLANE_STREET)
         self.players[pid] = agent
         self.name_index[name.lower()] = pid
+        agent.irc_channel = "#streets"
+        agent.irc_channels = ["#streets"]
         self.system_chat("%s jacked in (%s)." % (name, glyph))
         agent.log("You jack into the shared street layer. Fractured LA hums under neon rain.")
         agent.log("Talk to Relay Tran. Open chat with Enter. Personal Payload-Zero quest — others keep theirs.")
+        agent.log("IRC net on #streets — /help for /join /msg /me /nick.")
+        self._irc_notice(
+            agent,
+            "*** Welcome to the StreetNet IRC bridge. Motd: keep Payload-Zero talk in-channel. Type /help",
+        )
         agent.log("Seed: %s · You are glyph %s · spawn (%d,%d)" % (self.seed, glyph, x, y))
         self._force_set_pos(agent, x, y, C.PLANE_STREET, "new join spawn")
         n = self.clear_spawn_threats(x, y, C.PLANE_STREET)
@@ -601,6 +850,137 @@ class GameWorld:
                         agent.visible[y][x] = True
                         agent.explored[y][x] = True
 
+
+    def _seed_extra_encounters(self) -> None:
+        """Pack denser hostiles away from spawn pads (Diablo-lite street pressure)."""
+        from .entities import make_infected, make_thug, make_drone
+        n_extra = int(getattr(C, "ENCOUNTER_EXTRA_STREET", 18))
+        g = self.gmap
+        added = 0
+        attempts = 0
+        while added < n_extra and attempts < 1200:
+            attempts += 1
+            x = self.rng.randint(1, max(2, g.width - 2))
+            y = self.rng.randint(1, max(2, g.height - 2))
+            if not g.walkable(x, y):
+                continue
+            if self._near_any_spawn(x, y, radius=max(12, C.SAFE_SPAWN_RADIUS + 2)):
+                continue
+            if self.actor_at(x, y, z=C.PLANE_STREET):
+                continue
+            roll = self.rng.random()
+            if roll < 0.4:
+                mon = make_infected(x, y)
+            elif roll < 0.75:
+                mon = make_thug(x, y)
+            else:
+                mon = make_drone(x, y)
+            mon.z = C.PLANE_STREET
+            self.npcs_enemies.append(mon)
+            added += 1
+        if added:
+            self.system_chat("StreetNet: %d extra hostiles seeded beyond safe pads." % added)
+
+    def _quest_objective(self, agent: PlayerAgent) -> Dict[str, Any]:
+        """GTA/WoW-style active objective + compass toward jackpoint/uplink."""
+        jx, jy = self.jackpoint_pos
+        ux, uy = self.uplink_pos
+        px, py = agent.actor.x, agent.actor.y
+        if agent.won:
+            return {
+                "id": "idle",
+                "text": "Patrol streets · hunt infected · chat on StreetNet IRC",
+                "target": None,
+                "dist": None,
+                "bearing": None,
+                "compass": "·",
+            }
+        if agent.has_payload():
+            tx, ty = ux, uy
+            text = "Reach uplink (U) · scrub Payload-Zero"
+            oid = "uplink"
+        else:
+            tx, ty = jx, jy
+            text = "Find jackpoint (J) · sleeve Payload-Zero"
+            oid = "jackpoint"
+        dx, dy = tx - px, ty - py
+        dist = abs(dx) + abs(dy)
+        # 8-way bearing
+        if dx == 0 and dy == 0:
+            bearing, compass = "here", "★"
+        else:
+            sx = 0 if abs(dx) * 2 < abs(dy) else (1 if dx > 0 else -1)
+            sy = 0 if abs(dy) * 2 < abs(dx) else (1 if dy > 0 else -1)
+            # y+ is south in this map
+            table = {
+                (0, -1): ("N", "↑"),
+                (0, 1): ("S", "↓"),
+                (1, 0): ("E", "→"),
+                (-1, 0): ("W", "←"),
+                (1, -1): ("NE", "↗"),
+                (-1, -1): ("NW", "↖"),
+                (1, 1): ("SE", "↘"),
+                (-1, 1): ("SW", "↙"),
+            }
+            bearing, compass = table.get((sx, sy), ("?", "·"))
+        return {
+            "id": oid,
+            "text": text,
+            "target": [tx, ty],
+            "dist": dist,
+            "bearing": bearing,
+            "compass": compass,
+        }
+
+    def _landmarks(self) -> List[Dict[str, Any]]:
+        marks = [
+            {"id": "jackpoint", "name": "Jackpoint", "glyph": "J", "x": self.jackpoint_pos[0], "y": self.jackpoint_pos[1], "z": 0},
+            {"id": "uplink", "name": "Uplink", "glyph": "U", "x": self.uplink_pos[0], "y": self.uplink_pos[1], "z": 0},
+        ]
+        for i, rect in enumerate(getattr(self, "club_rects", []) or []):
+            if len(rect) >= 4:
+                cx = rect[0] + rect[2] // 2
+                cy = rect[1] + rect[3] // 2
+                marks.append({"id": "club_%d" % i, "name": "Club Glassline", "glyph": "C", "x": cx, "y": cy, "z": 0})
+                break
+        return marks
+
+    def _grant_kill_rewards(self, agent: PlayerAgent, victim: Actor) -> None:
+        agent.kills += 1
+        gain = int(getattr(C, "XP_PER_KILL", 12))
+        agent.xp += gain
+        agent.log("+%d XP (%s)." % (gain, victim.name))
+        # level up
+        need = int(getattr(C, "XP_PER_LEVEL", 40))
+        max_lv = int(getattr(C, "MAX_COURIER_LEVEL", 12))
+        while agent.xp >= need and agent.level < max_lv:
+            agent.xp -= need
+            agent.level += 1
+            agent.actor.max_hp += 4
+            agent.actor.hp = min(agent.actor.max_hp, agent.actor.hp + 4)
+            agent.actor.attack += 1
+            if agent.level % 2 == 0:
+                agent.actor.hack += 1
+            agent.log("LEVEL UP → %d  (HP+4 Atk+1)." % agent.level)
+            agent.sfx("pickup")
+        if self.rng.random() < float(getattr(C, "CREDIT_DROP_CHANCE", 0.45)):
+            amt = self.rng.randint(3, 12)
+            agent.credits += amt
+            agent.log("Looted %d street credits." % amt)
+        if self.rng.random() < float(getattr(C, "LOOT_DROP_CHANCE", 0.28)):
+            roll = self.rng.random()
+            if roll < 0.4:
+                item = make_stimpack()
+            elif roll < 0.6:
+                item = make_focus_tab()
+            elif roll < 0.8:
+                item = make_pulse_shim()
+            else:
+                item = make_kevlar_vest()
+            agent.actor.inventory.append(item)
+            agent.log("Loot: %s" % item.name)
+            agent.sfx("pickup")
+
     # ---- Combat / AI ----
     def melee_attack(self, attacker: Actor, defender: Actor, observer: Optional[PlayerAgent] = None) -> None:
         # MVP: no player-vs-player damage
@@ -632,6 +1012,9 @@ class GameWorld:
                     observer.sfx("kill")
                 if attacker.faction == "player":
                     attacker.restore_focus(2)
+                    killer = observer if observer and observer.actor is attacker else self._agent_for_actor(attacker)
+                    if killer:
+                        self._grant_kill_rewards(killer, defender)
             elif defender.faction == "player":
                 victim = self._agent_for_actor(defender)
                 if victim:
@@ -1311,6 +1694,36 @@ class GameWorld:
             rows.append("".join(chars))
         return rows
 
+    def _irc_snapshot_lines(self, agent: PlayerAgent) -> List[Dict[str, Any]]:
+        self._ensure_irc(agent)
+        ch = agent.irc_channel or "#streets"
+        out: List[ChatLine] = []
+        if ch.startswith("@"):
+            out = [c for c in agent.private_chat if c.kind == "pm"][-20:]
+        else:
+            out = list(self.channel_chat.get(ch, [])[-20:])
+        # notices always visible
+        notices = [c for c in agent.private_chat if c.kind == "notice"][-6:]
+        merged = notices + out
+        # de-dupe by identity while preserving order
+        seen = set()
+        lines = []
+        for c in merged:
+            key = (c.t, c.name, c.text, c.kind, getattr(c, "channel", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            lines.append(
+                {
+                    "t": c.t,
+                    "name": c.name,
+                    "text": c.text,
+                    "kind": c.kind,
+                    "channel": getattr(c, "channel", ch),
+                }
+            )
+        return lines[-24:]
+
     def snapshot(self, agent: PlayerAgent) -> Dict[str, Any]:
         p = agent.actor
         sfx_events = list(agent.pending_sfx)
@@ -1414,10 +1827,21 @@ class GameWorld:
             ],
             "selected_inv": agent.selected_inv,
             "messages": agent.messages[-12:],
-            "chat": [
-                {"t": c.t, "name": c.name, "text": c.text, "kind": c.kind}
-                for c in (list(self.chat[-16:]) + list(agent.private_chat[-4:]))
-            ],
+            "chat": self._irc_snapshot_lines(agent),
+            "irc": {
+                "channel": getattr(agent, "irc_channel", "#streets"),
+                "channels": list(getattr(agent, "irc_channels", ["#streets"])),
+                "topics": {ch: self.channel_topics.get(ch, "") for ch in getattr(agent, "irc_channels", ["#streets"])},
+                "nicks": [
+                    {"name": o.name, "glyph": o.glyph, "color": o.color, "you": o.id == agent.id}
+                    for o in self.players.values()
+                    if o.connected
+                    and getattr(agent, "irc_channel", "#streets")
+                    in getattr(o, "irc_channels", ["#streets"])
+                ]
+                if not str(getattr(agent, "irc_channel", "")).startswith("@")
+                else [],
+            },
             "quest_flags": dict(agent.quest_flags),
             "story_seen": list(agent.story_seen),
             "help": C.HELP_TEXT
@@ -1434,6 +1858,13 @@ class GameWorld:
             "plane_label": C.PLANE_LABELS.get(int(getattr(p, "z", 0) or 0), ""),
             "sfx": sfx_events,
             "cutscenes": cutscene_events,
+            "objective": self._quest_objective(agent),
+            "landmarks": self._landmarks(),
+            "xp": agent.xp,
+            "level": agent.level,
+            "credits": agent.credits,
+            "kills": agent.kills,
+            "xp_next": int(getattr(C, "XP_PER_LEVEL", 40)),
         }
 
 
