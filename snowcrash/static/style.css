@@ -559,3 +559,24 @@ body.intro-active { overflow: hidden; }
   font-size: 0.7rem;
   color: var(--dim);
 }
+
+
+/* Deployment env badge */
+.env-badge {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.55em;
+  letter-spacing: 0.18em;
+  vertical-align: middle;
+  color: #0a0e14;
+  background: var(--warn);
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(240, 180, 41, 0.55);
+}
+body.env-dev header h1 { color: var(--warn); text-shadow: 0 0 12px rgba(240, 180, 41, 0.45); }
+body.env-dev #fpv-panel,
+body.env-dev #minimap-wrap,
+body.env-dev #side {
+  border-color: rgba(240, 180, 41, 0.35);
+}

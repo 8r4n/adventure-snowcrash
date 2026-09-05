@@ -33,8 +33,12 @@ class NewBody(BaseModel):
     seed: Optional[int] = None
 
 
-def create_app(default_seed: Optional[int] = None) -> FastAPI:
-    app = FastAPI(title="Snowcrash Rogue")
+def create_app(default_seed: Optional[int] = None, deploy_env: str = "production") -> FastAPI:
+    env = (deploy_env or "production").lower()
+    if env not in ("production", "dev"):
+        env = "production"
+    title = "Snowcrash — Fractured LA" if env == "production" else "Snowcrash DEV — Fractured LA"
+    app = FastAPI(title=("Snowcrash Rogue" if env == "production" else "Snowcrash Rogue (DEV)"))
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     if STATIC.is_dir():
@@ -50,8 +54,16 @@ def create_app(default_seed: Optional[int] = None) -> FastAPI:
         return templates.TemplateResponse(
             request,
             "index.html",
-            {"title": "Snowcrash — Fractured LA"},
+            {
+                "title": title,
+                "deploy_env": env,
+                "is_dev": env == "dev",
+            },
         )
+
+    @app.get("/api/env")
+    async def api_env() -> Dict[str, str]:
+        return {"env": env}
 
     @app.get("/api/state")
     async def api_state(session: str = "default") -> JSONResponse:

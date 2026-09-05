@@ -6,7 +6,7 @@
   <title>{{ title }}</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
-<body>
+<body class="{% if is_dev %}env-dev{% else %}env-production{% endif %}">
   <div id="intro" class="intro" aria-live="polite">
     <canvas id="intro-canvas" aria-hidden="true"></canvas>
     <div class="intro-veil"></div>
@@ -25,7 +25,7 @@
 
   <div id="app" class="app-hidden">
     <header>
-      <h1>SNOWCRASH</h1>
+      <h1>SNOWCRASH {% if is_dev %}<span class="env-badge" title="Development deployment">DEV</span>{% endif %}</h1>
       <p class="tag">Metaverse layer · continuous video→ASCII FPV · enhanced ASCII GPS radar</p>
       <div class="toolbar">
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute sound (m)">Mute</button>

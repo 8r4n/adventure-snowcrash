@@ -38,6 +38,33 @@ python -m snowcrash.web --host 0.0.0.0 --port 8765 --seed 42
 
 Then open **http://127.0.0.1:8765/** (or your host’s IP on port **8765**).
 
+## Deployments (production + dev)
+
+| | Branch | Checkout | Port | Env flag |
+|---|---|---|---|---|
+| **Production** | `main` | `/workspace/adventure` (or repo root) | **8765** | `--env production` |
+| **Dev** | `dev` | git worktree e.g. `adventure-dev` | **8766** | `--env dev` |
+
+```bash
+# production
+./scripts/run_prod.sh          # → http://127.0.0.1:8765/
+
+# development (from the dev worktree)
+cd ../adventure-dev   # or: git worktree add ../adventure-dev dev
+./scripts/run_dev.sh          # → http://127.0.0.1:8766/
+```
+
+Dev builds show a **DEV** badge in the HUD. Create the worktree once:
+
+```bash
+git fetch origin
+git worktree add ../adventure-dev dev
+```
+
+Public tunnels (optional): point one Cloudflare quick tunnel at each port.
+
+
+
 On first load (and **Replay intro** / restart after death-win) the web UI plays a fullscreen **opening cinematic**: high-fidelity **colored ASCII video** (canvas sample of a procedural MP4) with timed story beats for Rin Vale / Payload-Zero. **Space / Esc / Skip intro** dismisses it, then the playable HUD starts (`/api/new` is deferred until the intro ends so gameplay SFX do not overlap).
 
 The main viewport is live **video→ASCII FPV**: neon raycast scene → shared colored-ASCII canvas (same pipeline as the intro). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
