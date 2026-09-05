@@ -10,19 +10,42 @@
   <div id="app">
     <header>
       <h1>SNOWCRASH</h1>
-      <p class="tag">Freelance Metaverse courier · fractured LA · 32×32 cyberpunk tiles</p>
+      <p class="tag">Metaverse layer · continuous video→ASCII FPV · enhanced ASCII GPS radar</p>
       <div class="toolbar">
-        <button type="button" id="btn-ascii" aria-pressed="false">ASCII view</button>
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute sound (m)">Mute</button>
-        <span id="perspective" class="perspective" title="Camera perspective">STREET LAYER (3RD)</span>
-        <span class="hint">or press <kbd>A</kbd> tiles/ASCII · <kbd>m</kbd> mute · Space/Esc skip cutscene</span>
+        <span id="perspective" class="perspective first" title="Camera perspective">1ST PERSON — VIDEO→ASCII</span>
+        <span id="compass" class="compass" title="Facing">N</span>
+        <span class="hint">
+          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move ·
+          <kbd>Q</kbd>/<kbd>E</kbd> turn ·
+          <kbd>m</kbd> mute · Space/Esc skip jack-in
+        </span>
       </div>
     </header>
+
     <div id="layout">
-      <div id="map-wrap">
-        <div id="map" class="tiles" aria-label="Game map"></div>
-        <pre id="ascii-map" class="hidden" aria-label="ASCII map"></pre>
+      <div id="viewport">
+        <div id="fpv-panel">
+          <div class="fpv-chrome">
+            <span>METAVERSE LAYER · VIDEO→ASCII · LIVE FPV</span>
+            <span id="fpv-status">STREETS OF FRACTURED LA</span>
+          </div>
+          <pre id="fpv" aria-label="First-person ASCII view"></pre>
+          <div class="fpv-chrome bottom">
+            <span>RELATIVE MOVE · FACING LOCK</span>
+            <span>JACK-IN CUTSCENES ON OBJECTS</span>
+          </div>
+        </div>
+
+        <div id="minimap-wrap" aria-label="Street GPS minimap">
+          <div class="mini-chrome">
+            <span>STREET GPS</span>
+            <span>ENHANCED ASCII · 3RD</span>
+          </div>
+          <pre id="minimap" class="minimap-ascii"></pre>
+        </div>
       </div>
+
       <aside id="side">
         <div id="stats"></div>
         <div id="inv-panel">
@@ -30,24 +53,24 @@
           <ul id="inventory"></ul>
         </div>
         <div id="help-mini">
-          <kbd>WASD</kbd>/<kbd>hjkl</kbd>/<kbd>arrows</kbd> move ·
-          <kbd>g</kbd> get · <kbd>f</kbd> fire/hack ·
-          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> restart · <kbd>.</kbd> wait ·
-          <kbd>A</kbd> tiles/ASCII · <kbd>m</kbd> mute
+          <kbd>W</kbd> fwd · <kbd>S</kbd> back · <kbd>A</kbd>/<kbd>D</kbd> strafe ·
+          <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>g</kbd> get · <kbd>f</kbd> fire/hack ·
+          <kbd>i</kbd> inv · <kbd>?</kbd> help · <kbd>r</kbd> restart · <kbd>m</kbd> mute
         </div>
       </aside>
     </div>
-    <section id="legend-panel" aria-label="Tile legend">
-      <h2>Legend</h2>
+
+    <section id="legend-panel" aria-label="Glyph legend">
+      <h2>Glyph radar key</h2>
       <div id="legend"></div>
     </section>
     <div id="log"></div>
     <div id="overlay" class="hidden"></div>
     <div id="cutscene" class="hidden" aria-live="polite">
       <div class="cut-inner">
-        <div id="cut-title" class="cut-title">1ST PERSON</div>
+        <div id="cut-title" class="cut-title">1ST PERSON — JACK-IN</div>
         <pre id="cut-frames" class="cut-frames"></pre>
-        <div class="cut-hint">Space / Esc to skip · returning to street layer…</div>
+        <div class="cut-hint">Space / Esc to skip · returning to live FPV…</div>
       </div>
     </div>
   </div>

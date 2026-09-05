@@ -33,6 +33,7 @@ class Actor:
     quest_flag: str = ""
     xp_value: int = 0
     color: str = "white"
+    facing: int = 0  # 0=N 1=E 2=S 3=W (player camera)
 
     def is_player(self) -> bool:
         return self.faction == "player"

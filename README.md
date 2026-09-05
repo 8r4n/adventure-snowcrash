@@ -1,6 +1,6 @@
 # Snowcrash
 
-A short, playable cyberpunk **rogue-like** in Python: turn-based streets of fractured LA (ASCII TUI + 32×32 web tiles), fog of war, inventory, melee + hack/ranged combat, and a courier quest for **Payload-Zero**.
+A short, playable cyberpunk **rogue-like** in Python: turn-based streets of fractured LA. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI stays overhead ASCII. Fog of war, inventory, melee + hack/ranged, courier quest for **Payload-Zero**.
 
 Original theme inspired by the *vibe* of Cataclysm: DDA mechanics and Neal Stephenson’s Metaverse — **no copied text or assets**.
 
@@ -38,11 +38,10 @@ python -m snowcrash.web --host 0.0.0.0 --port 8765 --seed 42
 
 Then open **http://127.0.0.1:8765/** (or your host’s IP on port **8765**).
 
-The web UI renders a neon 32×32 tile map (not bare ASCII) with a legend under the grid.
-Press **A** or use the **ASCII view** button to switch back to the classic glyph map.
-Short procedural SFX play for move/combat/loot — **Mute** button or **m** (remembered in localStorage; default volume ~0.4).
-Exploration stays **3rd-person** tiles; jackpoint / uplink / payload / NPC / terminal / door triggers play short **1st-person ASCII cutscenes** (Space/Esc skip). Web-first — TUI has no cutscene playback yet.
-Quest rooms show **J** (jackpoint) and **U** (Metaverse uplink) as distinct tiles.
+The web UI main viewport is a live **1st-person ASCII raycast** (branded video→ASCII Metaverse layer). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the same glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
+Short procedural SFX play for move/combat/loot — **Mute** / **m** (localStorage; default volume ~0.4).
+Jackpoint / uplink / payload / NPC / terminal / door still trigger denser **jack-in ASCII cutscenes** (Space/Esc skip). TUI has no FPV/cutscenes yet.
+Quest rooms: **J** jackpoint, **U** Metaverse uplink.
 
 To regenerate sprites after editing `scripts/gen_tiles.py`:
 
@@ -63,7 +62,10 @@ python scripts/gen_cutscenes.py   # stdlib ASCII cutscene packs
 
 | Key | Action |
 |-----|--------|
-| `WASD` / arrows / `hjkl` | Move |
+| `W`/`S` (web) | Forward / back (relative to facing) |
+| `A`/`D` (web) | Strafe left / right |
+| `Q`/`E` or ←/→ (web) | Turn left / right |
+| `WASD` / arrows / `hjkl` (TUI) | Absolute move |
 | `g` | Get / pick up |
 | `i` | Inventory |
 | `e` | Equip / unequip (in inventory) |
@@ -74,15 +76,18 @@ python scripts/gen_cutscenes.py   # stdlib ASCII cutscene packs
 | `?` | Help |
 | `r` | Restart (after death/win) |
 | `q` | Quit (TUI) |
-| `A` (web) | Toggle tiles / ASCII |
 | `m` (web) | Mute / unmute SFX |
 | Space / Esc (web) | Skip 1st-person cutscene |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
 
-## Perspective / cutscenes
+## Perspective / FPV + minimap
 
-Default camera is the **street layer (3rd person)** tile map. Interacting with key objects queues a first-person ASCII “video” overlay (prebaked packs in `snowcrash/static/cutscenes/`):
+**Web default:** continuous **1st-person video→ASCII FPV** (live raycaster synced to the tile world + facing). Corner **Street GPS** = enhanced ASCII minimap (glyph language, upscaled/colorized — not the PNG tile set).
+
+Movement is **relative to facing** (GTA-like): `W/S` forward/back, `A/D` strafe, `Q/E` (or arrows) turn.
+
+Jack-in intensives still queue prebaked ASCII cutscene packs in `snowcrash/static/cutscenes/`:
 
 | Trigger | Cutscene id |
 |---------|-------------|

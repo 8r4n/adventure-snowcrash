@@ -1,43 +1,40 @@
 (() => {
   const SESSION = "browser";
-  const mapEl = document.getElementById("map");
-  const asciiEl = document.getElementById("ascii-map");
+  const fpvEl = document.getElementById("fpv");
+  const minimapEl = document.getElementById("minimap");
   const statsEl = document.getElementById("stats");
   const invEl = document.getElementById("inventory");
   const logEl = document.getElementById("log");
   const overlay = document.getElementById("overlay");
   const legendEl = document.getElementById("legend");
-  const btnAscii = document.getElementById("btn-ascii");
   const btnMute = document.getElementById("btn-mute");
   const perspectiveEl = document.getElementById("perspective");
+  const compassEl = document.getElementById("compass");
   const cutsceneEl = document.getElementById("cutscene");
   const cutTitleEl = document.getElementById("cut-title");
   const cutFramesEl = document.getElementById("cut-frames");
+  const fpvStatus = document.getElementById("fpv-status");
 
   let state = null;
   let invMode = false;
-  let useTiles = true;
-  let tilesMeta = null;
   let lastMode = null;
   let cutscenePlaying = false;
-  const TILE_PATH = "/static/tiles/";
-  const SFX_PATH = "/static/sfx/";
-  const SFX_IDS = [
-    "step",
-    "bump",
-    "melee",
-    "hurt",
-    "kill",
-    "pulse",
-    "pickup",
-    "use",
-    "talk",
-    "door",
-    "win",
-    "death",
-    "click",
-  ];
 
+  const SFX_PATH = "/static/sfx/";
+  const CUT_PATH = "/static/cutscenes/";
+  const SFX_IDS = [
+    "step", "bump", "melee", "hurt", "kill", "pulse", "pickup",
+    "use", "talk", "door", "win", "death", "click",
+  ];
+  const FACING_NAMES = ["N", "E", "S", "W"];
+  const FACING_GLYPH = ["^", ">", "v", "<"];
+  const WALL_CHARS = "#~";
+  const FPV_COLS = 88;
+  const FPV_ROWS = 32;
+  const MINI_R = 10; // radar radius in map cells
+  const SHADE = " .:-=+*#%@";
+
+  // ---- Sound ----
   const Sound = (() => {
     const STORAGE_KEY = "snowcrash_mute";
     const DEFAULT_VOL = 0.4;
@@ -52,18 +49,14 @@
         const AC = window.AudioContext || window.webkitAudioContext;
         if (AC) ctx = new AC();
       }
-      if (ctx && ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
-      }
+      if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
       return ctx;
     }
-
     function unlock() {
       if (unlocked) return;
       unlocked = true;
       ensureCtx();
     }
-
     async function load(id) {
       if (cache[id]) return cache[id];
       try {
@@ -72,20 +65,17 @@
         const buf = await res.arrayBuffer();
         const ac = ensureCtx();
         if (ac) {
-          const decoded = await ac.decodeAudioData(buf.slice(0));
-          cache[id] = { type: "buffer", data: decoded };
+          cache[id] = { type: "buffer", data: await ac.decodeAudioData(buf.slice(0)) };
           return cache[id];
         }
       } catch (err) {
         console.warn("sfx load failed", id, err);
       }
-      // HTMLAudioElement fallback
       const audio = new Audio(SFX_PATH + id + ".wav");
       audio.preload = "auto";
       cache[id] = { type: "html", data: audio };
       return cache[id];
     }
-
     function play(id) {
       if (muted || !id) return;
       unlock();
@@ -115,67 +105,46 @@
         console.warn("sfx play failed", id, err);
       }
     }
-
     function playList(ids) {
       if (!ids || !ids.length) return;
-      // stagger slightly so overlapping events stay distinct
-      ids.forEach((id, i) => {
-        setTimeout(() => play(id), i * 28);
-      });
+      ids.forEach((id, i) => setTimeout(() => play(id), i * 28));
     }
-
     function setMuted(m) {
       muted = !!m;
       localStorage.setItem(STORAGE_KEY, muted ? "1" : "0");
       syncUi();
     }
-
     function toggleMute() {
       setMuted(!muted);
       if (!muted) play("click");
       return muted;
     }
-
     function syncUi() {
       if (!btnMute) return;
       btnMute.setAttribute("aria-pressed", muted ? "true" : "false");
       btnMute.textContent = muted ? "Unmute" : "Mute";
-      btnMute.title = muted
-        ? "Unmute sound (m)"
-        : "Mute sound (m)";
+      btnMute.title = muted ? "Unmute sound (m)" : "Mute sound (m)";
     }
-
     function preload() {
       SFX_IDS.forEach((id) => load(id));
     }
-
-    return {
-      play,
-      playList,
-      toggleMute,
-      setMuted,
-      isMuted: () => muted,
-      unlock,
-      preload,
-      syncUi,
-    };
+    return { play, playList, toggleMute, setMuted, isMuted: () => muted, unlock, preload, syncUi };
   })();
 
-  const CUT_PATH = "/static/cutscenes/";
+  // ---- Cutscenes (jack-in intensives) ----
   const CutscenePlayer = (() => {
     const cache = {};
     let timer = null;
     let queue = [];
-    let onDone = null;
 
-    function setPerspective(first, title) {
+    function setPerspective(intensive, title) {
       if (!perspectiveEl) return;
-      if (first) {
+      if (intensive) {
         perspectiveEl.classList.add("first");
-        perspectiveEl.textContent = title || "1ST PERSON";
+        perspectiveEl.textContent = title || "1ST PERSON — JACK-IN";
       } else {
-        perspectiveEl.classList.remove("first");
-        perspectiveEl.textContent = "STREET LAYER (3RD)";
+        perspectiveEl.classList.add("first");
+        perspectiveEl.textContent = "1ST PERSON — VIDEO→ASCII";
       }
     }
 
@@ -183,9 +152,8 @@
       if (cache[id]) return cache[id];
       const res = await fetch(CUT_PATH + id + ".json");
       if (!res.ok) throw new Error("cutscene missing: " + id);
-      const pack = await res.json();
-      cache[id] = pack;
-      return pack;
+      cache[id] = await res.json();
+      return cache[id];
     }
 
     function hide() {
@@ -208,11 +176,6 @@
         return;
       }
       hide();
-      if (typeof onDone === "function") {
-        const cb = onDone;
-        onDone = null;
-        cb();
-      }
     }
 
     function playPack(pack) {
@@ -246,8 +209,7 @@
         return;
       }
       try {
-        const pack = await load(id);
-        playPack(pack);
+        playPack(await load(id));
       } catch (err) {
         console.warn("cutscene failed", id, err);
         playNext();
@@ -268,11 +230,13 @@
       return true;
     }
 
-    function isPlaying() {
-      return cutscenePlaying;
-    }
-
-    return { enqueue, skip, isPlaying, setPerspective, load };
+    return {
+      enqueue,
+      skip,
+      isPlaying: () => cutscenePlaying,
+      setPerspective,
+      load,
+    };
   })();
 
   async function api(path, body) {
@@ -287,119 +251,310 @@
     return res.json();
   }
 
-  function glyphInfo(ch) {
-    const glyphs = (tilesMeta && tilesMeta.glyphs) || {};
-    return glyphs[ch] || glyphs[" "] || { file: "fog.png", label: "Unknown" };
+  function escapeHtml(t) {
+    return String(t)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
-  function colorizeMap(rows, visible, explored) {
-    return rows
-      .map((row, y) => {
-        let html = "";
-        for (let x = 0; x < row.length; x++) {
-          const ch = row[x];
-          let cls = "fog";
-          if (visible && visible[y] && visible[y][x]) {
-            cls = "vis";
-            if (ch === "@") cls = "player";
-            else if (ch === "i") cls = "enemy-i";
-            else if (ch === "t") cls = "enemy-t";
-            else if (ch === "d") cls = "enemy-d";
-            else if (ch === "&") cls = "npc";
-            else if ("*!/[}%".includes(ch)) cls = "item";
-            else if (ch === "J" || ch === "U") cls = "landmark";
-          } else if (explored && explored[y] && explored[y][x]) {
-            cls = "fog";
-          } else {
-            cls = "fog";
-          }
-          const esc =
-            ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch;
-          html += `<span class="${cls}">${esc === " " ? "&nbsp;" : esc}</span>`;
+  function mapAt(s, x, y) {
+    if (y < 0 || x < 0 || y >= s.height || x >= s.width) return "#";
+    const row = s.map[y] || "";
+    return row[x] || "#";
+  }
+
+  function isWall(ch) {
+    return ch === "#" || ch === "~" || ch === " ";
+  }
+
+  function entityAt(s, x, y) {
+    const ch = mapAt(s, x, y);
+    if ("itd&*!/[}%JU@".includes(ch) && ch !== "." && ch !== "=" && ch !== "," && ch !== "+") {
+      // Prefer entity-like glyphs from the rendered overlay map
+      if ("itd&@".includes(ch) || "*!/[}%".includes(ch) || ch === "J" || ch === "U") return ch;
+    }
+    return null;
+  }
+
+  // ---- Live FPV raycaster (video→ASCII Metaverse layer) ----
+  function renderFpv(s) {
+    if (!fpvEl || !s) return;
+    const px = s.player.x + 0.5;
+    const py = s.player.y + 0.5;
+    const facing = (s.player.facing || 0) % 4;
+    const ang = (facing * Math.PI) / 2; // 0=N -> -PI/2 in screen space? 
+    // Map: 0=N (0,-1), 1=E (1,0), 2=S (0,1), 3=W (-1,0)
+    // Screen angle: 0 = +X east conventionally; use dir from facing
+    const dirX = [0, 1, 0, -1][facing];
+    const dirY = [-1, 0, 1, 0][facing];
+    // camera plane (perpendicular)
+    const planeX = -dirY * 0.66;
+    const planeY = dirX * 0.66;
+
+    const cols = FPV_COLS;
+    const rows = FPV_ROWS;
+    const depths = new Array(cols);
+    const hits = new Array(cols);
+    const sides = new Array(cols);
+    const hitCh = new Array(cols);
+
+    for (let col = 0; col < cols; col++) {
+      const camX = (2 * col) / cols - 1;
+      const rayDirX = dirX + planeX * camX;
+      const rayDirY = dirY + planeY * camX;
+      let mapX = Math.floor(px);
+      let mapY = Math.floor(py);
+      const deltaDistX = rayDirX === 0 ? 1e30 : Math.abs(1 / rayDirX);
+      const deltaDistY = rayDirY === 0 ? 1e30 : Math.abs(1 / rayDirY);
+      let stepX, stepY, sideDistX, sideDistY;
+      if (rayDirX < 0) {
+        stepX = -1;
+        sideDistX = (px - mapX) * deltaDistX;
+      } else {
+        stepX = 1;
+        sideDistX = (mapX + 1 - px) * deltaDistX;
+      }
+      if (rayDirY < 0) {
+        stepY = -1;
+        sideDistY = (py - mapY) * deltaDistY;
+      } else {
+        stepY = 1;
+        sideDistY = (mapY + 1 - py) * deltaDistY;
+      }
+      let hit = 0;
+      let side = 0;
+      let ch = "#";
+      for (let i = 0; i < 48 && !hit; i++) {
+        if (sideDistX < sideDistY) {
+          sideDistX += deltaDistX;
+          mapX += stepX;
+          side = 0;
+        } else {
+          sideDistY += deltaDistY;
+          mapY += stepY;
+          side = 1;
         }
-        return html;
-      })
-      .join("\n");
-  }
+        ch = mapAt(s, mapX, mapY);
+        if (isWall(ch) || ch === "+") hit = 1;
+      }
+      let perp;
+      if (side === 0) perp = (mapX - px + (1 - stepX) / 2) / rayDirX;
+      else perp = (mapY - py + (1 - stepY) / 2) / rayDirY;
+      if (!isFinite(perp) || perp < 0.05) perp = 0.05;
+      depths[col] = perp;
+      sides[col] = side;
+      hitCh[col] = ch;
+      hits[col] = hit;
+    }
 
-  function renderTiles(s) {
-    const w = s.width;
-    const h = s.height;
+    // Build ASCII framebuffer
+    const lines = [];
+    const mid = rows / 2;
+    for (let y = 0; y < rows; y++) {
+      let row = "";
+      for (let x = 0; x < cols; x++) {
+        const dist = depths[x];
+        const lineH = Math.min(rows, Math.floor(rows / dist));
+        const drawStart = Math.floor(mid - lineH / 2);
+        const drawEnd = Math.floor(mid + lineH / 2);
+        let c = " ";
+        if (y < drawStart) {
+          // ceiling — scanlines
+          const shade = Math.max(0, 2 - Math.floor((drawStart - y) / 6));
+          c = " .:'"[shade] || " ";
+          if ((x + y + (s.turn || 0)) % 17 === 0) c = "·";
+        } else if (y > drawEnd) {
+          // floor
+          const fy = (y - mid) / mid;
+          const si = Math.min(SHADE.length - 1, Math.floor(fy * 6));
+          c = SHADE[si] || ".";
+          if ((x * 3 + y) % 11 === 0) c = "=";
+        } else {
+          // wall column
+          const near = Math.min(1, 1.8 / dist);
+          let si = Math.min(SHADE.length - 1, Math.floor(near * (SHADE.length - 1)));
+          if (sides[x]) si = Math.max(0, si - 1);
+          c = SHADE[si];
+          if (hitCh[x] === "+") c = near > 0.55 ? "+" : ":";
+          if (hitCh[x] === "~") c = "~";
+          // edge highlight
+          if (y === drawStart || y === drawEnd) c = "|";
+        }
+        row += c;
+      }
+      lines.push(row);
+    }
+
+    // Sprite-ish overlays for nearby entities (billboards in center band)
     const vis = s.visible || [];
-    const exp = s.explored || [];
-    const parts = [
-      `<div id="tile-grid" style="grid-template-columns:repeat(${w},var(--tile));grid-template-rows:repeat(${h},var(--tile))">`,
-    ];
-    for (let y = 0; y < h; y++) {
-      const row = s.map[y] || "";
-      const vrow = vis[y] || [];
-      const erow = exp[y] || [];
-      for (let x = 0; x < w; x++) {
-        const visible = !!vrow[x];
-        const explored = !!erow[x];
-        const ch = visible || explored ? row[x] : " ";
-        const info = glyphInfo(ch);
-        const kind = visible ? "vis" : explored ? "explored" : "hidden";
-        const file = info.file || "fog.png";
-        const label = escapeAttr(info.label || ch);
-        const escCh = escapeAttr(ch);
-        parts.push(
-          `<div class="cell ${kind}" data-ch="${escCh}" title="${label}" style="background-image:url('${TILE_PATH}${file}')"></div>`
-        );
+    for (let y = 0; y < s.height; y++) {
+      for (let x = 0; x < s.width; x++) {
+        if (!(vis[y] && vis[y][x])) continue;
+        const ch = mapAt(s, x, y);
+        if (!"itd&*!/[}%JU".includes(ch)) continue;
+        if (x === s.player.x && y === s.player.y) continue;
+        // transform to camera space
+        const relX = x + 0.5 - px;
+        const relY = y + 0.5 - py;
+        const invDet = 1.0 / (planeX * dirY - dirX * planeY);
+        const transformX = invDet * (dirY * relX - dirX * relY);
+        const transformY = invDet * (-planeY * relX + planeX * relY);
+        if (transformY <= 0.15) continue;
+        const spriteScreenX = Math.floor((cols / 2) * (1 + transformX / transformY));
+        const spriteH = Math.abs(Math.floor(rows / transformY));
+        const drawStartY = Math.max(0, Math.floor(mid - spriteH / 2));
+        const drawEndY = Math.min(rows - 1, Math.floor(mid + spriteH / 2));
+        const spriteW = Math.max(2, Math.floor(spriteH * 0.45));
+        const drawStartX = Math.max(0, spriteScreenX - Math.floor(spriteW / 2));
+        const drawEndX = Math.min(cols - 1, spriteScreenX + Math.floor(spriteW / 2));
+        for (let sx = drawStartX; sx <= drawEndX; sx++) {
+          if (transformY >= depths[sx]) continue;
+          for (let sy = drawStartY; sy <= drawEndY; sy++) {
+            const row = lines[sy];
+            const mark = sx === spriteScreenX ? ch : (sy === drawStartY || sy === drawEndY ? "|" : "*");
+            lines[sy] = row.substring(0, sx) + mark + row.substring(sx + 1);
+          }
+          depths[sx] = transformY;
+        }
       }
     }
-    parts.push("</div>");
-    mapEl.innerHTML = parts.join("");
+
+    // HUD reticle
+    const cx = Math.floor(cols / 2);
+    const cy = Math.floor(rows / 2);
+    if (lines[cy]) {
+      const r = lines[cy];
+      lines[cy] = r.substring(0, cx - 1) + "[+]" + r.substring(cx + 2);
+    }
+
+    fpvEl.textContent = lines.join("\n");
+    if (compassEl) {
+      const fn = s.player.facing_name || FACING_NAMES[facing] || "?";
+      compassEl.textContent = FACING_GLYPH[facing] + " " + fn;
+    }
+    if (fpvStatus) {
+      fpvStatus.textContent = `POS ${s.player.x},${s.player.y} · T${s.turn} · ${
+        s.player.has_payload ? "PAYLOAD LOCKED" : "NO PAYLOAD"
+      }`;
+    }
+  }
+
+  // ---- Enhanced ASCII minimap (GTA corner radar — NOT PNG tiles) ----
+  function miniClass(ch, visible, explored) {
+    if (!visible && !explored) return "m-void";
+    if (!visible) return "m-fog";
+    if (ch === "@" || "^>v<".includes(ch)) return "m-player";
+    if (ch === "i") return "m-enemy-i";
+    if (ch === "t") return "m-enemy-t";
+    if (ch === "d") return "m-enemy-d";
+    if (ch === "&") return "m-npc";
+    if ("*!/[}%".includes(ch)) return "m-item";
+    if (ch === "J" || ch === "U") return "m-land";
+    if (ch === "#") return "m-wall";
+    if (ch === "+") return "m-door";
+    if (ch === "=") return "m-street";
+    if (ch === "~") return "m-water";
+    if (ch === ",") return "m-grass";
+    return "m-floor";
+  }
+
+  function enhanceCell(ch, visible, explored) {
+    // 2×2 upscale (2 cols × 2 rows per map cell) — enhanced ASCII radar
+    if (!visible && !explored) return ["··", "··"];
+    if (!visible) {
+      if (ch === "#") return ["▒░", "░▒"];
+      if (ch === "+") return ["··", "++"];
+      return ["··", "··"];
+    }
+    const pair = {
+      "#": ["██", "██"],
+      "+": ["╬╬", "++"],
+      ".": ["··", "··"],
+      "=": ["══", "──"],
+      ",": [",.", ".,"],
+      "~": ["≈≈", "≈≈"],
+      "J": ["▐█", "J█"],
+      "U": ["▐█", "U█"],
+      "@": ["@@", "@@"],
+      "^": ["▲▲", "││"],
+      ">": ["▶▶", "▶▶"],
+      "v": ["││", "▼▼"],
+      "<": ["◀◀", "◀◀"],
+      "&": ["&&", "▓▓"],
+      i: ["ii", "▓▓"],
+      t: ["tt", "▓▓"],
+      d: ["dd", "▓▓"],
+      "*": ["**", "**"],
+      "!": ["!!", "!!"],
+      "/": ["//", "//"],
+      "[": ["[[", "[["],
+      "}": ["}}", "}}"],
+      "%": ["%%", "▓▓"],
+    };
+    return pair[ch] || [ch + ch, ch + ch];
+  }
+
+  function renderMinimap(s) {
+    if (!minimapEl || !s) return;
+    const px = s.player.x;
+    const py = s.player.y;
+    const facing = (s.player.facing || 0) % 4;
+    const vis = s.visible || [];
+    const exp = s.explored || [];
+    const x0 = Math.max(0, px - MINI_R);
+    const y0 = Math.max(0, py - MINI_R);
+    const x1 = Math.min(s.width - 1, px + MINI_R);
+    const y1 = Math.min(s.height - 1, py + MINI_R);
+
+    let html = "";
+    for (let y = y0; y <= y1; y++) {
+      // two enhanced rows per map row
+      let top = "";
+      let bot = "";
+      for (let x = x0; x <= x1; x++) {
+        let ch = mapAt(s, x, y);
+        const visible = !!(vis[y] && vis[y][x]);
+        const explored = !!(exp[y] && exp[y][x]);
+        if (x === px && y === py) ch = FACING_GLYPH[facing];
+        const [a, b] = enhanceCell(ch, visible, explored);
+        const cls = miniClass(ch, visible, explored);
+        top += `<span class="${cls}">${escapeHtml(a)}</span>`;
+        bot += `<span class="${cls}">${escapeHtml(b)}</span>`;
+      }
+      html += top + "\n" + bot + "\n";
+    }
+    minimapEl.innerHTML = html;
   }
 
   function buildLegend() {
-    if (!legendEl || !tilesMeta) return;
-    const items = tilesMeta.legend || [];
+    if (!legendEl) return;
+    const items = [
+      ["@", "you (facing glyph on radar)"],
+      ["#", "wall"],
+      [".", "floor"],
+      ["+", "door"],
+      ["=", "street"],
+      ["J", "jackpoint"],
+      ["U", "uplink"],
+      ["&", "NPC"],
+      ["i/t/d", "enemies"],
+      ["%", "Payload-Zero"],
+    ];
     legendEl.innerHTML = items
-      .map((it) => {
-        const g = escapeHtml(it.glyph === " " ? "·" : it.glyph);
-        return `<div class="leg" title="${escapeAttr(it.label)}">
-          <img src="${TILE_PATH}${it.file}" alt="${escapeAttr(it.label)}" width="32" height="32" />
-          <span class="g">${g}</span>
-          <span>${escapeHtml(it.label)}</span>
-        </div>`;
-      })
+      .map(
+        ([g, label]) =>
+          `<div class="leg"><span class="g">${escapeHtml(g)}</span><span>${escapeHtml(
+            label
+          )}</span></div>`
+      )
       .join("");
-  }
-
-  function applyViewMode() {
-    if (useTiles) {
-      mapEl.classList.remove("hidden");
-      asciiEl.classList.add("hidden");
-      btnAscii.setAttribute("aria-pressed", "false");
-      btnAscii.textContent = "ASCII view";
-    } else {
-      mapEl.classList.add("hidden");
-      asciiEl.classList.remove("hidden");
-      btnAscii.setAttribute("aria-pressed", "true");
-      btnAscii.textContent = "Tile view";
-    }
-  }
-
-  function toggleAscii() {
-    useTiles = !useTiles;
-    Sound.play("click");
-    applyViewMode();
-    if (state) {
-      if (useTiles) renderTiles(state);
-      else asciiEl.innerHTML = colorizeMap(state.map, state.visible, state.explored);
-    }
   }
 
   function handleSfx(s) {
     const events = Array.isArray(s.sfx) ? s.sfx.slice() : [];
-    // Backup: mode change to dead/won if server omitted event
-    if (s.mode === "dead" && lastMode !== "dead" && !events.includes("death")) {
-      events.push("death");
-    }
-    if (s.mode === "won" && lastMode !== "won" && !events.includes("win")) {
-      events.push("win");
-    }
+    if (s.mode === "dead" && lastMode !== "dead" && !events.includes("death")) events.push("death");
+    if (s.mode === "won" && lastMode !== "won" && !events.includes("win")) events.push("win");
     lastMode = s.mode;
     Sound.playList(events);
   }
@@ -413,23 +568,21 @@
     handleSfx(s);
     handleCutscenes(s);
     state = s;
-    if (useTiles) {
-      renderTiles(s);
-    } else {
-      asciiEl.innerHTML = colorizeMap(s.map, s.visible, s.explored);
-    }
-    applyViewMode();
+    renderFpv(s);
+    renderMinimap(s);
+
     const p = s.player;
     statsEl.innerHTML = `
       <div><strong>${escapeHtml(p.name)}</strong></div>
       <div class="hp">HP ${p.hp}/${p.max_hp}</div>
       <div class="focus">Focus ${p.focus}/${p.max_focus}</div>
       <div>Atk ${p.attack} · Def ${p.defense} · Hack ${p.hack}</div>
-      <div>Turn ${s.turn} · Seed ${s.seed}</div>
+      <div>Facing ${escapeHtml(p.facing_name || FACING_NAMES[p.facing] || "?")} · Turn ${s.turn}</div>
+      <div>Seed ${s.seed}</div>
       <div class="${p.has_payload ? "ok" : ""}">Payload-Zero: ${
         p.has_payload ? "IN SLEEVE" : "missing"
       }</div>
-      <div style="margin-top:0.5rem;color:#6e7681">Quest flags: ${
+      <div style="margin-top:0.5rem;color:#6e7681">Quest: ${
         Object.keys(s.quest_flags || {}).join(", ") || "—"
       }</div>
     `;
@@ -446,9 +599,7 @@
       });
       invEl.appendChild(li);
     });
-    logEl.innerHTML = (s.messages || [])
-      .map((m) => `<div>${escapeHtml(m)}</div>`)
-      .join("");
+    logEl.innerHTML = (s.messages || []).map((m) => `<div>${escapeHtml(m)}</div>`).join("");
     logEl.scrollTop = logEl.scrollHeight;
 
     if (s.mode === "help") {
@@ -469,32 +620,25 @@
     }
   }
 
-  function escapeHtml(t) {
-    return String(t)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  function escapeAttr(t) {
-    return escapeHtml(t).replace(/"/g, "&quot;");
-  }
-
   async function send(action, arg) {
     Sound.unlock();
     const s = await api("/api/action", { action, arg });
     render(s);
   }
 
+  // GTA-like: WASD relative to facing; Q/E or arrows turn
   const KEYMAP = {
-    ArrowUp: "up",
-    ArrowDown: "down",
-    ArrowLeft: "left",
-    ArrowRight: "right",
-    w: "w",
-    a: "a",
-    s: "s",
-    d: "d",
+    w: "forward",
+    ArrowUp: "forward",
+    s: "back",
+    ArrowDown: "back",
+    a: "strafe_left",
+    d: "strafe_right",
+    q: "turn_left",
+    ArrowLeft: "turn_left",
+    e: "turn_right",
+    ArrowRight: "turn_right",
+    // absolute leftovers for hjkl (TUI-parity)
     h: "h",
     j: "j",
     k: "k",
@@ -502,10 +646,8 @@
     g: "g",
     f: "f",
     i: "i",
-    q: "q",
     r: "r",
     u: "u",
-    e: "e",
     ".": ".",
     " ": ".",
     "?": "?",
@@ -516,17 +658,10 @@
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     Sound.unlock();
     if (CutscenePlayer.isPlaying()) {
-      if (
-        ev.key === " " ||
-        ev.key === "Escape" ||
-        ev.key === "Enter" ||
-        ev.key === "Esc"
-      ) {
+      if (ev.key === " " || ev.key === "Escape" || ev.key === "Enter") {
         ev.preventDefault();
         CutscenePlayer.skip();
-      } else {
-        ev.preventDefault();
-      }
+      } else ev.preventDefault();
       return;
     }
     if (ev.key === "m" || ev.key === "M") {
@@ -534,9 +669,10 @@
       Sound.toggleMute();
       return;
     }
-    if (ev.key === "A") {
+    // inventory: e = equip
+    if (state && state.mode === "inventory" && (ev.key === "e" || ev.key === "E")) {
       ev.preventDefault();
-      toggleAscii();
+      send("e");
       return;
     }
     const action = KEYMAP[ev.key];
@@ -552,12 +688,11 @@
       send("escape");
       return;
     }
+    // space waits unless we want skip — already handled in cutscene
+    if (ev.key === " " && state && (state.mode === "dead" || state.mode === "won")) return;
     send(action);
   });
 
-  if (btnAscii) {
-    btnAscii.addEventListener("click", toggleAscii);
-  }
   if (btnMute) {
     btnMute.addEventListener("click", () => {
       Sound.unlock();
@@ -565,8 +700,6 @@
     });
   }
   Sound.syncUi();
-
-  // First gesture unlocks audio (browser autoplay policy)
   ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
     window.addEventListener(evt, () => Sound.unlock(), { once: true, passive: true });
   });
@@ -574,6 +707,7 @@
   async function boot() {
     Sound.preload();
     CutscenePlayer.setPerspective(false);
+    buildLegend();
     try {
       const idx = await fetch(CUT_PATH + "index.json").then((r) => r.json());
       (idx.cutscenes || []).forEach((c) => CutscenePlayer.load(c.id).catch(() => {}));
@@ -581,18 +715,10 @@
       console.warn("cutscene index missing", err);
     }
     try {
-      tilesMeta = await fetch(TILE_PATH + "tiles.json").then((r) => r.json());
-      buildLegend();
-    } catch (err) {
-      console.warn("tiles.json failed, falling back to ASCII", err);
-      useTiles = false;
-    }
-    applyViewMode();
-    try {
       const s = await api("/api/new", { seed: null });
       render(s);
     } catch (err) {
-      mapEl.textContent = "Failed to load game: " + err;
+      if (fpvEl) fpvEl.textContent = "Failed to load game: " + err;
     }
   }
 

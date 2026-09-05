@@ -32,6 +32,10 @@ MAP_HEIGHT = 30
 
 VIEW_RADIUS = 8
 
+# Player facing: 0=N, 1=E, 2=S, 3=W
+FACING_DIRS = ((0, -1), (1, 0), (0, 1), (-1, 0))
+FACING_NAMES = ("N", "E", "S", "W")
+
 # Starting stats
 START_HP = 30
 START_FOCUS = 20
@@ -61,17 +65,20 @@ MOVE_KEYS = {
 
 HELP_TEXT = """\
 CONTROLS
-  WASD / arrows / hjkl  — move
+  W / Up                — move forward (relative to facing)
+  S / Down              — move backward
+  A / D                 — strafe left / right
+  Q / E / Left / Right  — turn left / right (web; no step)
+  hjkl (TUI)            — absolute move (N/S/W/E on map)
   g                     — get / pick up item
   i                     — inventory
   u                     — use selected inventory item (TUI: number after)
   f                     — ranged / hack attack (adjacent or in FOV)
   . / space             — wait a turn
   ?                     — this help
-  q                     — quit
-  A (web)               — toggle tiles / ASCII
+  q (TUI)               — quit
   m (web)               — mute / unmute SFX
-  Space/Esc (web)       — skip 1st-person cutscene
+  Space/Esc (web)       — skip intensive cutscene
 
 GOAL
   Recover or neutralize the rogue Payload-Zero from the jackpoint (J),

@@ -332,8 +332,24 @@ def handle_action(gs: GameState, action: str, arg: Optional[str] = None) -> Dict
         gs.log("Inventory — numbers select, e equip/unequip, u use, d drop, Esc back.")
         return snapshot(gs)
 
+    if action in ("turn_left", "tl", ","):
+        _turn(gs, -1)
+        return snapshot(gs)
+    if action in ("turn_right", "tr"):
+        _turn(gs, 1)
+        return snapshot(gs)
+
+    # Relative movement (GTA / Doom-style: facing + move)
+    if action in ("forward", "back", "strafe_left", "strafe_right"):
+        dx, dy = _relative_delta(gs.player.facing, action)
+        _try_move(gs, dx, dy)
+        return snapshot(gs)
+
+    # Absolute map moves (TUI hjkl / legacy wasd aliases still work via MOVE_KEYS)
     if action in C.MOVE_KEYS:
         dx, dy = C.MOVE_KEYS[action]
+        # Keep facing pointed at move direction when using absolute keys
+        _face_toward(gs, dx, dy)
         _try_move(gs, dx, dy)
         return snapshot(gs)
 
@@ -370,6 +386,36 @@ def handle_action(gs: GameState, action: str, arg: Optional[str] = None) -> Dict
 def _replace_state(dst: GameState, src: GameState) -> None:
     for f in src.__dataclass_fields__:
         setattr(dst, f, getattr(src, f))
+
+
+def _turn(gs: GameState, delta: int) -> None:
+    gs.player.facing = (gs.player.facing + delta) % 4
+    gs.sfx("click")
+
+
+def _face_toward(gs: GameState, dx: int, dy: int) -> None:
+    if dx == 0 and dy == 0:
+        return
+    # Prefer the dominant axis
+    if abs(dx) >= abs(dy):
+        gs.player.facing = 1 if dx > 0 else 3
+    else:
+        gs.player.facing = 2 if dy > 0 else 0
+
+
+def _relative_delta(facing: int, action: str) -> Tuple[int, int]:
+    fx, fy = C.FACING_DIRS[facing % 4]
+    # left strafe = rotate facing vector -90°: (fx,fy) -> (fy, -fx)
+    # right strafe: (fx,fy) -> (-fy, fx)
+    if action == "forward":
+        return fx, fy
+    if action == "back":
+        return -fx, -fy
+    if action == "strafe_left":
+        return fy, -fx
+    if action == "strafe_right":
+        return -fy, fx
+    return 0, 0
 
 
 def _try_move(gs: GameState, dx: int, dy: int) -> None:
@@ -612,6 +658,8 @@ def snapshot(gs: GameState) -> Dict[str, Any]:
             "defense": p.total_defense(),
             "hack": p.total_hack(),
             "has_payload": gs.has_payload(),
+            "facing": p.facing % 4,
+            "facing_name": C.FACING_NAMES[p.facing % 4],
         },
         "inventory": [
             {
