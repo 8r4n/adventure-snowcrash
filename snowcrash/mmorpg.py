@@ -151,6 +151,7 @@ class GameWorld:
         self.created_at = time.time()
         self._glyph_i = 0
         self._ensure_world_payload()
+        self._purge_enemies_near_spawns()
         self.system_chat("Metaverse street layer online. Seed %s." % seed)
 
     def _ensure_world_payload(self) -> None:
@@ -216,6 +217,94 @@ class GameWorld:
             "Spawn shield active (%.1fs) — AI can't flatline you yet."
             % float(C.SPAWN_INVULN_SEC)
         )
+
+
+    def _near_any_spawn(self, x: int, y: int, radius: Optional[int] = None) -> bool:
+        """True if (x,y) is within Manhattan radius of any street spawn pad."""
+        r = int(C.SAFE_SPAWN_RADIUS if radius is None else radius)
+        for sx, sy in self.spawn_points:
+            if abs(x - sx) + abs(y - sy) <= r:
+                return True
+        sx, sy = self.spawn_xy
+        return abs(x - sx) + abs(y - sy) <= r
+
+    def _purge_enemies_near_spawns(self) -> None:
+        """After mapgen load: relocate or delete enemies inside SAFE_SPAWN_RADIUS."""
+        kept: List[Actor] = []
+        purged = 0
+        for a in self.npcs_enemies:
+            if a.faction != "enemy" or not a.alive:
+                kept.append(a)
+                continue
+            if not self._near_any_spawn(a.x, a.y):
+                kept.append(a)
+                continue
+            az = int(getattr(a, "z", 0) or 0)
+            gmap = self.plane_map(az)
+            placed = False
+            for _ in range(40):
+                nx = self.rng.randint(2, max(2, gmap.width - 3))
+                ny = self.rng.randint(2, max(2, gmap.height - 3))
+                if not gmap.walkable(nx, ny):
+                    continue
+                if self._near_any_spawn(nx, ny):
+                    continue
+                if any(
+                    b.alive and b.x == nx and b.y == ny
+                    and int(getattr(b, "z", 0) or 0) == az
+                    for b in kept
+                ):
+                    continue
+                a.x, a.y = nx, ny
+                kept.append(a)
+                placed = True
+                purged += 1
+                break
+            if not placed:
+                purged += 1
+        self.npcs_enemies = kept
+        if purged:
+            self.system_chat("Cleared %d hostiles from spawn safe zones." % purged)
+
+    def clear_spawn_threats(self, x: int, y: int, z: int = 0) -> int:
+        """Knock back or delete enemies within CLEAR_SPAWN_THREAT_RADIUS of a pad."""
+        r = int(getattr(C, "CLEAR_SPAWN_THREAT_RADIUS", 6))
+        z = int(z)
+        cleared = 0
+        kept: List[Actor] = []
+        for a in self.npcs_enemies:
+            if (
+                a.alive
+                and a.faction == "enemy"
+                and int(getattr(a, "z", 0) or 0) == z
+                and abs(a.x - x) + abs(a.y - y) <= r
+            ):
+                gmap = self.plane_map(z)
+                placed = False
+                for _ in range(30):
+                    nx = self.rng.randint(2, max(2, gmap.width - 3))
+                    ny = self.rng.randint(2, max(2, gmap.height - 3))
+                    if not gmap.walkable(nx, ny):
+                        continue
+                    if self._near_any_spawn(nx, ny):
+                        continue
+                    if any(
+                        b.alive and b.x == nx and b.y == ny
+                        and int(getattr(b, "z", 0) or 0) == z
+                        for b in kept
+                    ):
+                        continue
+                    a.x, a.y = nx, ny
+                    kept.append(a)
+                    placed = True
+                    cleared += 1
+                    break
+                if not placed:
+                    cleared += 1
+                continue
+            kept.append(a)
+        self.npcs_enemies = kept
+        return cleared
 
     def _remember_pos(self, agent: PlayerAgent) -> None:
         """Persist last stable tile — used to survive WS blips."""
@@ -285,6 +374,13 @@ class GameWorld:
             z = C.PLANE_STREET if ignore is None else int(getattr(ignore, "z", 0) or 0)
         gmap = self.plane_map(z)
         if not gmap.walkable(x, y):
+            return False
+        # Hard safe zone: enemies cannot stand/move onto tiles near spawn pads
+        if (
+            ignore is not None
+            and getattr(ignore, "faction", None) == "enemy"
+            and self._near_any_spawn(x, y)
+        ):
             return False
         for a in self._all_actors():
             if ignore is not None and a is ignore:
@@ -388,6 +484,9 @@ class GameWorld:
         agent.log("Talk to Relay Tran. Open chat with Enter. Personal Payload-Zero quest — others keep theirs.")
         agent.log("Seed: %s · You are glyph %s · spawn (%d,%d)" % (self.seed, glyph, x, y))
         self._force_set_pos(agent, x, y, C.PLANE_STREET, "new join spawn")
+        n = self.clear_spawn_threats(x, y, C.PLANE_STREET)
+        if n:
+            agent.log("Cleared %d hostiles near pad." % n)
         self._grant_spawn_invuln(agent)
         self.update_fov(agent)
         return agent
@@ -458,6 +557,10 @@ class GameWorld:
                     victim.log("Spawn shield absorbs a hit from %s." % attacker.name)
                 return
         raw = (attacker.total_attack() if hasattr(attacker, "total_attack") else attacker.attack) + self.rng.randint(0, 2)
+        # MVP: soft-cap enemy melee vs players so post-shield isn't instant death
+        if attacker.faction == "enemy" and defender.faction == "player":
+            cap = int(getattr(C, "ENEMY_MELEE_CAP_VS_PLAYER", 2))
+            raw = min(raw, cap)
         dmg = defender.take_damage(raw)
         line = "%s hits %s for %d." % (attacker.name, defender.name, dmg)
         self._broadcast_log_near(attacker.x, attacker.y, line, also=observer)
@@ -551,10 +654,20 @@ class GameWorld:
         return True
 
     def enemy_tick(self) -> None:
-        """Server AI tick (~TICK_HZ): enemies chase nearest living connected player."""
+        """Server AI tick (~TICK_HZ): chase vulnerable players; never path to invuln."""
         living = [p for p in self.players.values() if p.connected and p.actor.alive and p.actor.x >= 0]
         if not living:
             return
+
+        def _wander(a: Actor, az: int) -> None:
+            opts = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)]
+            self.rng.shuffle(opts)
+            for ox, oy in opts:
+                nx, ny = a.x + ox, a.y + oy
+                if self._can_stand(nx, ny, ignore=a, z=az):
+                    a.x, a.y = nx, ny
+                    break
+
         for a in self.npcs_enemies:
             if not a.alive or a.faction != "enemy":
                 continue
@@ -562,14 +675,16 @@ class GameWorld:
             same_plane = [
                 p for p in living if int(getattr(p.actor, "z", 0) or 0) == az
             ]
-            if not same_plane:
+            # NEVER target or path toward invulnerable couriers
+            vulnerable = [p for p in same_plane if not p.is_invulnerable()]
+            if not vulnerable:
+                _wander(a, az)
                 continue
 
-            def _chase_key(p: PlayerAgent) -> Tuple[int, int]:
-                d = abs(p.actor.x - a.x) + abs(p.actor.y - a.y)
-                return (1 if p.is_invulnerable() else 0, d)
-
-            target_agent = min(same_plane, key=_chase_key)
+            target_agent = min(
+                vulnerable,
+                key=lambda p: abs(p.actor.x - a.x) + abs(p.actor.y - a.y),
+            )
             player = target_agent.actor
             dx = player.x - a.x
             dy = player.y - a.y
@@ -592,13 +707,7 @@ class GameWorld:
                 if self._can_stand(nx, ny, ignore=a, z=az):
                     a.x, a.y = nx, ny
             else:
-                opts = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)]
-                self.rng.shuffle(opts)
-                for ox, oy in opts:
-                    nx, ny = a.x + ox, a.y + oy
-                    if self._can_stand(nx, ny, ignore=a, z=az):
-                        a.x, a.y = nx, ny
-                        break
+                _wander(a, az)
         self.tick += 1
         # light focus regen for connected players
         if self.tick % 3 == 0:
@@ -742,6 +851,9 @@ class GameWorld:
         agent.pending_cutscenes.clear()
         agent.pending_sfx.clear()
         agent.log("Respawned at a safe street pad. Streets still shared.")
+        n = self.clear_spawn_threats(sx, sy, C.PLANE_STREET)
+        if n:
+            agent.log("Cleared %d hostiles near pad." % n)
         self._grant_spawn_invuln(agent)
         self._ensure_world_payload()
         self.update_fov(agent)

@@ -449,7 +449,7 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
             continue
         if abs(ex - px) + abs(ey - py) < 10:
             continue
-        if any(abs(ex - sx) + abs(ey - sy) < 4 for sx, sy in spawn_points):
+        if any(abs(ex - sx) + abs(ey - sy) <= C.SAFE_SPAWN_RADIUS for sx, sy in spawn_points):
             continue
         # Don't pack too near other enemies
         if any(abs(ex - ox) + abs(ey - oy) < 2 for ox, oy in enemy_spots[-15:]):
@@ -612,17 +612,19 @@ def generate_world(seed: Optional[int] = None) -> WorldBundle:
         ex = rng.randint(2, w - 3)
         ey = rng.randint(2, h - 3)
         if under_map.walkable(ex, ey):
-            if any(abs(ex - sx) + abs(ey - sy) < 3 for sx, sy in spawn_points):
+            if any(abs(ex - sx) + abs(ey - sy) <= C.SAFE_SPAWN_RADIUS for sx, sy in spawn_points):
                 continue
             mon = make_infected(ex, ey) if rng.random() < 0.6 else make_thug(ex, ey)
             mon.z = C.PLANE_UNDER
             actors.append(mon)
 
-    # A few air drones
+    # A few air drones (keep clear of street spawn pads in XY)
     for _ in range(10):
         ex = rng.randint(2, w - 3)
         ey = rng.randint(2, h - 3)
         if air_map.walkable(ex, ey):
+            if any(abs(ex - sx) + abs(ey - sy) <= C.SAFE_SPAWN_RADIUS for sx, sy in spawn_points):
+                continue
             mon = make_drone(ex, ey)
             mon.z = C.PLANE_AIR
             actors.append(mon)

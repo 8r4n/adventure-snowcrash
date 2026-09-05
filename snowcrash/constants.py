@@ -39,7 +39,13 @@ MAP_HEIGHT = 120
 VIEW_RADIUS = 8
 
 # Spawn protection (seconds) — AI cannot one-shot new joins
-SPAWN_INVULN_SEC = 2.5
+SPAWN_INVULN_SEC = 12.0
+# Manhattan radius: no enemies may stand/spawn within this of any spawn pad
+SAFE_SPAWN_RADIUS = 10
+# On join/respawn, clear threats within this smaller radius of the pad
+CLEAR_SPAWN_THREAT_RADIUS = 6
+# Cap enemy melee damage vs players (MVP anti-brutal)
+ENEMY_MELEE_CAP_VS_PLAYER = 2
 
 # MVP: players cannot damage other players
 PVP_ENABLED = False
