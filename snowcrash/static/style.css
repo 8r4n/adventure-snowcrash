@@ -1128,3 +1128,585 @@ body:not(.intro-active) {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Year frontend roadmap — panels, mobile, weather, theater
+   Issues #12–#39 (static UI only; bind defensively)
+   ============================================================ */
+
+.panel-dock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  align-items: center;
+  margin-left: 0.35rem;
+}
+.dock-btn {
+  appearance: none;
+  background: #0a1520;
+  color: var(--dim);
+  border: 1px solid #1e3a40;
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dock-btn:hover,
+.dock-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(57, 197, 207, 0.25);
+}
+#app.declutter .panel-dock { margin: 0; }
+#app.declutter .dock-btn { font-size: 0.58rem; padding: 0.1rem 0.32rem; }
+
+.district-pill {
+  color: #d2a8ff !important;
+  border-color: rgba(210, 168, 255, 0.4) !important;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arena-pill {
+  color: var(--neon) !important;
+  border-color: rgba(255, 42, 109, 0.55) !important;
+  animation: arenaPulse 1.2s ease-in-out infinite;
+}
+@keyframes arenaPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 42, 109, 0.2); }
+  50% { box-shadow: 0 0 14px rgba(255, 42, 109, 0.55); }
+}
+.analytics-badge {
+  color: #6e7681 !important;
+  font-size: 0.58rem !important;
+  opacity: 0.75;
+}
+
+/* Event ticker + toasts + kill feed */
+.event-ticker {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--warn);
+  background: linear-gradient(90deg, #1a1208, #0c1219 40%, #1a1208);
+  border-bottom: 1px solid rgba(240, 180, 41, 0.35);
+  padding: 0.2rem 0.65rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 8px rgba(240, 180, 41, 0.35);
+}
+.event-ticker[hidden] { display: none !important; }
+.toast-stack {
+  position: fixed;
+  top: 3.2rem;
+  right: 0.75rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: min(320px, 90vw);
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.45rem 0.65rem;
+  background: rgba(8, 14, 22, 0.94);
+  border: 1px solid #1e3a40;
+  border-radius: 6px;
+  color: var(--fg);
+  box-shadow: 0 0 16px rgba(57, 197, 207, 0.15);
+  animation: toastIn 0.25s ease;
+}
+.toast.wish { border-color: var(--warn); color: var(--warn); }
+.toast.fee, .toast.repair { border-color: #79c0ff; color: #79c0ff; }
+.toast.event { border-color: var(--warn); }
+.toast.party { border-color: #d2a8ff; color: #d2a8ff; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.kill-feed {
+  position: fixed;
+  top: 3.2rem;
+  left: 0.75rem;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: min(280px, 70vw);
+  pointer-events: none;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+.kill-feed .kf-line {
+  background: rgba(8, 8, 12, 0.82);
+  border-left: 2px solid var(--neon);
+  padding: 0.2rem 0.45rem;
+  color: #c9d1d9;
+  animation: toastIn 0.2s ease;
+}
+.kill-feed .kf-line .killer { color: var(--neon); }
+.kill-feed .kf-line .victim { color: var(--dim); }
+
+/* Side year panels */
+.year-panel .panel-body {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  max-height: 9rem;
+  overflow-y: auto;
+  margin-top: 0.25rem;
+  color: #9da7b3;
+}
+.year-panel .panel-body .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid #161b22;
+}
+.year-panel .panel-body button,
+.skill-picks button,
+.respawn-options button,
+.modal-actions button,
+.theater-controls button {
+  appearance: none;
+  background: #0a1520;
+  color: var(--fg);
+  border: 1px solid #1e3a40;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+.year-panel .panel-body button:hover,
+.skill-picks button:hover,
+.respawn-options button:hover,
+.modal-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-primary {
+  background: var(--accent) !important;
+  color: #05080c !important;
+  border-color: var(--accent) !important;
+  font-weight: 700;
+}
+.panel-empty { color: var(--dim); font-style: italic; padding: 0.25rem 0; }
+.party-member .you { color: var(--accent); }
+.contract-row .rep { color: var(--warn); }
+.season-tier { color: #d2a8ff; }
+.craft-recipe.locked { opacity: 0.45; }
+.shop-item .price { color: var(--warn); }
+.journal-quest.active { color: var(--ok); }
+.journal-quest.done { color: var(--dim); text-decoration: line-through; }
+
+/* Modals */
+.year-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(5, 8, 12, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.year-modal.hidden { display: none !important; }
+.year-modal-card {
+  max-width: min(520px, 94vw);
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid #1e3a40;
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  box-shadow: 0 0 32px rgba(57, 197, 207, 0.18);
+  font-family: var(--mono);
+}
+.year-modal-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(57, 197, 207, 0.4);
+}
+.skill-picks {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+.skill-picks button {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+}
+.loadout-preview {
+  font-size: 0.7rem;
+  color: var(--dim);
+  margin-bottom: 0.75rem;
+}
+.modal-close { margin-top: 0.5rem; }
+.modal-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; }
+
+.death-overlay .death-card {
+  border-color: rgba(255, 42, 109, 0.55);
+  box-shadow: 0 0 40px rgba(255, 42, 109, 0.25);
+  text-align: center;
+}
+.death-title {
+  color: var(--neon) !important;
+  letter-spacing: 0.28em !important;
+  text-shadow: 0 0 18px rgba(255, 42, 109, 0.5) !important;
+}
+.respawn-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.85rem 0;
+}
+
+/* District splash */
+.district-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(20, 8, 40, 0.72), rgba(5, 8, 12, 0.9));
+  pointer-events: none;
+  animation: districtIn 0.4s ease;
+}
+.district-splash.hidden { display: none !important; }
+.district-splash-inner { text-align: center; font-family: var(--mono); }
+.district-splash-inner h2 {
+  margin: 0.2rem 0;
+  font-size: clamp(1.4rem, 5vw, 2.4rem);
+  letter-spacing: 0.28em;
+  color: #e8fbff;
+  text-shadow: 0 0 20px rgba(210, 168, 255, 0.55);
+}
+@keyframes districtIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Boss telegraph */
+.boss-telegraph {
+  position: absolute;
+  left: 50%;
+  top: 0.5rem;
+  transform: translateX(-50%);
+  z-index: 6;
+  min-width: min(70%, 360px);
+  text-align: center;
+  font-family: var(--mono);
+  pointer-events: none;
+}
+.boss-telegraph.hidden { display: none !important; }
+.boss-name {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  color: var(--neon);
+  text-shadow: 0 0 10px rgba(255, 42, 109, 0.5);
+  margin-bottom: 0.2rem;
+}
+.boss-bar-wrap {
+  height: 8px;
+  background: #1a0a12;
+  border: 1px solid #5a1a33;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.boss-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff2a6d, #f0b429);
+  box-shadow: 0 0 10px rgba(255, 42, 109, 0.45);
+  transition: width 0.25s ease;
+}
+.boss-hint {
+  margin-top: 0.15rem;
+  font-size: 0.6rem;
+  color: var(--warn);
+  letter-spacing: 0.1em;
+}
+
+/* NPC dialogue cue */
+.npc-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2rem;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: min(90%, 420px);
+  background: rgba(8, 14, 22, 0.92);
+  border: 1px solid #5a3d7a;
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: #d2a8ff;
+  box-shadow: 0 0 18px rgba(210, 168, 255, 0.2);
+}
+.npc-cue.hidden { display: none !important; }
+.npc-cue .npc-name { color: #e6edf3; font-weight: 700; margin-right: 0.35rem; }
+.npc-cue .npc-choices { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+.npc-cue .npc-choices button { pointer-events: auto; }
+
+/* Weather */
+.weather-canvas,
+.weather-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.weather-overlay.neon-rain {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 6px,
+      rgba(57, 197, 207, 0.03) 7px,
+      transparent 8px
+    );
+  animation: rainScroll 0.6s linear infinite;
+  mix-blend-mode: screen;
+}
+.weather-overlay.signal-storm {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 42, 109, 0.12), transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(57, 197, 207, 0.1), transparent 45%);
+  animation: stormFlicker 2.4s ease-in-out infinite;
+}
+@keyframes rainScroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 24px; }
+}
+@keyframes stormFlicker {
+  0%, 100% { opacity: 0.55; }
+  40% { opacity: 0.95; }
+  42% { opacity: 0.3; }
+  60% { opacity: 0.8; }
+}
+
+/* Party pings on minimap */
+.party-pings {
+  position: absolute;
+  inset: 1.4rem 0 0 0;
+  pointer-events: none;
+}
+.party-ping {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid #d2a8ff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(210, 168, 255, 0.7);
+  animation: pingPulse 1s ease-out infinite;
+}
+@keyframes pingPulse {
+  from { transform: scale(0.6); opacity: 1; }
+  to { transform: scale(2.2); opacity: 0; }
+}
+
+/* Duel banner */
+.duel-banner {
+  position: absolute;
+  top: 2.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--neon);
+  background: rgba(26, 10, 18, 0.9);
+  border: 1px solid rgba(255, 42, 109, 0.5);
+  padding: 0.2rem 0.7rem;
+  border-radius: 4px;
+}
+.duel-banner.hidden { display: none !important; }
+
+/* Theater mode */
+.theater-mode {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #020406;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+}
+.theater-mode.hidden { display: none !important; }
+.theater-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--mono);
+  margin-bottom: 0.5rem;
+}
+.theater-stage {
+  flex: 1;
+  margin: 0;
+  background: #05080c;
+  border: 1px solid #1e3a40;
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.15;
+  overflow: auto;
+  padding: 0.75rem;
+  white-space: pre;
+}
+.theater-controls {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+/* StreetNet mute/report bar */
+.irc-mod-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.4rem;
+  background: #1a0a12;
+  border-top: 1px solid #5a1a33;
+  font-family: inherit;
+  font-size: 0.65rem;
+}
+.irc-mod-bar.hidden { display: none !important; }
+.irc-mod-target { color: #ff9bce; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.irc-mod-bar button {
+  appearance: none;
+  background: #0a1520;
+  border: 1px solid #5a1a33;
+  color: #ff9bce;
+  font-family: inherit;
+  font-size: 0.62rem;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+}
+.irc-collapse {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: #3dd68c;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0 0.2rem;
+}
+#chat-panel.collapsed .irc-channels,
+#chat-panel.collapsed .irc-body,
+#chat-panel.collapsed .irc-topic,
+#chat-panel.collapsed .irc-mod-bar,
+#chat-panel.collapsed .irc-form {
+  display: none !important;
+}
+#side.irc-collapsed #chat-panel {
+  flex: 0 0 auto;
+}
+
+/* Fee / repair log lines */
+#log .log-fee { color: #79c0ff; }
+#log .log-repair { color: #3dd68c; }
+#log .log-wish { color: #f0b429; }
+
+/* Nick optional on name gate */
+.nick-optional { margin-top: 0.65rem !important; }
+.name-gate-card .dim { color: #6e7681; font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+/* Mobile HUD (#31) */
+.mobile-hud {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.35rem;
+  z-index: 8;
+  padding: 0 0.4rem;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  gap: 0.5rem;
+}
+.vjoy, .chord-pad {
+  pointer-events: auto;
+  display: grid;
+  gap: 0.2rem;
+}
+.vjoy {
+  grid-template-columns: repeat(3, 2.4rem);
+  grid-template-rows: repeat(3, 2.4rem);
+}
+.chord-pad {
+  grid-template-columns: repeat(2, 2.6rem);
+}
+.vjoy-btn, .chord-pad button {
+  appearance: none;
+  background: rgba(10, 21, 32, 0.85);
+  border: 1px solid #1e3a40;
+  color: var(--accent);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.vjoy-btn:active, .chord-pad button:active {
+  background: rgba(57, 197, 207, 0.25);
+  border-color: var(--accent);
+}
+.vjoy-idle { opacity: 0.25; }
+
+@media (max-width: 720px) {
+  .mobile-hud { display: flex; }
+  #app.declutter #layout {
+    grid-template-columns: 1fr;
+  }
+  #app.declutter #side {
+    max-height: 42vh;
+  }
+  #app.declutter .panel-dock {
+    width: 100%;
+    order: 3;
+  }
+  header.topbar {
+    flex-wrap: wrap;
+  }
+  #minimap-wrap {
+    width: min(42vw, 160px) !important;
+    right: 0.4rem;
+    bottom: 7.5rem;
+  }
+  .fpv-stage { min-height: 38vh; }
+  .toast-stack { top: auto; bottom: 8rem; right: 0.4rem; }
+  .kill-feed { top: auto; bottom: 8rem; left: 0.4rem; max-width: 45vw; }
+  #chat-panel.compact .irc-nicks-wrap { display: none; }
+  #chat-panel.compact .irc-body { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  #app.declutter .brand h1 { font-size: 0.75rem; letter-spacing: 0.1em; }
+  .dock-btn { font-size: 0.52rem; }
+  .vjoy { grid-template-columns: repeat(3, 2.1rem); grid-template-rows: repeat(3, 2.1rem); }
+}
+
+/* Declutter: year panels stay folded by default chrome */
+#app.declutter .year-panel summary {
+  font-size: 0.62rem;
+}
