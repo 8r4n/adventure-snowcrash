@@ -67,6 +67,20 @@ SNOWCRASH_TUI_VIEW=map python -m snowcrash
 If stdin is not a TTY (piped/non-interactive), the game prints a clear error and exits with status 1.
 
 
+
+
+## Themes (Catppuccin)
+
+Default chrome + TUI colors are **[Catppuccin Mocha](https://github.com/catppuccin/catppuccin)** (MIT palette). Optional flavors: Macchiato, Frappé, Latte.
+
+| Surface | How to pick |
+|---------|-------------|
+| **TUI** | `python -m snowcrash --theme macchiato` or `SNOWCRASH_THEME=latte` |
+| **Web** | Toolbar **Theme** select · `?theme=frappe` · `localStorage` · server `SNOWCRASH_THEME` |
+| **Mono** | `--no-color` / `SNOWCRASH_NO_COLOR=1` (unchanged) |
+
+Role mapping, attribution, and 256/truecolor notes: [`docs/theme-catppuccin.md`](docs/theme-catppuccin.md).
+
 ## Run — web
 
 ```bash
@@ -272,7 +286,7 @@ adventure/
   snowcrash/
     __main__.py          # TUI entry
     engine.py            # shared game logic
-    mapgen.py, entities.py, items.py, constants.py
+    mapgen.py, entities.py, items.py, constants.py, theme.py  # Catppuccin (#90)
     tui/app.py           # curses frontend
     tui/fpv.py           # ASCII FPV raycast (#78)
     web/                 # FastAPI frontend

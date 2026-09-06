@@ -35,30 +35,10 @@ def _safe_init_pair(n: int, fg: int, bg: int) -> None:
 
 
 def _init_colors(no_color: bool = False) -> bool:
-    """Initialize color pairs safely. Returns True if colors are usable."""
-    if no_color or os.environ.get("SNOWCRASH_NO_COLOR", "").strip() in ("1", "true", "yes"):
-        return False
-    if not curses.has_colors():
-        return False
-    try:
-        curses.start_color()
-    except curses.error:
-        return False
-    try:
-        curses.use_default_colors()
-        default_bg = -1
-    except curses.error:
-        default_bg = curses.COLOR_BLACK
-    _safe_init_pair(1, curses.COLOR_CYAN, default_bg)  # player / near walls
-    _safe_init_pair(2, curses.COLOR_GREEN, default_bg)  # infected
-    _safe_init_pair(3, curses.COLOR_YELLOW, default_bg)  # thug / door / item
-    _safe_init_pair(4, curses.COLOR_MAGENTA, default_bg)  # drone
-    _safe_init_pair(5, curses.COLOR_BLUE, default_bg)  # npc / ceiling
-    _safe_init_pair(6, curses.COLOR_WHITE, default_bg)  # visible / floor
-    _safe_init_pair(7, curses.COLOR_WHITE, default_bg)  # explored dim / far wall
-    _safe_init_pair(8, curses.COLOR_RED, default_bg)
-    _safe_init_pair(9, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    return True
+    """Initialize Catppuccin color pairs (#90). Returns True if colors usable."""
+    from ..theme import init_curses_colors, resolve_theme_name
+
+    return init_curses_colors(curses, no_color=no_color, theme=resolve_theme_name())
 
 
 def _default_view() -> str:

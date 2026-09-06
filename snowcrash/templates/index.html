@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ default_theme|default('mocha') }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#05080c" />
+  <meta name="theme-color" content="#11111b" />
+  <meta name="snowcrash-theme" content="{{ default_theme|default('mocha') }}" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -55,6 +56,14 @@
       </div>
       <div class="toolbar">
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute (m)">Mute</button>
+        <label class="theme-label" for="theme-select" title="Catppuccin theme"><span class="sr-only">Theme</span>
+          <select id="theme-select" aria-label="Catppuccin theme">
+            <option value="mocha">Mocha</option>
+            <option value="macchiato">Macchiato</option>
+            <option value="frappe">Frappé</option>
+            <option value="latte">Latte</option>
+          </select>
+        </label>
         <button type="button" id="btn-wish" title="/wish">Wish</button>
         <button type="button" id="btn-replay-intro" class="btn-ghost" title="Replay intro">Intro</button>
         <span id="perspective" class="pill" title="Camera">FPV</span>

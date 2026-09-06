@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 
 from ..mmorpg import TICK_HZ, GameWorld
 from ..systems.aoi import interested_player_ids
+from ..theme import resolve_theme_name
 
 PKG = Path(__file__).resolve().parent.parent
 STATIC = PKG / "static"
@@ -116,6 +118,7 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                 "title": title,
                 "deploy_env": env,
                 "is_dev": env == "dev",
+                "default_theme": resolve_theme_name(os.environ.get("SNOWCRASH_THEME")),
             },
         )
 
