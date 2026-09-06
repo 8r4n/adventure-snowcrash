@@ -1463,19 +1463,29 @@
           });
         }
       }
-      if (!list.length) {
-        els.journalBody.innerHTML = '<div class="panel-empty">No active quests</div>';
-        return;
-      }
-      els.journalBody.innerHTML = header + list
-        .map((q) => {
-          const id = defStr(q.id || q.key, "");
-          const title = defStr(q.title || q.name || id, "Quest");
-          const st = defStr(q.status || (q.done ? "done" : "active"), "active");
-          const obj = defStr(q.objective || q.text || q.desc, "");
-          return `<div class="journal-quest ${escapeHtml(st)}" data-quest="${escapeHtml(id)}"><strong>${escapeHtml(title)}</strong><div class="dim">${escapeHtml(obj)}</div><button type="button" data-track="${escapeHtml(id)}">Track</button></div>`;
-        })
-        .join("");
+      const jo = defObj(j);
+      const side = defArr(jo.side).map((q, i) => {
+        const id = defStr(q.id || q.key, "side-" + i);
+        const title = defStr(q.title || q.name || id, id);
+        const st = q.done || q.completed ? "done" : defStr(q.status, "active");
+        const obj = defStr(q.objective || q.text || q.desc, "");
+        return `<div class="journal-quest ${escapeHtml(st)}" data-quest="${escapeHtml(id)}"><strong>${escapeHtml(title)}</strong><div class="dim">${escapeHtml(obj)}</div></div>`;
+      }).join("");
+      const notes = defArr(jo.notes).slice(-4).map((n) =>
+        `<div class="row dim">· ${escapeHtml(String(n))}</div>`
+      ).join("");
+      const questHtml = list.length
+        ? list.map((q) => {
+            const id = defStr(q.id || q.key, "");
+            const title = defStr(q.title || q.name || id, "Quest");
+            const st = defStr(q.status || (q.done ? "done" : "active"), "active");
+            const obj = defStr(q.objective || q.text || q.desc, "");
+            return `<div class="journal-quest ${escapeHtml(st)}" data-quest="${escapeHtml(id)}"><strong>${escapeHtml(title)}</strong><div class="dim">${escapeHtml(obj)}</div><button type="button" data-track="${escapeHtml(id)}">Track</button></div>`;
+          }).join("")
+        : '<div class="panel-empty">No active quests</div>';
+      els.journalBody.innerHTML = header + questHtml +
+        (side ? `<div class="row"><strong>Side</strong></div>` + side : "") +
+        (notes ? `<div class="row"><strong>Jack notes</strong></div>` + notes : "");
     }
 
     function renderDistrict(s) {
@@ -1905,11 +1915,20 @@
 
     function renderCyberHint(s) {
       const cyber = defObj(s.cyberspace);
-      if (!els.journalBody) return;
-      // Soft banner via journal notes if present
-      if (s.mode === "cyberspace" && cyber.active) {
-        /* overlay handles primary UX */
-        return;
+      const btn = document.getElementById("btn-cyber-jack");
+      if (btn) {
+        const active = s.mode === "cyberspace" && !!cyber.active;
+        const can = !!cyber.can_jack_in;
+        btn.disabled = !(active || can);
+        btn.textContent = active ? "Jack out" : "Jack in";
+        btn.title = active
+          ? "Exit cyberspace node (Esc / j)"
+          : (can ? "Jack into cyberspace at jackpoint (j)" : "Reach jackpoint (J) to jack in");
+        btn.dataset.cyber = active ? "out" : "in";
+      }
+      const fpv = document.getElementById("fpv-status");
+      if (fpv && s.mode === "cyberspace" && cyber.active) {
+        fpv.textContent = "CYBER · " + defStr(cyber.node_type, "node").toUpperCase();
       }
     }
 
@@ -2016,6 +2035,14 @@
         ["data-party-accept", (v) => send("party_accept", v)],
       ]);
       bindPanel(els.journalBody, [["data-track", (v) => send("journal_track", v)]]);
+      const jackBtn = document.getElementById("btn-cyber-jack");
+      if (jackBtn && !jackBtn.dataset.bound) {
+        jackBtn.dataset.bound = "1";
+        jackBtn.addEventListener("click", () => {
+          if (jackBtn.dataset.cyber === "out") send("jack_out");
+          else send("jack_in");
+        });
+      }
       bindPanel(els.craftBody, [["data-craft", (v) => send("craft", v)]]);
       bindPanel(els.stashBody, [
         ["data-stash-withdraw", (v) => send("stash_withdraw", v)],
@@ -2526,7 +2553,6 @@
 
   // 8-way relative (WASD + chords) · Q/E turn · t/b/[ /] plane shift
   const KEYMAP = {
-    j: "jack_in",
     q: "turn_left",
     ArrowLeft: "turn_left",
     e: "turn_right",
@@ -2545,7 +2571,7 @@
     b: "plane_down",
     "]": "plane_down",
     h: "w_abs",
-    j: "s_abs",
+    // j handled below: jack_in near J / jack_out in node; else absolute south
     k: "n_abs",
     l: "e_abs",
     y: "nw",
@@ -2643,6 +2669,22 @@
     if (ev.key === "m" || ev.key === "M") {
       ev.preventDefault();
       Sound.toggleMute();
+      return;
+    }
+
+    // Cyberspace (#47): j jack_in at jackpoint · jack_out while jacked · else vim south
+    if (ev.key === "j" || ev.key === "J") {
+      ev.preventDefault();
+      if (state && state.mode === "cyberspace") {
+        send("jack_out");
+        return;
+      }
+      const cyber = (state && state.cyberspace) || {};
+      if (cyber.can_jack_in) {
+        send("jack_in");
+        return;
+      }
+      send("s_abs");
       return;
     }
 

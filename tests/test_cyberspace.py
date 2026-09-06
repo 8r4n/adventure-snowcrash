@@ -172,3 +172,51 @@ def test_cyberspace_not_aggro_target():
     for _ in range(5):
         w.enemy_tick()
     assert a.actor.hp == hp_before
+
+
+
+def test_ice_gate_templates_solvable_after_melt():
+    """ICE-gate nodes must be reachable: start → melt all I → core → exit."""
+    from collections import deque
+    from snowcrash.systems.cyberspace import (
+        build_node,
+        walkable_cyber,
+        CYBER_CORE,
+        CYBER_EXIT,
+        CYBER_ICE,
+        CYBER_FLOOR,
+    )
+    import random
+
+    def reachable(session):
+        q = deque([(session["px"], session["py"])])
+        seen = set(q)
+        while q:
+            x, y = q.popleft()
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if (nx, ny) in seen:
+                    continue
+                if walkable_cyber(session, nx, ny):
+                    seen.add((nx, ny))
+                    q.append((nx, ny))
+        return seen
+
+    for seed in range(8):
+        session = build_node("ice_gate", random.Random(seed))
+        grid = session["grid"]
+        # Melt all ICE
+        for y, row in enumerate(grid):
+            for x, ch in enumerate(row):
+                if ch == CYBER_ICE:
+                    grid[y][x] = CYBER_FLOOR
+        reach = reachable(session)
+        core = exit_pos = None
+        for y, row in enumerate(grid):
+            for x, ch in enumerate(row):
+                if ch == CYBER_CORE:
+                    core = (x, y)
+                if ch == CYBER_EXIT:
+                    exit_pos = (x, y)
+        assert core in reach, "core unreachable after melt seed=%s type=%s" % (seed, session["node_type"])
+        assert exit_pos in reach, "exit unreachable after melt seed=%s" % seed
