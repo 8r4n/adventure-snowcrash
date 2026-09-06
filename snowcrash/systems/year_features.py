@@ -25,6 +25,7 @@ from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
 from .jaunte import JaunteMixin
 from .empathy import EmpathyMixin
+from .forecasts import ForecastMixin
 from .primer import PrimerMixin
 from .sleeves import SleevesMixin
 
@@ -121,7 +122,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -156,6 +157,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._primer_init()
         self._jaunte_init()
         self._empathy_init()
+        self._forecast_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -213,6 +215,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._globe_bootstrap_agent(agent)
         self._jaunte_bootstrap_agent(agent)
         self._empathy_bootstrap_agent(agent)
+        self._forecast_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -459,6 +462,11 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         # StreetNet Primer teaching progress (#60)
         if hasattr(self, "_primer_note_progress"):
             self._primer_note_progress(agent, "ice_probe", 1)
+        # Forecast soft-influence (#58): probes slightly ease ambush density
+        if hasattr(self, "_forecast_soft_influence"):
+            self._forecast_soft_influence(
+                agent, "ambush_density", -0.015, reason="ICE probe"
+            )
 
         if pid == "stun":
             hit = targets[0]
@@ -627,7 +635,13 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self.next_event_tick = self.tick + self.rng.randint(50, 120)
         roll = self.rng.random()
         living = [p for p in self.players.values() if p.connected and p.actor.alive]
-        if roll < 0.34 and living:
+        # Forecast bias (#58): ambush density / Flotilla pressure shift event weights.
+        # weight≈1.0 → ambush thresh≈0.34; higher density raises ambush chance.
+        amb_w = float(self.forecast_ambush_weight()) if hasattr(self, "forecast_ambush_weight") else 1.0
+        flo_w = float(self.forecast_flotilla_weight()) if hasattr(self, "forecast_flotilla_weight") else 1.0
+        amb_thresh = min(0.65, max(0.15, 0.20 + 0.28 * (amb_w - 0.55)))
+        flo_thresh = min(0.95, amb_thresh + max(0.18, 0.25 * flo_w / 1.2))
+        if roll < amb_thresh and living:
             # Ambush near a random player — never fresh-spawn / shielded / on-pad
             candidates = [
                 p for p in living
@@ -655,17 +669,25 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
                         break
             self._push_event("ambush", "Ambush near %s — %d hostiles." % (p.name, spawned), x=p.actor.x, y=p.actor.y)
             p.log("Street event: ambush! Hostiles closing in.")
-        elif roll < 0.67:
+        elif roll < flo_thresh:
             job = self.rng.choice(["escort rumor chip", "scrub graffiti uplink", "deliver stim crate"])
             self._push_event("job", "Job board ping: %s (+credits if you poke a vendor)." % job)
             for p in living:
                 p.log("Street job broadcast: %s" % job)
         else:
-            msg = self.rng.choice([
-                "Flotilla propaganda washes the rim.",
-                "Burbclave tax drones overhead.",
-                "Club Glassline guest list glitches open.",
-            ])
+            # High Flotilla pressure → prefer Flotilla-flavored broadcasts
+            if flo_w >= 1.25:
+                msg = self.rng.choice([
+                    "Flotilla propaganda washes the rim.",
+                    "Cassian Vox signal bleeds through StreetNet filters.",
+                    "Refugee uplink chorus spikes — Flotilla pressure forecast was right.",
+                ])
+            else:
+                msg = self.rng.choice([
+                    "Flotilla propaganda washes the rim.",
+                    "Burbclave tax drones overhead.",
+                    "Club Glassline guest list glitches open.",
+                ])
             self._push_event("broadcast", msg)
             self.system_chat(msg)
 
@@ -860,6 +882,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
     # ----- year tick hook -----
     def year_tick(self) -> None:
         self._tick_weather()
+        self._tick_forecasts()
         self._tick_street_events()
         self._tick_neon_dash()
         self._tick_ice_heist()
@@ -1111,6 +1134,18 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "bounty_list", "list_bounties",
         ):
             return self._empathy_action(agent, a, arg or "")
+
+        if a in (
+            "forecast", "forecasts", "forecast_panel", "open_forecast",
+            "psychohistory", "street_trends",
+            "forecast_close", "close_forecast",
+            "forecast_status", "trend_status", "psychohistory_status",
+            "forecast_nudge", "nudge_forecast", "nudge", "trend_nudge",
+            "nudge_ambush", "nudge_ambush_density",
+            "nudge_flotilla", "nudge_flotilla_pressure",
+            "nudge_news", "nudge_news_arc", "nudge_news_arc_intensity",
+        ) or a.startswith("nudge_"):
+            return self._forecast_action(agent, a, arg or "")
 
         return False
 
@@ -1700,6 +1735,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "primer": self._primer_snapshot(agent),
             "jaunte": self._jaunte_snapshot(agent),
             "empathy": self._empathy_snapshot(agent),
+            "forecast": self._forecast_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 

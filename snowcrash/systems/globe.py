@@ -302,6 +302,27 @@ class GlobeMixin:
             out["geo"]["lat"] = float(lat)
         if lon is not None:
             out["geo"]["lon"] = float(lon)
+        # Soft tie-in for season forecasts (#58) when daily news only stamps geo
+        if hasattr(self, "forecast_state") and isinstance(getattr(self, "forecast_state", None), dict):
+            out.setdefault("forecast_hook", True)
+            # Prefer full attach_news_arc from pipelines; geo-only stamps mark the hook
+            hooks = list(self.forecast_state.get("news_hooks") or [])
+            if not out.get("_forecast_bumped"):
+                # Tiny ambient bump so #51 geo stamps still move the needle
+                metrics = self.forecast_state.setdefault("metrics", {})
+                cur = float(metrics.get("news_arc_intensity", 0.35))
+                metrics["news_arc_intensity"] = max(0.0, min(1.0, cur + 0.015))
+                hooks.append({
+                    "t": __import__("time").time(),
+                    "text": (out.get("text") or out.get("summary") or "geo news stamp")[:120],
+                    "region_id": out.get("region_id"),
+                    "bump": 0.015,
+                    "news_arc_intensity": round(metrics["news_arc_intensity"], 3),
+                    "via": "attach_news_geo",
+                })
+                self.forecast_state["news_hooks"] = hooks[-12:]
+                if hasattr(self, "_forecast_compose_headline"):
+                    self.forecast_state["headline"] = self._forecast_compose_headline()
         return out
 
     def _globe_nearest_region(self, lat: float, lon: float) -> str:

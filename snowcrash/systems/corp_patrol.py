@@ -448,6 +448,11 @@ class CorpPatrolMixin:
         patrol["contested"] = True
         patrol["contest_crew_id"] = crew_id
         patrol["contest_crew_name"] = crew.get("name")
+
+        soft = getattr(self, "_forecast_soft_influence", None)
+        if callable(soft):
+            soft(agent, "ambush_density", -0.02, reason="crew contest_patrol")
+            soft(agent, "flotilla_pressure", 0.01, reason="contest heat ripple")
         msg = (
             "Crew %s contests %s — flatline their units to shred the warrant."
             % (crew.get("name"), patrol.get("corp_name"))
