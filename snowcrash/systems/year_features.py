@@ -17,6 +17,7 @@ from .. import constants as C
 from ..entities import Actor, make_infected, make_thug
 from ..items import Item
 from .cyberspace import CyberspaceMixin
+from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -111,7 +112,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
+class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -137,6 +138,7 @@ class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
         self._seed_boss()
         self._seed_ice_cameras()
         self._signal_keys_init()
+        self._neon_dash_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -183,6 +185,7 @@ class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
         if not isinstance(getattr(agent, "cyber", None), dict):
             agent.cyber = {"active": False}
         self._signal_keys_bootstrap_agent(agent)
+        self._neon_dash_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -801,6 +804,7 @@ class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
     def year_tick(self) -> None:
         self._tick_weather()
         self._tick_street_events()
+        self._tick_neon_dash()
         self._tick_npc_schedules()
         self._tick_boss_telegraphs()
         for p in self.players.values():
@@ -942,6 +946,12 @@ class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
             "signal_keys", "signal_status", "keys_status",
         ):
             return self._signal_keys_action(agent, a, arg or "")
+
+        if a in (
+            "neon_dash", "dash_status", "neon_status", "dash",
+            "neon_dash_force", "force_neon_dash",
+        ):
+            return self._neon_dash_action(agent, a, arg or "")
         if getattr(agent, "mode", None) == "flotilla":
             if self._signal_keys_handle_mode(agent, a):
                 return True
@@ -1527,6 +1537,7 @@ class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
             "ice": self._ice_snapshot(agent),
             "cyberspace": self._cyber_snapshot(agent),
             "signal_keys": self._signal_keys_snapshot(agent),
+            "neon_dash": self._neon_dash_snapshot(agent),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:

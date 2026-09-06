@@ -1010,6 +1010,9 @@ class GameWorld(YearFeaturesMixin):
         pad = getattr(self, "flotilla_pad", None)
         if pad:
             marks.append({"id": "flotilla_pad", "name": "Flotilla Pad", "glyph": "U", "x": pad[0], "y": pad[1], "z": 0})
+        dash_marks = getattr(self, "_neon_dash_landmarks", None)
+        if callable(dash_marks):
+            marks.extend(dash_marks())
         return marks
 
     def _grant_kill_rewards(self, agent: PlayerAgent, victim: Actor) -> None:
@@ -1481,6 +1484,9 @@ class GameWorld(YearFeaturesMixin):
             return
         agent.actor.x, agent.actor.y = px, py
         self._remember_pos(agent)
+        on_dash = getattr(self, "_neon_dash_on_move", None)
+        if callable(on_dash) and z == C.PLANE_STREET:
+            on_dash(agent)
         tile = gmap.tiles[py][px]
         if tile == C.DOOR:
             agent.sfx("door")
@@ -1522,6 +1528,9 @@ class GameWorld(YearFeaturesMixin):
                 if not self.actor_at(nx, ny, ignore=agent.actor, z=z):
                     agent.actor.x, agent.actor.y = nx, ny
                     self._remember_pos(agent)
+                    on_dash = getattr(self, "_neon_dash_on_move", None)
+                    if callable(on_dash) and z == C.PLANE_STREET:
+                        on_dash(agent)
                     if agent.haste_steps == 0:
                         agent.log("Haste fades.")
         self.update_fov(agent)
