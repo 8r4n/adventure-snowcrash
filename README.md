@@ -1,6 +1,6 @@
 # Snowcrash
 
-A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev** (`adventure-dev`, port **8766**) is a shared-world Metaverse street layer: many couriers, WebSocket realtime sync, chat, and personal Payload-Zero quests. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI stays single-player overhead ASCII.
+A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev** (`adventure-dev`, port **8766**) is a shared-world Metaverse street layer: many couriers, WebSocket realtime sync, chat, and personal Payload-Zero quests. Web client uses continuous **1st-person video→ASCII FPV** plus a GTA-style **enhanced ASCII minimap**; TUI is single-player with **ASCII FPV** (toggle overhead map) over SSH/curses.
 
 
 
@@ -54,9 +54,13 @@ source .venv/bin/activate   # if you use a venv
 python -m snowcrash --seed 42
 # monochrome (safer on odd TERM / dumb relays):
 python -m snowcrash --no-color
+# start on overhead map instead of FPV:
+SNOWCRASH_TUI_VIEW=map python -m snowcrash
 ```
 
 `play_ssh.sh` checks for an interactive TTY, sets `TERM` to `xterm-256color` when unset, activates `.venv` if present, and runs the curses TUI.
+
+**ASCII FPV:** the TUI defaults to a first-person raycast view (map + facing). Press **`v`** to toggle FPV ↔ camera-centered overhead map. Status line keeps HP / Focus / Payload / objective / compass. Details: [`docs/tui-fpv.md`](docs/tui-fpv.md).
 
 **Terminal size:** recommended **~80×24** (columns×rows). The TUI refuses to draw below **40×12** and shows a resize prompt instead. If the window is resized mid-play, `KEY_RESIZE` is handled safely.
 
@@ -132,7 +136,7 @@ On first load (and **Replay intro** / restart after death-win) the web UI plays 
 
 The main viewport is live **video→ASCII FPV**: neon raycast scene → shared colored-ASCII canvas (same pipeline as the intro). A corner **Street GPS** radar shows an **enhanced-resolution ASCII** crop of the glyph map (not PNG tiles) — colorized, 2×2 upscaled cells, facing marker.
 Short procedural SFX play for move/combat/loot — **Mute** / **m** (localStorage; default volume ~0.4).
-Jackpoint / uplink / payload / NPC / terminal / door trigger **jack-in video→ASCII cutscenes** (MP4 preferred, JSON fallback; Space/Esc skip). TUI has no FPV/cutscenes yet.
+Jackpoint / uplink / payload / NPC / terminal / door trigger **jack-in video→ASCII cutscenes** (MP4 preferred, JSON fallback; Space/Esc skip). TUI has ASCII raycast FPV (`v` toggles overhead); no video cutscenes.
 Quest rooms: **J** jackpoint, **U** Metaverse uplink.
 
 To regenerate sprites after editing `scripts/gen_tiles.py`:
@@ -189,6 +193,8 @@ Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** ne
 **Opening cinematic:** `VideoAsciiCanvas` plays `static/cutscenes/intro/montage.mp4` fullscreen. Rebuild with `python scripts/gen_intro_video.py` (Pillow + ffmpeg).
 
 **Web gameplay FPV:** each move/turn (plus a low-rate idle rAF for scanlines/noise) paints a neon first-person scene (perspective walls, ceiling/floor gradients, entity billboards) to an offscreen canvas, then samples it through the same ASCII renderer onto `#fpv-canvas`. Tuned for **high glyph contrast** (brightness/contrast/gamma/saturation + soft vignette) so continuous play stays readable — not a plain `<pre>` raycaster. See `docs/fpv.md`.
+
+**TUI FPV (#78):** curses raycasts the local map + facing straight to ASCII columns (no canvas). Toggle with `v`; see `docs/tui-fpv.md`.
 
 **Street GPS:** enhanced ASCII minimap (glyph language, 2×2 upscaled/colorized) in matching METAVERSE LAYER chrome.
 
@@ -251,6 +257,7 @@ adventure/
     engine.py            # shared game logic
     mapgen.py, entities.py, items.py, constants.py
     tui/app.py           # curses frontend
+    tui/fpv.py           # ASCII FPV raycast (#78)
     web/                 # FastAPI frontend
       __main__.py
       app.py

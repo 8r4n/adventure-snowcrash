@@ -31,7 +31,7 @@
 - In-memory season / crew / housing — no DB yet. Restart clears progress.
 
 ## Web-only gaps (TUI vs web) (#38)
-TUI (`snowcrash/tui` + `engine.py`) completes Payload-Zero (jackpoint → uplink).
+TUI (`snowcrash/tui` + `engine.py`) completes Payload-Zero (jackpoint → uplink). ASCII FPV toggle (`v`) — see `docs/tui-fpv.md` (#78).
 **Web/MMORPG-only** (not fully mirrored in curses):
 - StreetNet IRC channels, party/crew chat
 - Live vendors / craft bench actions over WS
