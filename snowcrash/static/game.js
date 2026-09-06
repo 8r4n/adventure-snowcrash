@@ -66,6 +66,99 @@
   /** Filled by FpvEngine below — avoids TDZ with CutscenePlayer. */
   const FpvBridge = { pause() {}, resume() {}, render(_s) {}, kick() {} };
 
+  // ---- Catppuccin theme (#90) ----
+  const THEME_STORAGE = "snowcrash_theme";
+  const THEME_ALIASES = {
+    mocha: "mocha",
+    catppuccin: "mocha",
+    "catppuccin-mocha": "mocha",
+    macchiato: "macchiato",
+    "catppuccin-macchiato": "macchiato",
+    frappe: "frappe",
+    "frappé": "frappe",
+    "catppuccin-frappe": "frappe",
+    latte: "latte",
+    "catppuccin-latte": "latte",
+  };
+  const THEME_RGB = {
+    mocha: {
+      crust: [17, 17, 27], mantle: [24, 24, 37], base: [30, 30, 46],
+      text: [205, 214, 244], sky: [137, 220, 235], teal: [148, 226, 213],
+      sapphire: [116, 199, 236], yellow: [249, 226, 175], peach: [250, 179, 135],
+      green: [166, 227, 161], mauve: [203, 166, 247], pink: [245, 194, 231],
+      red: [243, 139, 168], blue: [137, 180, 250], lavender: [180, 190, 254],
+    },
+    macchiato: {
+      crust: [24, 25, 38], mantle: [30, 32, 48], base: [36, 39, 58],
+      text: [202, 211, 245], sky: [145, 215, 227], teal: [139, 213, 202],
+      sapphire: [125, 196, 228], yellow: [238, 212, 159], peach: [245, 169, 127],
+      green: [166, 218, 149], mauve: [198, 160, 246], pink: [245, 189, 230],
+      red: [237, 135, 150], blue: [138, 173, 244], lavender: [183, 189, 248],
+    },
+    frappe: {
+      crust: [35, 38, 52], mantle: [41, 44, 60], base: [48, 52, 70],
+      text: [198, 208, 245], sky: [153, 209, 219], teal: [129, 200, 190],
+      sapphire: [133, 193, 220], yellow: [229, 200, 144], peach: [239, 159, 118],
+      green: [166, 209, 137], mauve: [202, 158, 230], pink: [244, 184, 228],
+      red: [231, 130, 132], blue: [140, 170, 238], lavender: [186, 187, 241],
+    },
+    latte: {
+      crust: [220, 224, 232], mantle: [230, 233, 239], base: [239, 241, 245],
+      text: [76, 79, 105], sky: [4, 165, 229], teal: [23, 146, 153],
+      sapphire: [32, 159, 181], yellow: [223, 142, 29], peach: [254, 100, 11],
+      green: [64, 160, 43], mauve: [136, 57, 239], pink: [234, 118, 203],
+      red: [210, 15, 57], blue: [30, 102, 245], lavender: [114, 135, 253],
+    },
+  };
+  function normalizeTheme(name) {
+    if (!name) return "mocha";
+    const k = String(name).trim().toLowerCase().replace(/_/g, "-");
+    return THEME_ALIASES[k] || "mocha";
+  }
+  function readThemePreference() {
+    try {
+      const q = new URLSearchParams(location.search).get("theme");
+      if (q) return normalizeTheme(q);
+    } catch (_) {}
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE);
+      if (stored) return normalizeTheme(stored);
+    } catch (_) {}
+    const meta = document.querySelector('meta[name="snowcrash-theme"]');
+    if (meta && meta.content) return normalizeTheme(meta.content);
+    if (document.documentElement && document.documentElement.dataset.theme) {
+      return normalizeTheme(document.documentElement.dataset.theme);
+    }
+    return "mocha";
+  }
+  let activeTheme = readThemePreference();
+  function themePal() {
+    return THEME_RGB[activeTheme] || THEME_RGB.mocha;
+  }
+  function rgbCss(rgb) {
+    return "rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")";
+  }
+  function applyTheme(name, persist) {
+    activeTheme = normalizeTheme(name);
+    document.documentElement.dataset.theme = activeTheme;
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      const p = themePal();
+      metaTheme.setAttribute("content", "#" + p.crust.map((n) => n.toString(16).padStart(2, "0")).join(""));
+    }
+    const sel = document.getElementById("theme-select");
+    if (sel && sel.value !== activeTheme) sel.value = activeTheme;
+    if (persist) {
+      try { localStorage.setItem(THEME_STORAGE, activeTheme); } catch (_) {}
+    }
+    // Refresh FPV ASCII engine bg if already constructed
+    try {
+      if (typeof FpvBridge.kick === "function") FpvBridge.kick();
+    } catch (_) {}
+  }
+  applyTheme(activeTheme, false);
+
+
   // ---- Sound ----
   const Sound = (() => {
     const STORAGE_KEY = "snowcrash_mute";
@@ -196,7 +289,7 @@
         brightness: 1.2,
         contrast: 1.12,
         autoColor: true,
-        bg: "#05080c",
+        bg: rgbCss(themePal().crust),
         fit: true,
       });
       return cutAscii;
@@ -259,7 +352,7 @@
       off.width = cols * 4;
       off.height = rows * 6;
       const ctx = off.getContext("2d", { alpha: false });
-      ctx.fillStyle = "#05080c";
+      ctx.fillStyle = rgbCss(themePal().crust);
       ctx.fillRect(0, 0, off.width, off.height);
       for (let y = 0; y < rows; y++) {
         const line = lines[y] || "";
@@ -507,7 +600,7 @@
         brightness: 1.2,
         contrast: 1.15,
         autoColor: true,
-        bg: "#05080c",
+        bg: rgbCss(themePal().crust),
       });
       return ascii;
     }
@@ -757,21 +850,24 @@
     let lastState = null;
     let rafId = 0;
 
-    const ENTITY_RGB = {
-      i: [255, 42, 109],
-      t: [255, 123, 114],
-      d: [121, 192, 255],
-      "&": [210, 168, 255],
-      "*": [240, 180, 41],
-      "!": [240, 180, 41],
-      "/": [240, 180, 41],
-      "[": [240, 180, 41],
-      "}": [240, 180, 41],
-      "%": [61, 214, 140],
-      J: [61, 214, 140],
-      U: [57, 197, 207],
-      "+": [240, 180, 41],
-    };
+    function entityRgb() {
+      const p = themePal();
+      return {
+        i: p.green,
+        t: p.peach,
+        d: p.mauve,
+        "&": p.lavender,
+        "*": p.yellow,
+        "!": p.yellow,
+        "/": p.yellow,
+        "[": p.yellow,
+        "}": p.yellow,
+        "%": p.green,
+        J: p.teal,
+        U: p.sky,
+        "+": p.yellow,
+      };
+    }
 
     function fpvColPlan() {
       const pw = (fpvStage && fpvStage.clientWidth) || 800;
@@ -794,7 +890,7 @@
         gamma: 0.74,
         saturate: 1.62,
         autoColor: true,
-        bg: "#02050a",
+        bg: rgbCss(themePal().crust),
         fit: true,
       });
       ascii.setSourceCanvas(scene);
@@ -810,17 +906,16 @@
 
     function wallColor(ch, side, dist) {
       const near = Math.max(0.28, Math.min(1, 1.85 / Math.max(0.2, dist)));
-      let r, g, b;
-      if (ch === "+") {
-        r = 255; g = 210; b = 64;
-      } else if (ch === "~") {
-        r = 64; g = 168; b = 230;
-      } else {
-        r = 72; g = 235; b = 255;
-      }
+      const p = themePal();
+      let base;
+      if (ch === "+") base = p.yellow;
+      else if (ch === "~") base = p.sapphire;
+      else base = p.teal;
+      let r = base[0], g = base[1], b = base[2];
       if (side) {
         r *= 0.82; g *= 0.82; b *= 0.88;
       }
+      // Keep prior contrast boost so Catppuccin stays FPV-readable
       r = Math.min(255, r * near * 1.42);
       g = Math.min(255, g * near * 1.42);
       b = Math.min(255, b * near * 1.48);
@@ -968,12 +1063,12 @@
           sctx.fillRect(sx, drawStartY, 1, 2);
           depths[sx] = transformY;
         }
-        sctx.fillStyle = "#e8fbff";
+        sctx.fillStyle = rgbCss(themePal().text);
         sctx.font = Math.max(10, Math.floor(spriteH * 0.35)) + "px monospace";
         sctx.textAlign = "center";
         sctx.fillText(ch, spriteScreenX, mid + 4);
         if (label) {
-          sctx.fillStyle = "rgba(232,251,255,0.9)";
+          sctx.fillStyle = "rgba(" + themePal().text.join(",") + ",0.9)";
           sctx.font = Math.max(8, Math.floor(spriteH * 0.18)) + "px monospace";
           sctx.fillText(label, spriteScreenX, Math.max(12, drawStartY - 2));
         }
@@ -992,7 +1087,7 @@
           const ch = mapAt(s, x, y);
           if (!"itd&*!/[}%JU".includes(ch)) continue;
           if (x === s.player.x && y === s.player.y) continue;
-          const rgb = ENTITY_RGB[ch] || [57, 197, 207];
+          const rgb = entityRgb()[ch] || themePal().sky;
           drawBillboard(x, y, ch, rgb, null);
         }
       }
@@ -1007,7 +1102,7 @@
 
       const cx = (W / 2) | 0;
       const cy = (H / 2) | 0;
-      sctx.strokeStyle = "rgba(57,197,207,0.85)";
+      sctx.strokeStyle = "rgba(" + themePal().sky.join(",") + ",0.85)";
       sctx.lineWidth = 1;
       sctx.beginPath();
       sctx.moveTo(cx - 10, cy);
@@ -1019,7 +1114,7 @@
       sctx.moveTo(cx, cy + 3);
       sctx.lineTo(cx, cy + 8);
       sctx.stroke();
-      sctx.fillStyle = "rgba(255,42,109,0.9)";
+      sctx.fillStyle = "rgba(" + themePal().pink.join(",") + ",0.9)";
       sctx.fillRect(cx - 1, cy - 1, 3, 3);
 
       const turn = s.turn || 0;

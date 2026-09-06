@@ -60,3 +60,7 @@ The test drives the raycaster without a real curses TTY: facing/strafe change th
 | `snowcrash/tui/fpv.py` | Column raycast → ASCII rows + optional color-pair ids |
 | `snowcrash/tui/app.py` | View toggle, relative keys, centered overhead, status |
 | `tests/test_tui_fpv.py` | Renderer + key-map smoke |
+
+## Colors
+
+TUI FPV uses Catppuccin Mocha by default (256/truecolor when available). See [`theme-catppuccin.md`](theme-catppuccin.md) (#90).

@@ -15,10 +15,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Disable curses colors (monochrome; also set SNOWCRASH_NO_COLOR=1)",
     )
+    parser.add_argument(
+        "--theme",
+        default=None,
+        help="Catppuccin flavor: mocha (default), macchiato, frappe, latte "
+        "(or set SNOWCRASH_THEME)",
+    )
     args = parser.parse_args(argv)
 
     if args.no_color:
         os.environ["SNOWCRASH_NO_COLOR"] = "1"
+    if args.theme:
+        os.environ["SNOWCRASH_THEME"] = args.theme
 
     from .tui.app import run_curses
 
