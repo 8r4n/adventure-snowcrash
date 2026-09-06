@@ -1959,3 +1959,12 @@ body:not(.intro-active) {
 .globe-region-list .row { align-items: center; }
 .globe-region-list .row button { flex-shrink: 0; font-size: 0.62rem; padding: 0.12rem 0.35rem; }
 .globe-meta { color: #7a8794; font-size: 0.65rem; margin-bottom: 0.25rem; }
+
+/* Sleeves / avatar hop (#59) */
+.year-panel .panel-body.sleeves-body { max-height: 16rem; }
+.sleeves-meta { color: #7a8794; font-size: 0.65rem; margin-bottom: 0.25rem; }
+.sleeves-list .row { align-items: flex-start; }
+.sleeves-list .row button { flex-shrink: 0; font-size: 0.62rem; padding: 0.12rem 0.35rem; }
+.sleeves-list .row.current { border-left: 2px solid #ff6b9d; padding-left: 0.35rem; }
+.sleeves-list .dim { color: #6a7682; font-size: 0.62rem; }
+.sleeves-stats { font-family: ui-monospace, monospace; font-size: 0.68rem; color: #9ad4ff; }

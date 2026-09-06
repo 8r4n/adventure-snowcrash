@@ -23,6 +23,7 @@ from .ice_heists import IceHeistMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
+from .sleeves import SleevesMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -116,7 +117,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -147,6 +148,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         self._corp_patrol_init()
         self._soft_hardcore_init()
         self._globe_init()
+        self._sleeves_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -199,6 +201,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         self._neon_dash_bootstrap_agent(agent)
         self._ice_heist_bootstrap_agent(agent)
         self._soft_hardcore_bootstrap_agent(agent)
+        self._sleeves_bootstrap_agent(agent)
         self._globe_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
@@ -1027,6 +1030,18 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         ):
             return self._globe_action(agent, a, arg or "")
 
+        if a in (
+            "sleeves", "sleeve", "shell", "shells", "sleeve_panel", "open_sleeves",
+            "avatar_hop", "sleeve_close", "close_sleeves",
+            "sleeve_status", "shell_status", "avatar_status",
+            "sleeve_rent", "rent_sleeve", "rent_shell",
+            "sleeve_hop", "hop_sleeve", "avatar_sleeve",
+            "sleeve_street", "shell_street",
+            "sleeve_club", "shell_club",
+            "sleeve_undercity", "shell_undercity", "sleeve_tunnel",
+        ):
+            return self._sleeves_action(agent, a, arg or "")
+
         return False
 
     def _near_vendor(self, agent) -> Optional[str]:
@@ -1607,6 +1622,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
             "corp_patrol": heat_snap.get("patrol"),
             "soft_hardcore": self._soft_hardcore_snapshot(agent),
             "globe": self._globe_snapshot(agent),
+            "sleeves": self._sleeves_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 
