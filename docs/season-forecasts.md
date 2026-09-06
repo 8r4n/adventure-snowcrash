@@ -61,6 +61,7 @@ Recent news hooks appear in the Forecast panel.
 | `nudge_cooldown` / `nudge_focus_cost` | Gate for early intervention |
 | `player_nudges` / `last_nudge_metric` | Per-courier counters |
 | `news_hooks[]` / `recent_nudges[]` | Recent #51 / nudge log |
+| `region_hints[]` | Geo stubs for #51 (`region_id`, lat/lon) |
 | `season` | Season pass context (#33) |
 | `hooks` | `{season, daily_news, attach_news_arc}` |
 | `last_feedback` | `{kind, text, t}` for toasts |
@@ -74,3 +75,7 @@ Dock **Forecast** · metric bars with **− / +** nudge · season + news hook fo
 - Call it **StreetNet Forecast** / **psychohistory-lite** — never trademarked foundation/math names in player strings.
 - Nudges are intentionally small; they bias odds, they do not delete danger.
 - Ambush spawn still respects spawn-fairness (no ambush on fresh / shielded / on-pad couriers).
+
+## Soft influence hooks
+
+Tiny ambient shifts (capped ±4%): successful **ICE probes** ease ambush density; **Neon Dash** finish cools Flotilla pressure; **crew contest_patrol** eases ambush and slightly ripples Flotilla.

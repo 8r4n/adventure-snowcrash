@@ -128,7 +128,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **Sleeves / avatar hop (#59)** — swap **street / club / undercity** shells at safehouse with clear stat tradeoffs; premium kits optionally rent for credits. See [docs/sleeves.md](docs/sleeves.md).
 - **StreetNet Primer (#60)** — inventory teaching tablet with adaptive mini-quests (ICE / globe / crews); cosmetics + soft skills, no P2W wall. See [docs/primer.md](docs/primer.md).
 - **Uplink Hop / Street Jaunt (#62)** — learned short → district → globe hops with rank gates, Focus cost, and misfire/cooldown feedback. See [docs/jaunte.md](docs/jaunte.md).
-- **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/forecasts.md](docs/forecasts.md).
+- **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
 - **Empathy audit + synth bounties (#63)** — optional StreetNet empathy dialogue test + rogue-synth Retire/Reclaim contracts with heat/reputation swings. See [docs/empathy-bounties.md](docs/empathy-bounties.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
 
@@ -207,7 +207,7 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `Shift+P` (web) | StreetNet Primer teaching tablet ([docs](docs/primer.md)) |
 | `Shift+U` (web) | Uplink Hop / Street Jaunt panel ([docs](docs/jaunte.md)) |
 | `Shift+E` (web) | Empathy audit + synth bounty board ([docs](docs/empathy-bounties.md)) |
-| `Shift+F` (web) | Season forecasts / street trends ([docs](docs/forecasts.md)) |
+| `Shift+F` (web) | Season forecasts / street trends ([docs](docs/season-forecasts.md)) |
 | `jaunte short` / `jaunte district` / `jaunte globe` | Trained hops by rank (#62) |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
@@ -272,6 +272,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | StreetNet Primer (teaching quests) | [docs/primer.md](docs/primer.md) | #60 · parent #42 |
 | Uplink Hop / Street Jaunt (learned TP) | [docs/jaunte.md](docs/jaunte.md) | #62 · parent #42 · ties #54 |
 | Empathy audit + synth bounty contracts | [docs/empathy-bounties.md](docs/empathy-bounties.md) | #63 · parent #42 · related #27/#28 |
+| Season forecasts (street trends) | [docs/season-forecasts.md](docs/season-forecasts.md) | #58 · parent #42 · related #33/#51 |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |

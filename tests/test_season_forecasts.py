@@ -104,3 +104,25 @@ def test_ambush_weight_tracks_density():
     w.forecast_state["metrics"]["ambush_density"] = 0.1
     low = w.forecast_ambush_weight()
     assert high > low
+
+
+def test_invalid_metric_refused():
+    w = GameWorld(587)
+    a = _join(w)
+    before = dict(w.forecast_state["metrics"])
+    focus0 = int(a.actor.focus)
+    assert w.handle_year_action(a, "forecast_nudge", "not_a_real_metric")
+    assert dict(w.forecast_state["metrics"]) == before
+    assert int(a.actor.focus) == focus0
+    assert int(a.forecast.get("nudges") or 0) == 0
+
+
+def test_region_hints_stub_and_news_fill():
+    w = GameWorld(588)
+    a = _join(w)
+    s = w.snapshot(a)
+    assert "region_hints" in s["forecast"]
+    assert isinstance(s["forecast"]["region_hints"], list)
+    w.attach_news_arc({"text": "Rim blackout allegory"}, region_id="cont_eu", intensity=0.05)
+    s2 = w.snapshot(a)
+    assert any(h.get("region_id") == "cont_eu" for h in s2["forecast"]["region_hints"])
