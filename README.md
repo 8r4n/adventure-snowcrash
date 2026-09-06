@@ -129,6 +129,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **StreetNet Primer (#60)** — inventory teaching tablet with adaptive mini-quests (ICE / globe / crews); cosmetics + soft skills, no P2W wall. See [docs/primer.md](docs/primer.md).
 - **Uplink Hop / Street Jaunt (#62)** — learned short → district → globe hops with rank gates, Focus cost, and misfire/cooldown feedback. See [docs/jaunte.md](docs/jaunte.md).
 - **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
+- **Scarce resource ecology (#57)** — bandwidth / condensate water / uplink spectrum wars on globe regions; claim or raid nodes; weather shifts with control. See [docs/ecology.md](docs/ecology.md).
 - **Empathy audit + synth bounties (#63)** — optional StreetNet empathy dialogue test + rogue-synth Retire/Reclaim contracts with heat/reputation swings. See [docs/empathy-bounties.md](docs/empathy-bounties.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
 
@@ -274,6 +275,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Empathy audit + synth bounty contracts | [docs/empathy-bounties.md](docs/empathy-bounties.md) | #63 · parent #42 · related #27/#28 |
 | Season forecasts (street trends) | [docs/season-forecasts.md](docs/season-forecasts.md) | #58 · parent #42 · related #33/#51 |
 | Canticle Pilgrimage (multi-courier arcs) | [docs/pilgrimage.md](docs/pilgrimage.md) | #61 · parent #42 · related #15/#35 |
+| Scarce resource ecology wars | [docs/ecology.md](docs/ecology.md) | #57 · parent #42 · related #54/#27/#35 |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |

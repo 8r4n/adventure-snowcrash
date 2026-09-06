@@ -1302,6 +1302,7 @@
       jaunteBody: document.getElementById("jaunte-body"),
       empathyBody: document.getElementById("empathy-body"),
       forecastBody: document.getElementById("forecast-body"),
+      ecologyBody: document.getElementById("ecology-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -2057,14 +2058,31 @@
       const cd = defNum(g.cooldown_remaining, 0);
       const reg = defObj(g.region);
       const w = 200, h = 100;
+      const ecoNodes = defArr(g.ecology_nodes);
+      const ecoByRegion = {};
+      ecoNodes.forEach((n) => {
+        const rid = defStr(n.region_id, "");
+        if (!ecoByRegion[rid]) ecoByRegion[rid] = [];
+        ecoByRegion[rid].push(n);
+      });
       const pins = regions.map((r) => {
         const id = defStr(r.id, "");
         const [x, y] = latLonToSvg(r.lat, r.lon, w, h);
         const cls = ["pin"];
         if (id === home || r.home) cls.push("home");
         if (id === cur) cls.push("here");
-        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")";
-        return `<circle class="${cls.join(" ")}" data-tp="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.2"><title>${title}</title></circle>`;
+        const ecos = ecoByRegion[id] || defArr(r.ecology);
+        if (ecos.length) {
+          cls.push("ecology");
+          const res0 = defStr(ecos[0].resource, "");
+          if (res0) cls.push(res0);
+        }
+        const ecoTitle = ecos.length
+          ? " · " + ecos.map((e) => defStr(e.resource_short || e.resource, "?") + "@" + defStr((e.controller || {}).name, "?")).join(", ")
+          : "";
+        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")" + escapeHtml(ecoTitle);
+        const rad = ecos.length ? 2.8 : 2.2;
+        return `<circle class="${cls.join(" ")}" data-tp="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>`;
       }).join("");
       // Schematic continents (not GIS-accurate) — original Metaverse art only
       const land = `
@@ -2084,13 +2102,70 @@
         const disabled = (cd > 0.5 && id !== cur) ? " disabled" : "";
         return `<div class="row"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}</span></span><button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></div>`;
       }).join("");
+      const ecoStrip = ecoNodes.slice(0, 8).map((n) => {
+        const ctrl = defObj(n.controller);
+        return `<span class="eco-chip" title="${escapeHtml(defStr(n.name, n.id))}">${escapeHtml(defStr(n.glyph, "•"))} ${escapeHtml(defStr(n.resource_short || n.resource, "?"))} @ ${escapeHtml(defStr(n.region_id, "?"))} · ${escapeHtml(defStr(ctrl.name, "?"))} (${defNum(n.pressure_pct, 0)}%)</span>`;
+      }).join("");
       els.globeBody.innerHTML =
         `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}<br/>Hop cost ${cost} cr · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"} · <button type="button" data-globe="recall">Recall home</button></div>` +
         `<svg class="globe-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Schematic Earth region picker"><rect class="ocean" width="${w}" height="${h}"/>${land}${pins}</svg>` +
+        (ecoStrip ? `<div class="globe-ecology-strip"><strong>Scarce nodes</strong> ${ecoStrip}</div>` : "") +
         `<div class="globe-region-list">${list}</div>` +
         `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a pin to uplink-hop."))}</div>`;
     }
 
+
+
+    function renderEcology(s) {
+      if (!els.ecologyBody) return;
+      const eco = defObj(s.ecology);
+      const nodes = defArr(eco.nodes);
+      if (!nodes.length) {
+        els.ecologyBody.innerHTML = '<div class="panel-empty">Ecology lattice offline</div>';
+        els.ecologyBody.classList.remove("ecology-body");
+        return;
+      }
+      els.ecologyBody.classList.add("ecology-body");
+      const faction = defObj(eco.faction);
+      const weather = defObj(eco.weather);
+      const cd = defNum(eco.cooldown_remaining, 0);
+      const local = new Set(defArr(eco.local_node_ids));
+      const rows = nodes.map((n) => {
+        const id = defStr(n.id, "");
+        const ctrl = defObj(n.controller);
+        const here = local.has(id) ? " · HERE" : "";
+        const res = escapeHtml(defStr(n.resource_short || n.resource, "?"));
+        return `<div class="row">` +
+          `<span><strong>${escapeHtml(defStr(n.glyph, "•"))} ${escapeHtml(defStr(n.name, id))}</strong>` +
+          `<br/><span class="dim">${res} @ ${escapeHtml(defStr(n.region_id, "?"))}${here}</span>` +
+          `<br/><span class="eco-ctrl">${escapeHtml(defStr(ctrl.name, "?"))}</span>` +
+          ` · <span class="eco-pressure">${defNum(n.pressure_pct, 0)}%</span></span>` +
+          `<span>` +
+          `<button type="button" data-ecology-claim="${escapeHtml(id)}" title="Claim via contract">Claim</button> ` +
+          `<button type="button" data-ecology-raid="${escapeHtml(id)}" title="Raid flip">Raid</button>` +
+          `</span></div>`;
+      }).join("");
+      const sn = defArr(eco.streetnet).slice().reverse().map((line) => {
+        return `<div class="sn-line">${escapeHtml(defStr(line.text, ""))}</div>`;
+      }).join("");
+      const resLegend = defArr(eco.resources).map((r) => {
+        return `<span class="eco-chip">${escapeHtml(defStr(r.glyph, "•"))} ${escapeHtml(defStr(r.short || r.name, r.id))}</span>`;
+      }).join(" ");
+      els.ecologyBody.innerHTML =
+        `<div class="ecology-meta"><strong>Scarce Resource Ecology</strong> · ${defNum(eco.node_count, 0)} nodes / ${defNum(eco.region_count, 0)} regions<br/>` +
+        `Faction: ${escapeHtml(defStr(faction.name, "—"))} (${escapeHtml(defStr(faction.kind, "?"))}) · ` +
+        `claims ${defNum(eco.claims, 0)} / raids ${defNum(eco.raids, 0)} · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"}<br/>` +
+        `<span class="dim">${escapeHtml(defStr(weather.label, "Weather idle"))}</span><br/>` +
+        `<span class="dim">${resLegend}</span></div>` +
+        `<div class="ecology-nodes">${rows}</div>` +
+        `<div class="row"><button type="button" data-ecology="open">Refresh</button>` +
+        `<button type="button" data-ecology="list">List</button>` +
+        `<button type="button" data-ecology="contract">Offer contract</button>` +
+        `<button type="button" data-ecology="status">Status</button>` +
+        `<button type="button" data-ecology="close">Close</button></div>` +
+        (sn ? `<div class="ecology-streetnet"><strong>StreetNet</strong>${sn}</div>` : "") +
+        `<div class="row dim">${escapeHtml(defStr(eco.hint, "Contest bandwidth / water / spectrum nodes."))}</div>`;
+    }
 
     function renderSleeves(s) {
       if (!els.sleevesBody) return;
@@ -2699,6 +2774,7 @@
           if (pname === "jaunte") send("jaunte");
           if (pname === "empathy") send("empathy");
           if (pname === "forecast") send("forecast");
+          if (pname === "ecology") send("ecology");
           Sound.play("click");
         });
       }
@@ -2845,6 +2921,22 @@
           const metric = parts[0] || "";
           const dir = parts[1] || "down";
           if (metric) send("forecast_nudge", metric + " " + dir);
+        }],
+      ]);
+
+      bindPanel(els.ecologyBody, [
+        ["data-ecology", (v) => {
+          if (v === "status") send("ecology_status");
+          else if (v === "list") send("ecology_list");
+          else if (v === "contract") send("ecology_contract");
+          else if (v === "close") send("ecology_close");
+          else send("ecology");
+        }],
+        ["data-ecology-claim", (v) => {
+          if (v) send("ecology_claim", v);
+        }],
+        ["data-ecology-raid", (v) => {
+          if (v) send("ecology_raid", v);
         }],
       ]);
       if (els.npcCue) {
@@ -3567,6 +3659,14 @@
       ev.preventDefault();
       if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("forecast");
       send("forecast");
+      return;
+    }
+
+    // Scarce resource ecology (#57): Shift+R opens ecology panel
+    if (ev.key === "R" && ev.shiftKey && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("ecology");
+      send("ecology");
       return;
     }
 

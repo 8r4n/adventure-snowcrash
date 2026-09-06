@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "notes": "Scarce resource ecology wars (#57). Dune-inspired planetary ecology / control — remix as bandwidth, condensate water, and uplink spectrum. Original StreetNet lore only (no Arrakis clones).",
+  "claim_focus_cost": 3,
+  "claim_credit_cost": 20,
+  "raid_focus_cost": 4,
+  "raid_credit_cost": 25,
+  "contract_reward_credits": 45,
+  "contract_reward_rep": 8,
+  "contest_cooldown_sec": 40,
+  "ecology_tick_interval": 55,
+  "resources": {
+    "bandwidth": {
+      "id": "bandwidth",
+      "name": "StreetNet Bandwidth",
+      "short": "Bandwidth",
+      "glyph": "≈",
+      "color": "#7ad4ff",
+      "tagline": "Packet wells and mesh tolls — who owns the pipe owns the rumor.",
+      "ecology_held": "Mesh clarity — StreetNet hops stay crisp under controller hand.",
+      "ecology_hostile": "Packet drought — lag ghosts and toll storms on contested wells."
+    },
+    "water": {
+      "id": "water",
+      "name": "Condensate Water",
+      "short": "Water",
+      "glyph": "~",
+      "color": "#66c2a5",
+      "tagline": "Desal towers and fog nets — urban thirst, not desert prophecy.",
+      "ecology_held": "Condensate surplus — cool mist and quieter heat on the sleeve.",
+      "ecology_hostile": "Dry signal — cracked cisterns, dust in the Faraday vents."
+    },
+    "uplink_spectrum": {
+      "id": "uplink_spectrum",
+      "name": "Uplink Spectrum",
+      "short": "Spectrum",
+      "glyph": "‡",
+      "color": "#ffcc66",
+      "tagline": "Licensed Faraday channels — globe hops burn spectrum like fuel.",
+      "ecology_held": "Clean spectrum — uplink hops and jaunts settle soft.",
+      "ecology_hostile": "Spectrum hash — ghost channels and hop static across the rim."
+    }
+  },
+  "nodes": [
+    {
+      "id": "node_la_bandwidth",
+      "region_id": "fractured_la",
+      "resource": "bandwidth",
+      "name": "LA Packet Well",
+      "label": "Pacific Rim mesh toll nexus",
+      "default_controller": {"kind": "commons", "id": "streetnet", "name": "StreetNet Commons"}
+    },
+    {
+      "id": "node_tokyo_spectrum",
+      "region_id": "neo_tokyo",
+      "resource": "uplink_spectrum",
+      "name": "Tokyo Spectrum Stack",
+      "label": "Kanji-channel Faraday licenses",
+      "default_controller": {"kind": "corp", "id": "neon_grid", "name": "Neon Grid Holdings"}
+    },
+    {
+      "id": "node_lagos_bandwidth",
+      "region_id": "lagos_pulse",
+      "resource": "bandwidth",
+      "name": "Lagos Market Well",
+      "label": "Market-wave packet cisterns",
+      "default_controller": {"kind": "commons", "id": "streetnet", "name": "StreetNet Commons"}
+    },
+    {
+      "id": "node_dubai_water",
+      "region_id": "dubai_glass",
+      "resource": "water",
+      "name": "Dubai Condensate Mirage",
+      "label": "Mirrored desal towers above the burbclave",
+      "default_controller": {"kind": "corp", "id": "glass_toll", "name": "Glass Toll Consortium"}
+    },
+    {
+      "id": "node_sydney_water",
+      "region_id": "sydney_reef",
+      "resource": "water",
+      "name": "Sydney Reef Nets",
+      "label": "Harbor fog-net condensate farms",
+      "default_controller": {"kind": "commons", "id": "streetnet", "name": "StreetNet Commons"}
+    },
+    {
+      "id": "node_london_spectrum",
+      "region_id": "london_fog",
+      "resource": "uplink_spectrum",
+      "name": "London Fog Channels",
+      "label": "Fog-bank licensed uplink lanes",
+      "default_controller": {"kind": "corp", "id": "fog_charter", "name": "Fog Charter Ltd"}
+    },
+    {
+      "id": "node_cairo_water",
+      "region_id": "cairo_mirror",
+      "resource": "water",
+      "name": "Cairo Mirror Cisterns",
+      "label": "Nile-reflection desal mirrors",
+      "default_controller": {"kind": "commons", "id": "streetnet", "name": "StreetNet Commons"}
+    },
+    {
+      "id": "node_singapore_spectrum",
+      "region_id": "singapore_core",
+      "resource": "uplink_spectrum",
+      "name": "Singapore Core Licenses",
+      "label": "Sterile uplink spectrum vault",
+      "default_controller": {"kind": "corp", "id": "core_spectrum", "name": "Core Spectrum Authority"}
+    }
+  ],
+  "weather_by_resource": {
+    "bandwidth": {
+      "friendly": {"id": "mesh_clarity", "label": "Mesh clarity — StreetNet hops stay crisp"},
+      "hostile": {"id": "packet_drought", "label": "Packet drought — toll storms on the wells"}
+    },
+    "water": {
+      "friendly": {"id": "condensate_mist", "label": "Condensate mist — cool surplus on the sleeve"},
+      "hostile": {"id": "dry_signal", "label": "Dry signal — dust in the Faraday vents"}
+    },
+    "uplink_spectrum": {
+      "friendly": {"id": "clean_spectrum", "label": "Clean spectrum — globe hops settle soft"},
+      "hostile": {"id": "spectrum_hash", "label": "Spectrum hash — ghost channels on the rim"}
+    }
+  }
+}
