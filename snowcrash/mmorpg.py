@@ -778,7 +778,7 @@ class GameWorld(YearFeaturesMixin):
             if fi.x == x and fi.y == y and int(getattr(fi, "z", 0) or 0) == int(z)
         ]
 
-    def join(self, name: str, reconnect_id: Optional[str] = None) -> PlayerAgent:
+    def join(self, name: str, reconnect_id: Optional[str] = None, soft_hardcore: bool = False) -> PlayerAgent:
         name = (name or "").strip()[:24] or "Courier"
         # Reconnect by id — restore last_good, never re-roll spawn
         if reconnect_id and reconnect_id in self.players:
@@ -846,6 +846,8 @@ class GameWorld(YearFeaturesMixin):
             agent.log("Cleared %d hostiles near pad." % n)
         self._grant_spawn_invuln(agent)
         self._year_bootstrap_agent(agent)
+        if soft_hardcore:
+            self._soft_hardcore_set(agent, True)
         self._analytics("join", agent)
         self.update_fov(agent)
         return agent
@@ -1408,6 +1410,7 @@ class GameWorld(YearFeaturesMixin):
         agent.won = False
         agent.lost = False
         agent.mode = "play"
+        agent.death_cause = None
         agent.actor.alive = True
         agent.actor.hp = agent.actor.max_hp
         agent.actor.focus = agent.actor.max_focus
