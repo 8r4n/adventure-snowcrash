@@ -176,6 +176,9 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `z` / `x` / `c` (web) | ICE probes: Stun / Reveal / Scramble |
 | `p` (web) | Open ICE dock |
 | Space / Esc (web) | Skip opening intro or 1st-person cutscene |
+| `z`/`x`/`c` (web) | ICE probes: stun / reveal / scramble ([docs](docs/ice-probes.md)) |
+| `p` (web) | Open ICE dock panel |
+| `j` (web) | Jack in at `J` / jack out in cyberspace ([docs](docs/cyberspace.md)); else absolute south |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
 
@@ -216,6 +219,20 @@ python scripts/gen_cutscene_videos.py   # short MP4s for jack-in (Pillow + ffmpe
 
 Enemies: `i` infected avatars, `t` street thugs, `d` security drones.
 Web tiles live in `snowcrash/static/tiles/` (see `tiles.json` for glyph → sprite + legend labels).
+
+
+## Features / Docs
+
+Shipped on **`dev`** (MMORPG web). Player-facing notes:
+
+| Feature | Doc | Issues |
+|---------|-----|--------|
+| ICE probe quickhacks (Focus) | [docs/ice-probes.md](docs/ice-probes.md) | #46 · parent #42 |
+| Jack-in cyberspace puzzle layer | [docs/cyberspace.md](docs/cyberspace.md) | #47 · parent #42 |
+| Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
+| Staging / migrations | [docs/staging.md](docs/staging.md) | — |
+
+Steam packaging research is tracked separately as **#67** (not covered by these docs).
 
 ## Package layout
 

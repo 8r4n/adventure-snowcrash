@@ -19,6 +19,12 @@
 | `repair` / `pay_bandwidth` | — | #36 |
 | `raid_start` / `raid_leave` | — | #35 |
 | `auth_nick` | nick | #25 |
+| `ice_probe` / `probe` / `ice` | `stun` \| `reveal` \| `scramble` (or `list`) | #46 |
+| `ice_stun` / `probe_reveal` / … | — (id in action name) | #46 |
+| `jack_in` / `jackin` / `cyberspace` | optional `maze` \| `ice_gate` | #47 |
+| `jack_out` / `unjack` / `escape` (while jacked) | — | #47 |
+
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md).
 
 ## Snapshot fields
-`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`
+`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`)
