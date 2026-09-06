@@ -72,6 +72,20 @@ Ticker events: `kind=corp_patrol`, `phase=spawn|contest|end`.
 
 Dev shortcut: `corp_patrol_force` with arg `dev`.
 
+
+## Web HUD
+
+Dev web surfaces heat + patrol live from the snapshot (no extra action needed):
+
+| UI | Source | Notes |
+|----|--------|-------|
+| **Heat meter** (`#heat-hud`) | `heat.value` / `max` / `tier` | Side panel under vitals; spawn-threshold tick on the bar |
+| **Cool / contest hints** (`#heat-hint`) | `in_safehouse`, `crew_shed_bonus`, `shed_per_tick`, patrol | Safehouse/crew shed rates + imminent-patrol copy |
+| **Corp patrol banner** (`#corp-patrol-banner`) | `corp_patrol` (or `heat.patrol`) | Name, hunter count, hunting-you / contested, tip |
+| **Contest button** | action `contest_patrol` | Shown while a live patrol is not yet contested |
+
+Toaster stack sits on the **left** under the kill feed so it does not cover sticky HP/Focus in `#side`.
+
 ## TUI note
 
-Curses TUI does not surface the year heat HUD yet. Play on **dev web**.
+Curses TUI does not surface the year heat HUD yet. **Dev web** shows the heat meter + corp patrol banner from snapshot fields above.
