@@ -1968,3 +1968,13 @@ body:not(.intro-active) {
 .sleeves-list .row.current { border-left: 2px solid #ff6b9d; padding-left: 0.35rem; }
 .sleeves-list .dim { color: #6a7682; font-size: 0.62rem; }
 .sleeves-stats { font-family: ui-monospace, monospace; font-size: 0.68rem; color: #9ad4ff; }
+
+/* StreetNet Primer (#60) */
+.year-panel .panel-body.primer-body { max-height: 18rem; }
+.primer-meta { color: #7a8794; font-size: 0.65rem; margin-bottom: 0.35rem; }
+.primer-list .row { align-items: flex-start; gap: 0.35rem; }
+.primer-list .row button { flex-shrink: 0; font-size: 0.62rem; padding: 0.12rem 0.35rem; }
+.primer-list .row.active { border-left: 2px solid #5eead4; padding-left: 0.35rem; }
+.primer-list .row.done { opacity: 0.72; }
+.primer-list .dim { color: #6a7682; font-size: 0.62rem; }
+.primer-voice { color: #9ad4ff; font-family: ui-monospace, monospace; font-size: 0.68rem; }

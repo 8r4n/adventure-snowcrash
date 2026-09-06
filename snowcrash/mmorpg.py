@@ -1706,6 +1706,10 @@ class GameWorld(YearFeaturesMixin):
             agent.log("No such item.")
             return
         item = inv[idx]
+        # StreetNet Primer (#60) — quest tablet opens teaching panel
+        if hasattr(self, "_primer_try_use_item") and self._primer_try_use_item(agent, item):
+            agent.mode = "play"
+            return
         if item.kind == "quest":
             agent.log("Quest items can't be 'used' here — deliver to the uplink.")
             return

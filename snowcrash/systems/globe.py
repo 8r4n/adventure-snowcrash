@@ -436,6 +436,8 @@ class GlobeMixin:
             "Uplink hop complete — sleeved into %s%s. Cooldown %.0fs."
             % (name, paid, self.globe_teleport_cooldown)
         )
+        if hasattr(self, "_primer_note_progress"):
+            self._primer_note_progress(agent, "globe_hop", 1)
         agent.sfx("uplink")
         if hasattr(self, "system_chat"):
             self.system_chat("%s uplink-hopped to %s." % (agent.name, name))
