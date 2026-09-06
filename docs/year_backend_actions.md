@@ -36,8 +36,12 @@
 | `contest_patrol` / `crew_contest` | — (need crew) | #50 |
 | `hardcore` / `soft_hardcore` / `hardcore_on` / `hardcore_off` | on\|off | #49 |
 | `pay_hardcore_debt` / `hardcore_debt` | — | #49 |
+| `globe` / `open_globe` / `globe_status` | — | #54 |
+| `teleport` / `tp` / `uplink_hop` | region_id | #54 |
+| `globe_recall` / `recall` | — | #54 |
+| `globe_failsafe` | — | #54 |
 
-Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [ice-heists.md](ice-heists.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md).
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [ice-heists.md](ice-heists.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md), [globe.md](globe.md).
 
 ## Snapshot fields
-`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `ice_heist` (vault layers / omen / AI stub), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress), `heat` (meter / shed / patrol), `corp_patrol` (patrol card), `soft_hardcore`, `death_cause`
+`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `ice_heist` (vault layers / omen / AI stub), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress), `heat` (meter / shed / patrol), `corp_patrol` (patrol card), `soft_hardcore`, `death_cause`, `globe` (region / Earth pins / cooldown / news_geo_hook)

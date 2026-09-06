@@ -744,11 +744,18 @@ class GameWorld(YearFeaturesMixin):
         return True
 
     def _all_actors(self) -> List[Actor]:
+        rid = getattr(self, "_globe_ctx_region", None)
+        if rid is None and hasattr(self, "globe_home_id"):
+            rid = self.globe_home_id
         out = list(self.npcs_enemies)
         for p in self.players.values():
             # Disconnected bodies stay at last_good coords but do not block tiles
-            if p.connected:
-                out.append(p.actor)
+            if not p.connected:
+                continue
+            if rid is not None and hasattr(self, "_globe_agent_region"):
+                if self._globe_agent_region(p) != rid:
+                    continue
+            out.append(p.actor)
         return out
 
     def actor_at(
@@ -885,6 +892,14 @@ class GameWorld(YearFeaturesMixin):
 
     # ---- FOV ----
     def update_fov(self, agent: PlayerAgent) -> None:
+        bind = getattr(self, "_globe_bind", None)
+        if callable(bind) and hasattr(self, "_globe_agent_region"):
+            with bind(self._globe_agent_region(agent)):
+                self._update_fov_bound(agent)
+            return
+        self._update_fov_bound(agent)
+
+    def _update_fov_bound(self, agent: PlayerAgent) -> None:
         z = int(getattr(agent.actor, "z", 0) or 0)
         self._bind_agent_fog(agent, z)
         gmap = self.plane_map(z)
@@ -1180,6 +1195,33 @@ class GameWorld(YearFeaturesMixin):
         living = [p for p in self.players.values() if p.connected and p.actor.alive and p.actor.x >= 0]
         if not living:
             return
+        # Globe (#54): tick AI per active region shard (interest streaming)
+        if hasattr(self, "_globe_enemy_tick_all"):
+            self._globe_enemy_tick_all()
+        else:
+            self._enemy_tick_region()
+        self.tick += 1
+        # light focus regen for connected players
+        if self.tick % 3 == 0:
+            for p in living:
+                p.actor.restore_focus(1)
+        for p in living:
+            self.update_fov(p)
+            self.check_win(p)
+        self.year_tick()
+
+    def _enemy_tick_region(self) -> None:
+        """AI step for whatever region pack is currently bound."""
+        rid = getattr(self, "_globe_ctx_region", getattr(self, "globe_home_id", None))
+        living = [
+            p for p in self.players.values()
+            if p.connected and p.actor.alive and p.actor.x >= 0
+            and (
+                rid is None
+                or not hasattr(self, "_globe_agent_region")
+                or self._globe_agent_region(p) == rid
+            )
+        ]
 
         def _wander(a: Actor, az: int) -> None:
             opts = [(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)]
@@ -1255,17 +1297,17 @@ class GameWorld(YearFeaturesMixin):
                     a.x, a.y = nx, ny
             else:
                 _wander(a, az)
-        self.tick += 1
-        # light focus regen for connected players
-        if self.tick % 3 == 0:
-            for p in living:
-                p.actor.restore_focus(1)
-        for p in living:
-            self.update_fov(p)
-            self.check_win(p)
-        self.year_tick()
+
 
     def check_win(self, agent: PlayerAgent) -> None:
+        bind = getattr(self, "_globe_bind", None)
+        if callable(bind) and hasattr(self, "_globe_agent_region"):
+            with bind(self._globe_agent_region(agent)):
+                self._check_win_bound(agent)
+            return
+        self._check_win_bound(agent)
+
+    def _check_win_bound(self, agent: PlayerAgent) -> None:
         if agent.won or agent.lost:
             return
         if int(getattr(agent.actor, "z", 0) or 0) != C.PLANE_STREET:
@@ -1292,6 +1334,14 @@ class GameWorld(YearFeaturesMixin):
 
     # ---- Actions ----
     def handle_action(self, agent: PlayerAgent, action: str, arg: Optional[str] = None) -> None:
+        bind = getattr(self, "_globe_bind", None)
+        if callable(bind) and hasattr(self, "_globe_agent_region"):
+            with bind(self._globe_agent_region(agent)):
+                self._handle_action_bound(agent, action, arg)
+            return
+        self._handle_action_bound(agent, action, arg)
+
+    def _handle_action_bound(self, agent: PlayerAgent, action: str, arg: Optional[str] = None) -> None:
         action = (action or "").strip()
         now = time.time()
         if action not in ("noop", "look", "?", "help", "escape", "Esc", "i", "inventory"):
@@ -1810,8 +1860,16 @@ class GameWorld(YearFeaturesMixin):
 
     # ---- Rendering / snapshot ----
     def render_ascii_for(self, agent: PlayerAgent) -> List[str]:
+        bind = getattr(self, "_globe_bind", None)
+        if callable(bind) and hasattr(self, "_globe_agent_region"):
+            with bind(self._globe_agent_region(agent)):
+                return self._render_ascii_bound(agent)
+        return self._render_ascii_bound(agent)
+
+    def _render_ascii_bound(self, agent: PlayerAgent) -> List[str]:
         z = int(getattr(agent.actor, "z", 0) or 0)
         gmap = self.plane_map(z)
+        my_rid = self._globe_agent_region(agent) if hasattr(self, "_globe_agent_region") else None
         overlay: Dict[Tuple[int, int], str] = {}
         for fi in self.floor_items:
             if int(getattr(fi, "z", 0) or 0) != z:
@@ -1824,6 +1882,8 @@ class GameWorld(YearFeaturesMixin):
             if not p.connected or p.actor.x < 0 or not p.actor.alive:
                 continue
             if p.id == agent.id:
+                continue
+            if my_rid is not None and self._globe_agent_region(p) != my_rid:
                 continue
             if int(getattr(p.actor, "z", 0) or 0) != z:
                 continue
@@ -1875,17 +1935,27 @@ class GameWorld(YearFeaturesMixin):
         return lines[-24:]
 
     def snapshot(self, agent: PlayerAgent) -> Dict[str, Any]:
+        bind = getattr(self, "_globe_bind", None)
+        if callable(bind) and hasattr(self, "_globe_agent_region"):
+            with bind(self._globe_agent_region(agent)):
+                return self._snapshot_bound(agent)
+        return self._snapshot_bound(agent)
+
+    def _snapshot_bound(self, agent: PlayerAgent) -> Dict[str, Any]:
         p = agent.actor
         sfx_events = list(agent.pending_sfx)
         agent.pending_sfx.clear()
         cutscene_events = list(agent.pending_cutscenes)
         agent.pending_cutscenes.clear()
 
+        my_rid = self._globe_agent_region(agent) if hasattr(self, "_globe_agent_region") else None
         players_list = []
         for other in self.players.values():
             if not other.connected and other.actor.x < 0:
                 continue
             if not other.connected:
+                continue
+            if my_rid is not None and self._globe_agent_region(other) != my_rid:
                 continue
             oz = int(getattr(other.actor, "z", 0) or 0)
             players_list.append(

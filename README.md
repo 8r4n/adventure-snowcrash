@@ -241,6 +241,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Neon Dash timed street race | [docs/neon-dash.md](docs/neon-dash.md) | #48 · parent #42 |
 | Corp patrol pressure (heat) | [docs/corp-patrol.md](docs/corp-patrol.md) | #50 · parent #42 |
 | Soft hardcore (opt-in death tax) | [docs/soft-hardcore.md](docs/soft-hardcore.md) | #49 · parent #42 |
+| Globe map + region teleport | [docs/globe.md](docs/globe.md) | #54 · parent #42 (slice; issue stays open) |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |

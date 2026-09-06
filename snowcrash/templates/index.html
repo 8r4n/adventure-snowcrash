@@ -76,6 +76,7 @@
         <button type="button" class="dock-btn" data-panel="season" title="Season pass">Pass</button>
         <button type="button" class="dock-btn" data-panel="raid" title="Raid lobby">Raid</button>
         <button type="button" class="dock-btn" data-panel="ice" title="ICE probes (z/x/c)">ICE</button>
+        <button type="button" class="dock-btn" data-panel="globe" title="Globe map / teleport (G)">Globe</button>
         <button type="button" id="btn-cyber-jack" class="dock-btn" title="Jack into cyberspace at J (j)" disabled>Jack</button>
         <button type="button" id="btn-collapse-irc" class="dock-btn" title="Collapse StreetNet">IRC</button>
       </div>
@@ -209,6 +210,11 @@
           <div id="ice-body" class="panel-body"></div>
         </details>
 
+        <details id="globe-panel" class="side-fold year-panel" data-panel="globe">
+          <summary>Globe / teleport</summary>
+          <div id="globe-body" class="panel-body"></div>
+        </details>
+
         <details id="raid-panel" class="side-fold year-panel" data-panel="raid">
           <summary>Raid lobby</summary>
           <div id="raid-body" class="panel-body"></div>
@@ -253,7 +259,7 @@
     <details id="legend-panel" class="legend-fold">
       <summary>Glyph key · controls</summary>
       <div id="legend"></div>
-      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>z</kbd>/<kbd>x</kbd>/<kbd>c</kbd> ICE Stun/Reveal/Scramble · <kbd>j</kbd> jack-in at J · <kbd>Shift+J</kbd> journal · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute · dock opens year panels</p>
+      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>z</kbd>/<kbd>x</kbd>/<kbd>c</kbd> ICE Stun/Reveal/Scramble · <kbd>j</kbd> jack-in at J · <kbd>Shift+J</kbd> journal · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute · dock opens year panels · <kbd>G</kbd> globe teleport</p>
     </details>
     <div id="log" class="log-slim"></div>
 

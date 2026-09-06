@@ -18,6 +18,7 @@ from ..entities import Actor, make_infected, make_thug
 from ..items import Item
 from .corp_patrol import CorpPatrolMixin
 from .cyberspace import CyberspaceMixin
+from .globe import GlobeMixin
 from .ice_heists import IceHeistMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
@@ -115,7 +116,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -145,6 +146,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         self._ice_heist_init()
         self._corp_patrol_init()
         self._soft_hardcore_init()
+        self._globe_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -197,6 +199,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         self._neon_dash_bootstrap_agent(agent)
         self._ice_heist_bootstrap_agent(agent)
         self._soft_hardcore_bootstrap_agent(agent)
+        self._globe_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -1014,6 +1017,16 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         ):
             return self._soft_hardcore_action(agent, a, arg or "")
 
+        if a in (
+            "globe", "open_globe", "map_globe", "earth", "gps_globe",
+            "globe_close", "close_globe",
+            "globe_status", "region_status", "where",
+            "teleport", "globe_teleport", "uplink_hop", "hop", "tp",
+            "globe_recall", "recall", "home_hop",
+            "globe_failsafe", "globe_rescue",
+        ):
+            return self._globe_action(agent, a, arg or "")
+
         return False
 
     def _near_vendor(self, agent) -> Optional[str]:
@@ -1593,6 +1606,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
             "heat": heat_snap,
             "corp_patrol": heat_snap.get("patrol"),
             "soft_hardcore": self._soft_hardcore_snapshot(agent),
+            "globe": self._globe_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 
