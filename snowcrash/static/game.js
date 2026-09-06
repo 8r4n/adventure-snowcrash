@@ -1179,6 +1179,7 @@
       iceBody: document.getElementById("ice-body"),
       globeBody: document.getElementById("globe-body"),
       sleevesBody: document.getElementById("sleeves-body"),
+      primerBody: document.getElementById("primer-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -2005,6 +2006,66 @@
         `<div class="row dim">${escapeHtml(defStr(sl.hint, "Hop shells at safehouse."))}</div>`;
     }
 
+
+    function renderPrimer(s) {
+      if (!els.primerBody) return;
+      const pr = defObj(s.primer);
+      const quests = defArr(pr.quests);
+      if (!quests.length) {
+        els.primerBody.innerHTML = '<div class="panel-empty">StreetNet Primer offline</div>';
+        els.primerBody.classList.remove("primer-body");
+        return;
+      }
+      els.primerBody.classList.add("primer-body");
+      const voice = defNum(pr.voice_level, defNum(pr.player_level, 1));
+      const done = defNum(pr.lessons_done, 0);
+      const total = defNum(pr.quest_count, quests.length);
+      const meta =
+        `<div class="primer-meta"><strong>StreetNet Primer</strong> · ` +
+        `<span class="primer-voice">voice Lv ${voice}</span> · lessons ${done}/${total}<br/>` +
+        `<span class="dim">${escapeHtml(defStr(pr.hint, "Adaptive chapters teach ICE, globe, crews."))}</span></div>`;
+      const list = quests.map((q) => {
+        const id = defStr(q.id, "");
+        const title = defStr(q.title, id);
+        const status = defStr(q.status, "locked");
+        const progress = defNum(q.progress, 0);
+        const goal = defNum(q.goal, 1);
+        const blurb = defStr(q.blurb, "");
+        const hint = defStr(q.hint, "");
+        const teaches = defStr(q.teaches, "");
+        const rew = defObj(q.reward);
+        const cos = defObj(rew.cosmetic);
+        const rewBits = [];
+        if (rew.credits) rewBits.push("+" + defNum(rew.credits, 0) + " cr");
+        if (cos.name) rewBits.push(defStr(cos.name, cos.id));
+        if (rew.skill_name) rewBits.push(defStr(rew.skill_name, rew.skill));
+        rewBits.push("no P2W");
+        let buttons = "";
+        if (status === "done") {
+          buttons = `<button type="button" disabled>Done</button>`;
+        } else if (status === "locked") {
+          buttons = `<button type="button" disabled>Lv ${defNum(q.min_level, 1)}</button>`;
+        } else if (status === "active") {
+          buttons = `<button type="button" data-primer-start="${escapeHtml(id)}">Active</button>`;
+        } else {
+          buttons = `<button type="button" data-primer-start="${escapeHtml(id)}">Start</button>`;
+        }
+        const cls = "row" + (status === "active" ? " active" : "") + (status === "done" ? " done" : "");
+        return (
+          `<div class="${cls}"><span><strong>${escapeHtml(title)}</strong> ` +
+          `<span class="dim">[${escapeHtml(status)}] ${progress}/${goal} · ${escapeHtml(teaches)}</span><br/>` +
+          `<span class="dim">${escapeHtml(blurb)}</span><br/>` +
+          `<span class="dim">${escapeHtml(hint)}</span><br/>` +
+          `<span class="dim">Reward: ${escapeHtml(rewBits.join(" · "))}</span></span>${buttons}</div>`
+        );
+      }).join("");
+      els.primerBody.innerHTML =
+        meta +
+        `<div class="primer-list">${list}</div>` +
+        `<div class="row"><button type="button" data-primer="open">Refresh</button>` +
+        `<button type="button" data-primer="close">Close</button></div>`;
+    }
+
     function renderIce(s) {
       if (!els.iceBody) return;
       const ice = defObj(s.ice);
@@ -2196,6 +2257,8 @@
         renderRaid(s);
         renderIce(s);
         renderGlobe(s);
+        renderSleeves(s);
+        renderPrimer(s);
         renderCyberHint(s);
         renderWishToy(s);
         styleLogFees(s);
@@ -2225,6 +2288,7 @@
           openPanel(pname);
           if (pname === "globe") send("globe");
           if (pname === "sleeves") send("sleeves");
+          if (pname === "primer") send("primer");
           Sound.play("click");
         });
       }
@@ -2316,6 +2380,22 @@
           if (v === "recall") send("globe_recall");
           else if (v === "open") send("globe");
           else send("globe_" + v);
+        }],
+      ]);
+      bindPanel(els.sleevesBody, [
+        ["data-sleeve-hop", (v) => send("sleeve", v)],
+        ["data-sleeve-rent", (v) => send("sleeve_rent", v)],
+        ["data-sleeve", (v) => {
+          if (v === "house") send("house");
+          else if (v === "status") send("sleeve_status");
+          else send("sleeves");
+        }],
+      ]);
+      bindPanel(els.primerBody, [
+        ["data-primer-start", (v) => send("primer_start", v)],
+        ["data-primer", (v) => {
+          if (v === "close") send("primer_close");
+          else send("primer");
         }],
       ]);
       if (els.npcCue) {
@@ -3009,8 +3089,16 @@
       return;
     }
 
-    // ICE probes (#46): z stun · x reveal · c scramble · p opens ICE dock
-    if (ev.key === "p" || ev.key === "P") {
+    // StreetNet Primer (#60): Shift+P opens teaching tablet
+    if (ev.key === "P" && ev.shiftKey) {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("primer");
+      send("primer");
+      return;
+    }
+
+    // ICE probes (#46): z stun · x reveal · c scramble · p opens ICE dock (Shift+P = Primer)
+    if (ev.key === "p") {
       ev.preventDefault();
       if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("ice");
       return;

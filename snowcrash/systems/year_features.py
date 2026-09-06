@@ -23,6 +23,7 @@ from .ice_heists import IceHeistMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
+from .primer import PrimerMixin
 from .sleeves import SleevesMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -117,7 +118,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -149,6 +150,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
         self._soft_hardcore_init()
         self._globe_init()
         self._sleeves_init()
+        self._primer_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -202,6 +204,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
         self._ice_heist_bootstrap_agent(agent)
         self._soft_hardcore_bootstrap_agent(agent)
         self._sleeves_bootstrap_agent(agent)
+        self._primer_bootstrap_agent(agent)
         self._globe_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
@@ -430,6 +433,9 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
         cds[pid] = now + float(defn["cooldown"])
         agent.ice_cooldowns = cds
         agent.sfx("pulse")
+        # StreetNet Primer teaching progress (#60)
+        if hasattr(self, "_primer_note_progress"):
+            self._primer_note_progress(agent, "ice_probe", 1)
 
         if pid == "stun":
             hit = targets[0]
@@ -668,6 +674,8 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
         agent.log("Skill pick available — action: skill_pick <id> (%s)" % ", ".join(SKILL_CATALOG))
         # Season XP
         self._grant_season_xp(agent, 15)
+        if hasattr(self, "_primer_on_level_up"):
+            self._primer_on_level_up(agent)
 
     def _sync_loadout_from_inventory(self, agent) -> None:
         loadout = {"weapon": None, "armor": None, "trinket": None}
@@ -1030,6 +1038,15 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
         ):
             return self._globe_action(agent, a, arg or "")
 
+
+        if a in (
+            "primer", "open_primer", "primer_panel", "streetnet_primer",
+            "primer_open", "use_primer", "primer_close", "close_primer",
+            "primer_status", "primer_list", "primer_start", "start_primer",
+            "primer_quest",
+        ):
+            return self._primer_action(agent, a, arg or "")
+
         if a in (
             "sleeves", "sleeve", "shell", "shells", "sleeve_panel", "open_sleeves",
             "avatar_hop", "sleeve_close", "close_sleeves",
@@ -1196,6 +1213,8 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
             if ch not in agent.irc_channels:
                 agent.irc_channels.append(ch)
             agent.log("Crew '%s' created (%s)." % (name, cid))
+            if hasattr(self, "_primer_note_progress"):
+                self._primer_note_progress(agent, "crew", 1)
             return True
         if action == "crew_join":
             cid = (arg or "").strip()
@@ -1210,6 +1229,8 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
             if ch not in agent.irc_channels:
                 agent.irc_channels.append(ch)
             agent.log("Joined crew %s." % crew["name"])
+            if hasattr(self, "_primer_note_progress"):
+                self._primer_note_progress(agent, "crew", 1)
             return True
         if action == "crew_leave":
             cid = agent.crew_id
@@ -1623,6 +1644,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Signal
             "soft_hardcore": self._soft_hardcore_snapshot(agent),
             "globe": self._globe_snapshot(agent),
             "sleeves": self._sleeves_snapshot(agent),
+            "primer": self._primer_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 
