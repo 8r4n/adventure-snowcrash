@@ -955,6 +955,12 @@ class GameWorld(YearFeaturesMixin):
     def _quest_objective(self, agent: PlayerAgent) -> Dict[str, Any]:
         """GTA/WoW-style active objective + compass toward jackpoint/uplink."""
         # Signal Keys (#45) may retarget compass when hunt engaged / payload done
+        # Active Canticle Pilgrimage (#61) owns compass while instance beats/finale run
+        pg_obj = getattr(self, "_pilgrimage_objective", None)
+        if callable(pg_obj):
+            alt = pg_obj(agent)
+            if alt:
+                return alt
         sk_obj = getattr(self, "_signal_keys_objective", None)
         if callable(sk_obj):
             alt = sk_obj(agent)
@@ -1033,6 +1039,9 @@ class GameWorld(YearFeaturesMixin):
         corp_marks = getattr(self, "_corp_patrol_landmarks", None)
         if callable(corp_marks):
             marks.extend(corp_marks())
+        pilgrim_marks = getattr(self, "_pilgrimage_landmarks", None)
+        if callable(pilgrim_marks):
+            marks.extend(pilgrim_marks())
         return marks
 
     def _grant_kill_rewards(self, agent: PlayerAgent, victim: Actor) -> None:
@@ -1374,6 +1383,11 @@ class GameWorld(YearFeaturesMixin):
                 self.update_fov(agent)
             return
 
+        if agent.mode == "pilgrimage":
+            if self._pilgrimage_handle_mode(agent, action):
+                self.update_fov(agent)
+            return
+
         if agent.mode in ("dead", "won"):
             if action in ("r", "restart", "respawn"):
                 if agent.mode == "dead" and hasattr(self, "_year_respawn"):
@@ -1553,6 +1567,9 @@ class GameWorld(YearFeaturesMixin):
         on_dash = getattr(self, "_neon_dash_on_move", None)
         if callable(on_dash) and z == C.PLANE_STREET:
             on_dash(agent)
+        on_pilgrim = getattr(self, "_pilgrimage_on_move", None)
+        if callable(on_pilgrim) and z == C.PLANE_STREET:
+            on_pilgrim(agent)
         tile = gmap.tiles[py][px]
         if tile == C.DOOR:
             agent.sfx("door")
@@ -1597,6 +1614,9 @@ class GameWorld(YearFeaturesMixin):
                     on_dash = getattr(self, "_neon_dash_on_move", None)
                     if callable(on_dash) and z == C.PLANE_STREET:
                         on_dash(agent)
+                    on_pilgrim = getattr(self, "_pilgrimage_on_move", None)
+                    if callable(on_pilgrim) and z == C.PLANE_STREET:
+                        on_pilgrim(agent)
                     if agent.haste_steps == 0:
                         agent.log("Haste fades.")
         self.update_fov(agent)

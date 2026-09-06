@@ -21,6 +21,7 @@ from .cyberspace import CyberspaceMixin
 from .globe import GlobeMixin
 from .ice_heists import IceHeistMixin
 from .neon_dash import NeonDashMixin
+from .pilgrimage import PilgrimageMixin
 from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
 from .jaunte import JaunteMixin
@@ -122,7 +123,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -149,6 +150,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._seed_ice_cameras()
         self._signal_keys_init()
         self._neon_dash_init()
+        self._pilgrimage_init()
         self._ice_heist_init()
         self._corp_patrol_init()
         self._soft_hardcore_init()
@@ -208,6 +210,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             agent.cyber = {"active": False}
         self._signal_keys_bootstrap_agent(agent)
         self._neon_dash_bootstrap_agent(agent)
+        self._pilgrimage_bootstrap_agent(agent)
         self._ice_heist_bootstrap_agent(agent)
         self._soft_hardcore_bootstrap_agent(agent)
         self._sleeves_bootstrap_agent(agent)
@@ -1051,6 +1054,20 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             return self._neon_dash_action(agent, a, arg or "")
 
         if a in (
+            "pilgrimage", "pilgrim", "pilgrim_status", "pilgrimage_status", "canticle_status",
+            "pilgrimage_open", "pilgrim_lobby", "open_pilgrimage", "canticle_lobby",
+            "pilgrimage_join", "join_pilgrimage", "pilgrim_join",
+            "pilgrimage_leave", "leave_pilgrimage", "pilgrim_leave", "exit_pilgrimage",
+            "pilgrimage_ready", "pilgrim_ready", "pilgrimage_unready", "pilgrim_unready",
+            "pilgrimage_start", "start_pilgrimage", "canticle_start",
+            "pilgrim_complete", "complete_beat", "seal_canticle", "pilgrimage_beat", "complete_pilgrim",
+            "enter_pilgrimage", "pilgrim_finale", "canticle_finale", "enter_spire", "canticle_spire",
+            "leave_spire", "exit_spire",
+            "pilgrimage_force", "force_pilgrimage",
+        ):
+            return self._pilgrimage_action(agent, a, arg or "")
+
+        if a in (
             "heat", "heat_status", "corp_heat",
             "contest_patrol", "patrol_contest", "crew_contest",
             "corp_patrol", "patrol_status",
@@ -1059,6 +1076,9 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             return self._corp_patrol_action(agent, a, arg or "")
         if getattr(agent, "mode", None) == "flotilla":
             if self._signal_keys_handle_mode(agent, a):
+                return True
+        if getattr(agent, "mode", None) == "pilgrimage":
+            if self._pilgrimage_handle_mode(agent, a):
                 return True
         if a in ("ice_probe", "probe", "ice"):
             return self._ice_probe_action(agent, arg or "")
@@ -1727,6 +1747,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "ice_heist": self._ice_heist_snapshot(agent),
             "signal_keys": self._signal_keys_snapshot(agent),
             "neon_dash": self._neon_dash_snapshot(agent),
+            "pilgrimage": self._pilgrimage_snapshot(agent),
             "heat": heat_snap,
             "corp_patrol": heat_snap.get("patrol"),
             "soft_hardcore": self._soft_hardcore_snapshot(agent),
