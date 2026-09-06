@@ -24,6 +24,7 @@ from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
 from .jaunte import JaunteMixin
+from .empathy import EmpathyMixin
 from .primer import PrimerMixin
 from .sleeves import SleevesMixin
 
@@ -120,7 +121,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -154,6 +155,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._sleeves_init()
         self._primer_init()
         self._jaunte_init()
+        self._empathy_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -210,6 +212,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._primer_bootstrap_agent(agent)
         self._globe_bootstrap_agent(agent)
         self._jaunte_bootstrap_agent(agent)
+        self._empathy_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -1094,6 +1097,21 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         ):
             return self._jaunte_action(agent, a, arg or "")
 
+        if a in (
+            "empathy", "empathy_panel", "open_empathy", "audit_panel",
+            "bounty_board", "synth_bounty", "bounties",
+            "empathy_close", "close_empathy",
+            "empathy_audit", "audit", "start_audit", "empathy_test",
+            "empathy_answer", "audit_answer", "answer_audit",
+            "empathy_status", "audit_status", "bounty_status",
+            "bounty_accept", "accept_bounty", "synth_accept",
+            "bounty_reclaim", "reclaim_synth", "empathy_bind", "synth_bind",
+            "bounty_turnin", "turnin_bounty", "synth_turnin",
+            "bounty_abandon", "abandon_bounty",
+            "bounty_list", "list_bounties",
+        ):
+            return self._empathy_action(agent, a, arg or "")
+
         return False
 
     def _near_vendor(self, agent) -> Optional[str]:
@@ -1681,12 +1699,15 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "sleeves": self._sleeves_snapshot(agent),
             "primer": self._primer_snapshot(agent),
             "jaunte": self._jaunte_snapshot(agent),
+            "empathy": self._empathy_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:
         self._year_bootstrap_agent(agent)
         self._heat_on_kill(agent, victim)
+        if hasattr(self, "_empathy_on_kill"):
+            self._empathy_on_kill(agent, victim)
         if "thug" in (victim.name or "").lower() or victim.glyph == C.ENEMY_THUG:
             self._contract_progress(agent, "kills_thug", 1)
         self._grant_season_xp(agent, 2)

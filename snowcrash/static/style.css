@@ -2038,3 +2038,16 @@ header.topbar .panel-dock {
     max-height: none; /* #side remains the single scroll owner on narrow */
   }
 }
+
+/* Empathy audit + synth bounty board (#63) */
+.year-panel .panel-body.empathy-body { max-height: 20rem; }
+.empathy-meta { margin-bottom: 0.45rem; line-height: 1.35; }
+.empathy-audit { margin: 0.35rem 0 0.55rem; padding: 0.4rem 0.45rem; border: 1px solid rgba(57, 197, 207, 0.35); border-radius: 6px; background: rgba(10, 24, 36, 0.55); }
+.empathy-audit.active { border-color: rgba(255, 42, 109, 0.45); box-shadow: 0 0 12px rgba(255, 42, 109, 0.15); }
+.empathy-q { margin-bottom: 0.4rem; font-size: 0.92rem; }
+.empathy-choices { display: flex; flex-direction: column; gap: 0.3rem; }
+.empathy-choices button { text-align: left; white-space: normal; line-height: 1.25; }
+.empathy-board { margin-top: 0.35rem; }
+.empathy-board .row { align-items: flex-start; gap: 0.4rem; }
+.empathy-board .row.ready { border-left: 2px solid var(--ok, #3dd68c); padding-left: 0.35rem; }
+.empathy-btns { display: flex; flex-direction: column; gap: 0.25rem; flex-shrink: 0; }

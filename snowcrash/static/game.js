@@ -1182,6 +1182,7 @@
       sleevesBody: document.getElementById("sleeves-body"),
       primerBody: document.getElementById("primer-body"),
       jaunteBody: document.getElementById("jaunte-body"),
+      empathyBody: document.getElementById("empathy-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -1215,6 +1216,7 @@
     let lastEventSig = "";
     let lastKillSig = "";
     let lastJaunteFbSig = "";
+    let lastEmpathyFbSig = "";
   let lastWishSig = "";
     let lastSkillOpen = false;
     let lastDead = false;
@@ -2142,6 +2144,103 @@
         `<button type="button" data-jaunte="status">Status</button>` +
         `<button type="button" data-jaunte="close">Close</button></div>`;
     }
+
+    function renderEmpathy(s) {
+      if (!els.empathyBody) return;
+      const em = defObj(s.empathy);
+      if (!em || (em.bounties == null && em.hint == null && !em.question)) {
+        els.empathyBody.innerHTML = '<div class="panel-empty">Empathy lattice offline</div>';
+        els.empathyBody.classList.remove("empathy-body");
+        return;
+      }
+      els.empathyBody.classList.add("empathy-body");
+      const last = defStr(em.last_result, "none");
+      const passed = !!em.passed_once;
+      const cd = defNum(em.cooldown, 0);
+      const fb = defObj(em.last_feedback);
+      const fbText = defStr(fb.text, "");
+      const fbKind = defStr(fb.kind, "");
+      if (fbText) {
+        const sig = fbText + "|" + defNum(fb.t, 0);
+        if (sig !== lastEmpathyFbSig) {
+          lastEmpathyFbSig = sig;
+          const toastKind =
+            fbKind === "fail" ? "warn"
+            : fbKind === "pass" || fbKind === "bounty" ? "jaunte"
+            : "info";
+          toast(fbText, toastKind, 4200);
+        }
+      }
+      let auditBlock = "";
+      const q = defObj(em.question);
+      if (em.audit_active && q.prompt) {
+        const choices = defArr(q.choices).map((c) => {
+          const id = defStr(c.id, "");
+          return `<button type="button" data-empathy-answer="${escapeHtml(id)}">[${escapeHtml(id)}] ${escapeHtml(defStr(c.text, ""))}</button>`;
+        }).join("");
+        auditBlock =
+          `<div class="empathy-audit active">` +
+          `<div class="empathy-q"><strong>Audit ${defNum(q.index, 1)}/${defNum(q.total, 3)}</strong><br/>` +
+          `${escapeHtml(defStr(q.prompt, ""))}</div>` +
+          `<div class="empathy-choices">${choices}</div></div>`;
+      } else {
+        const cdNote = cd > 0 ? ` · cooldown ${Math.ceil(cd)}s` : "";
+        auditBlock =
+          `<div class="empathy-audit">` +
+          `<div class="row"><span>Last audit: <strong>${escapeHtml(last)}</strong>` +
+          ` · passes ${defNum(em.pass_count, 0)} / fails ${defNum(em.fail_count, 0)}` +
+          (passed ? " · lattice warm" : " · optional") +
+          `${cdNote}</span>` +
+          `<button type="button" data-empathy="audit">Start audit</button></div></div>`;
+      }
+      const bounties = defArr(em.bounties);
+      const list = bounties.length
+        ? bounties.map((b) => {
+            const id = defStr(b.id, "");
+            const typ = defStr(b.type, "");
+            const status = defStr(b.status, "available");
+            const name = defStr(b.name, typ);
+            const desc = defStr(b.desc, "");
+            const hint = defStr(b.hint, "");
+            const dist = b.dist != null ? ` · dist ${defNum(b.dist, 0)}` : "";
+            const tgt = b.target_name ? ` · ${escapeHtml(defStr(b.target_name, ""))}` : "";
+            let buttons = "";
+            if (status === "available") {
+              buttons = `<button type="button" data-bounty-accept="${escapeHtml(typ)}">Accept</button>`;
+            } else if (status === "active") {
+              if (typ === "reclaim") {
+                buttons =
+                  `<button type="button" data-empathy="reclaim">Bind</button>` +
+                  `<button type="button" data-empathy="abandon">Abandon</button>`;
+              } else {
+                buttons = `<button type="button" data-empathy="abandon">Abandon</button>`;
+              }
+            } else if (status === "ready") {
+              buttons = `<button type="button" data-bounty-turnin="${escapeHtml(typ)}">Turn in</button>`;
+            } else {
+              buttons = `<button type="button" disabled>Done</button>`;
+            }
+            const cls = "row" + (status === "active" ? " active" : "") + (status === "ready" ? " ready" : "");
+            return (
+              `<div class="${cls}"><span><strong>${escapeHtml(name)}</strong> ` +
+              `<span class="dim">[${escapeHtml(status)}]${tgt}${dist}</span><br/>` +
+              `<span class="dim">${escapeHtml(desc)}</span><br/>` +
+              `<span class="dim">+${defNum(b.reward_credits, 0)} cr · +${defNum(b.reward_rep, 0)} rep · ${escapeHtml(hint)}</span></span>` +
+              `<span class="empathy-btns">${buttons}</span></div>`
+            );
+          }).join("")
+        : '<div class="panel-empty">No synth bounties posted</div>';
+      const glyph = escapeHtml(defStr(em.synth_glyph, "σ"));
+      els.empathyBody.innerHTML =
+        `<div class="empathy-meta"><strong>StreetNet Empathy Lattice</strong> · glyph ${glyph}<br/>` +
+        `<span class="dim">${escapeHtml(defStr(em.hint, ""))}</span></div>` +
+        auditBlock +
+        `<div class="empathy-board"><strong>Rogue synth bounty board</strong>${list}</div>` +
+        `<div class="row"><button type="button" data-empathy="open">Refresh</button>` +
+        `<button type="button" data-empathy="status">Status</button>` +
+        `<button type="button" data-empathy="close">Close</button></div>`;
+    }
+
 
     function renderIce(s) {
       if (!els.iceBody) return;
@@ -3236,6 +3335,14 @@
       ev.preventDefault();
       if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("jaunte");
       send("jaunte");
+      return;
+    }
+
+    // Empathy audit + synth bounties (#63): Shift+E opens empathy panel
+    if (ev.key === "E" && ev.shiftKey) {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("empathy");
+      send("empathy");
       return;
     }
 
