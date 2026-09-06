@@ -1903,6 +1903,16 @@
       els.analytics.textContent = bits.join(" · ");
     }
 
+    function renderCyberHint(s) {
+      const cyber = defObj(s.cyberspace);
+      if (!els.journalBody) return;
+      // Soft banner via journal notes if present
+      if (s.mode === "cyberspace" && cyber.active) {
+        /* overlay handles primary UX */
+        return;
+      }
+    }
+
     function apply(s) {
       if (!s) return;
       try {
@@ -1926,6 +1936,7 @@
         renderSeason(s);
         renderRaid(s);
         renderIce(s);
+        renderCyberHint(s);
         renderWishToy(s);
         styleLogFees(s);
         renderAnalytics(s);
@@ -2488,6 +2499,15 @@
     } else if (s.mode === "inventory") {
       invMode = true;
       overlay.classList.add("hidden");
+    } else if (s.mode === "cyberspace") {
+      invMode = false;
+      const cyber = s.cyberspace || {};
+      const rows = cyber.map || s.map || [];
+      const body = Array.isArray(rows) ? rows.join("\n") : String(rows);
+      const hint = cyber.hint || "Cyberspace node — grab loot, exit X, Esc jack_out.";
+      const nt = cyber.node_type || "node";
+      overlay.classList.remove("hidden");
+      overlay.innerHTML = `<div class="box cyber-box"><div class="cyber-title">CYBERSPACE · ${escapeHtml(nt)}</div><pre class="cyber-map">${escapeHtml(body)}</pre><div class="dim">${escapeHtml(hint)}</div><div class="dim">Esc / jack_out · ice_probe stun|reveal melts I</div></div>`;
     } else {
       invMode = false;
       overlay.classList.add("hidden");
@@ -2506,6 +2526,7 @@
 
   // 8-way relative (WASD + chords) · Q/E turn · t/b/[ /] plane shift
   const KEYMAP = {
+    j: "jack_in",
     q: "turn_left",
     ArrowLeft: "turn_left",
     e: "turn_right",
