@@ -1182,6 +1182,17 @@
       duelBanner: document.getElementById("duel-banner"),
       duelModal: document.getElementById("duel-modal"),
       duelText: document.getElementById("duel-text"),
+      heatHud: document.getElementById("heat-hud"),
+      heatBar: document.getElementById("heat-bar"),
+      heatSpawnMark: document.getElementById("heat-spawn-mark"),
+      heatValue: document.getElementById("heat-value"),
+      heatTier: document.getElementById("heat-tier"),
+      heatHint: document.getElementById("heat-hint"),
+      corpBanner: document.getElementById("corp-patrol-banner"),
+      corpName: document.getElementById("corp-patrol-name"),
+      corpMeta: document.getElementById("corp-patrol-meta"),
+      corpTip: document.getElementById("corp-patrol-tip"),
+      btnContestPatrol: document.getElementById("btn-contest-patrol"),
       theater: document.getElementById("theater-mode"),
       theaterTitle: document.getElementById("theater-title"),
       theaterStage: document.getElementById("theater-stage"),
@@ -1932,6 +1943,88 @@
       els.analytics.textContent = bits.join(" · ");
     }
 
+    function renderHeatCorp(s) {
+      const heat = defObj(s.heat);
+      const patrol = defObj(s.corp_patrol || heat.patrol);
+      const hasHeat = heat.value != null || heat.max != null || heat.tier;
+      if (els.heatHud) {
+        if (!hasHeat) {
+          els.heatHud.hidden = true;
+        } else {
+          els.heatHud.hidden = false;
+          const val = defNum(heat.value, 0);
+          const max = Math.max(1, defNum(heat.max, 100));
+          const tier = defStr(heat.tier, "cool");
+          const pct = Math.max(0, Math.min(100, (val / max) * 100));
+          const spawnAt = defNum(heat.spawn_threshold, 55);
+          if (els.heatBar) els.heatBar.style.width = pct + "%";
+          if (els.heatSpawnMark) {
+            els.heatSpawnMark.style.left = Math.max(0, Math.min(100, (spawnAt / max) * 100)) + "%";
+          }
+          if (els.heatValue) els.heatValue.textContent = String(Math.round(val)) + "/" + String(max);
+          if (els.heatTier) els.heatTier.textContent = tier;
+          els.heatHud.className = "heat-hud tier-" + tier.replace(/[^a-z]/gi, "");
+          const hints = [];
+          const shed = defNum(heat.shed_per_tick, 0);
+          if (heat.crew_shed_bonus) {
+            hints.push('<span class="ok">Crew safehouse shed −' + shed + '/tick</span>');
+          } else if (heat.in_safehouse) {
+            hints.push('<span class="ok">Safehouse cool −' + shed + '/tick</span>');
+          } else if (shed > 0) {
+            hints.push("Street decay −" + shed + "/tick");
+          }
+          const hunting = !!(patrol.corp_name || patrol.units_alive);
+          if (hunting) {
+            if (patrol.contested) {
+              hints.push('<span class="warn">Contested · flatline C units</span>');
+            } else {
+              hints.push('<span class="hot">Patrol live · contest_patrol or house</span>');
+            }
+          } else if (val >= spawnAt) {
+            hints.push('<span class="hot">Heat ≥' + spawnAt + ' — patrol imminent</span>');
+          } else if (val >= Math.max(20, spawnAt - 20)) {
+            hints.push("Cool below " + defNum(heat.despawn_threshold, 22) + " or duck into a safehouse");
+          }
+          if (els.heatHint) els.heatHint.innerHTML = hints.join(" · ");
+        }
+      }
+
+      if (!els.corpBanner) return;
+      const alive = defNum(patrol.units_alive, 0);
+      const active = !!(patrol.corp_name || patrol.corp_short) && alive > 0;
+      if (!active) {
+        els.corpBanner.classList.add("hidden");
+        return;
+      }
+      els.corpBanner.classList.remove("hidden");
+      els.corpBanner.classList.toggle("contested", !!patrol.contested);
+      const name = defStr(patrol.corp_name || patrol.corp_short, "Corp patrol");
+      if (els.corpName) {
+        els.corpName.textContent = (patrol.contested ? "CONTESTED · " : "HUNT · ") + name;
+      }
+      const hunters = alive + "/" + Math.max(alive, defNum(patrol.unit_count, alive));
+      const targetBit = patrol.hunting_you
+        ? "hunting you"
+        : ("hunting " + defStr(patrol.target_name, "courier"));
+      if (els.corpMeta) {
+        els.corpMeta.textContent = hunters + " hunters · " + targetBit +
+          (patrol.contest_crew_name ? " · crew " + patrol.contest_crew_name : "");
+      }
+      let tip = "Flatline glyph C units or cool in a safehouse (house).";
+      if (patrol.contested) {
+        tip = "Crew contest on — bonus heat shed when units fall.";
+      } else if (patrol.hunting_you) {
+        tip = "Crew: contest_patrol · Solo: fight C units or house to cool.";
+      } else {
+        tip = "Nearby hunt — contest_patrol if your crew is marked.";
+      }
+      if (els.corpTip) els.corpTip.textContent = tip;
+      if (els.btnContestPatrol) {
+        const showBtn = !patrol.contested;
+        els.btnContestPatrol.classList.toggle("hidden", !showBtn);
+      }
+    }
+
     function renderCyberHint(s) {
       const cyber = defObj(s.cyberspace);
       const btn = document.getElementById("btn-cyber-jack");
@@ -1970,6 +2063,7 @@
         renderCrew(s);
         renderContracts(s);
         renderPvp(s);
+        renderHeatCorp(s);
         renderTheater(s);
         renderSeason(s);
         renderRaid(s);
@@ -2025,6 +2119,13 @@
         els.btnRespawnDefault.addEventListener("click", () => {
           send("r");
           Sound.play("click");
+        });
+      }
+      if (els.btnContestPatrol) {
+        els.btnContestPatrol.addEventListener("click", () => {
+          send("contest_patrol");
+          Sound.play("click");
+          toast("Contesting corp patrol…", "party", 2500);
         });
       }
       if (els.respawnOptions) {
@@ -2495,10 +2596,16 @@
     const xpNext = s.xp_next != null ? s.xp_next : 40;
     const credits = s.credits != null ? s.credits : 0;
     if (statsEl) {
+      const ice = (s.ice && typeof s.ice === "object") ? s.ice : {};
+      const focus = ice.focus != null ? ice.focus : (p.focus != null ? p.focus : (s.focus != null ? s.focus : null));
+      const maxFocus = ice.max_focus != null ? ice.max_focus : (p.max_focus != null ? p.max_focus : (s.max_focus != null ? s.max_focus : null));
+      const focusBit = (focus != null && maxFocus != null)
+        ? ` · <span class="focus">Focus ${focus}/${maxFocus}</span>`
+        : "";
       statsEl.innerHTML = `
       <div class="obj">${obj ? escapeHtml(obj.compass + " " + obj.bearing + " · " + obj.text + (obj.dist != null ? " (" + obj.dist + ")" : "")) : "—"}</div>
       <div><strong>${escapeHtml(p.name)}</strong> <span style="color:${escapeHtml(p.color || "#39c5cf")}">[${escapeHtml(p.glyph || "@")}]</span>
-        · Lv ${lv} · <span class="hp">${p.hp}/${p.max_hp}</span></div>
+        · Lv ${lv} · <span class="hp">${p.hp}/${p.max_hp}</span>${focusBit}</div>
       <div class="row">XP ${xp}/${xpNext} · $${credits} · Atk ${p.attack} Def ${p.defense} Hack ${p.hack}
         ${p.has_payload ? ' · <span class="ok">PAYLOAD</span>' : ""}</div>
     `;

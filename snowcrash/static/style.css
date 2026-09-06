@@ -1208,14 +1208,18 @@ body:not(.intro-active) {
 }
 .event-ticker[hidden] { display: none !important; }
 .toast-stack {
+  /* Left column under kill-feed — avoid covering sticky HP/Focus in #side */
   position: fixed;
-  top: 3.2rem;
-  right: 0.75rem;
+  top: 8.6rem;
+  left: 0.75rem;
+  right: auto;
   z-index: 50;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-width: min(320px, 90vw);
+  max-width: min(280px, 55vw);
+  max-height: 36vh;
+  overflow: hidden;
   pointer-events: none;
 }
 .toast {
@@ -1544,6 +1548,153 @@ body:not(.intro-active) {
 }
 .duel-banner.hidden { display: none !important; }
 
+/* Heat meter + corp patrol HUD (#50 frontend) */
+.heat-hud {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  margin: 0.15rem 0 0.35rem;
+  padding: 0.35rem 0.4rem;
+  background: rgba(18, 8, 10, 0.55);
+  border: 1px solid rgba(255, 42, 109, 0.28);
+  border-radius: 6px;
+}
+.heat-hud[hidden] { display: none !important; }
+.heat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.heat-label {
+  letter-spacing: 0.14em;
+  color: #ff7b72;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.heat-bar-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  height: 8px;
+  background: #1a0a12;
+  border: 1px solid #5a1a33;
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 4rem;
+}
+.heat-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #f0b429, #ff7b72 55%, #ff2a6d);
+  box-shadow: 0 0 8px rgba(255, 42, 109, 0.4);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.heat-hud.tier-cool .heat-bar { background: linear-gradient(90deg, #3dd68c, #39c5cf); box-shadow: none; }
+.heat-hud.tier-warm .heat-bar { background: linear-gradient(90deg, #f0b429, #ff9f43); }
+.heat-hud.tier-hot .heat-bar { background: linear-gradient(90deg, #ff7b72, #ff2a6d); }
+.heat-hud.tier-burning .heat-bar {
+  background: linear-gradient(90deg, #ff2a6d, #f0b429, #ff2a6d);
+  background-size: 200% 100%;
+  animation: heatPulse 1.1s linear infinite;
+}
+@keyframes heatPulse {
+  from { background-position: 0% 0; }
+  to { background-position: 200% 0; }
+}
+.heat-spawn-mark {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+.heat-value { color: #e6edf3; font-variant-numeric: tabular-nums; min-width: 2.2rem; text-align: right; }
+.heat-tier {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.58rem;
+  color: #ff7b72;
+  min-width: 3.4rem;
+}
+.heat-hud.tier-cool .heat-tier { color: #3dd68c; }
+.heat-hud.tier-warm .heat-tier { color: #f0b429; }
+.heat-hud.tier-hot .heat-tier,
+.heat-hud.tier-burning .heat-tier { color: #ff2a6d; }
+.heat-hint {
+  margin-top: 0.2rem;
+  color: #8b949e;
+  font-size: 0.6rem;
+  line-height: 1.35;
+}
+.heat-hint .ok { color: var(--ok); }
+.heat-hint .warn { color: var(--warn); }
+.heat-hint .hot { color: #ff2a6d; }
+
+.corp-patrol-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 0.55rem;
+  transform: translateX(-50%);
+  z-index: 7;
+  min-width: min(78%, 340px);
+  max-width: 92%;
+  text-align: center;
+  font-family: var(--mono);
+  pointer-events: none;
+  padding: 0.4rem 0.65rem 0.45rem;
+  background: rgba(18, 6, 12, 0.9);
+  border: 1px solid rgba(255, 42, 109, 0.55);
+  border-radius: 6px;
+  box-shadow: 0 0 18px rgba(255, 42, 109, 0.25);
+}
+.corp-patrol-banner.hidden { display: none !important; }
+.corp-patrol-banner.contested {
+  border-color: rgba(210, 168, 255, 0.65);
+  box-shadow: 0 0 18px rgba(210, 168, 255, 0.25);
+}
+.corp-patrol-banner .corp-name {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: #ff2a6d;
+  text-shadow: 0 0 8px rgba(255, 42, 109, 0.45);
+  text-transform: uppercase;
+}
+.corp-patrol-banner.contested .corp-name { color: #d2a8ff; text-shadow: 0 0 8px rgba(210, 168, 255, 0.45); }
+.corp-patrol-banner .corp-meta {
+  margin-top: 0.12rem;
+  font-size: 0.62rem;
+  color: #e6edf3;
+}
+.corp-patrol-banner .corp-tip {
+  margin-top: 0.15rem;
+  font-size: 0.58rem;
+  color: #f0b429;
+  line-height: 1.35;
+}
+.corp-patrol-banner .btn-contest {
+  pointer-events: auto;
+  margin-top: 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.55rem;
+  color: #0c1219;
+  background: #d2a8ff;
+  border: 1px solid #b388ef;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.corp-patrol-banner .btn-contest.hidden { display: none !important; }
+.corp-patrol-banner .btn-contest:hover { filter: brightness(1.08); }
+
+#app.declutter .heat-hud {
+  position: sticky;
+  top: 2.4rem;
+  z-index: 2;
+}
+
+
 /* Theater mode */
 .theater-mode {
   position: fixed;
@@ -1728,12 +1879,14 @@ body:not(.intro-active) {
     bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
   }
   .fpv-stage { min-height: 38vh; }
-  /* Toasts under topbar — do not cover sticky HP/Focus in #side or mobile HUD */
+  /* Toasts left under kill-feed — do not cover sticky HP/Focus in #side */
   .toast-stack {
-    top: calc(env(safe-area-inset-top, 0px) + 4.6rem);
+    top: calc(env(safe-area-inset-top, 0px) + 7.2rem);
     bottom: auto;
-    right: max(0.4rem, env(safe-area-inset-right, 0px));
-    max-height: 28vh;
+    left: max(0.4rem, env(safe-area-inset-left, 0px));
+    right: auto;
+    max-width: min(240px, 48vw);
+    max-height: 26vh;
     overflow: hidden;
   }
   .kill-feed {
