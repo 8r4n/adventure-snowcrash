@@ -26,8 +26,9 @@
 | `enter_flotilla` / `flotilla` / `signal_finale` | — (need 3 Signal Keys near pad) | #45 |
 | `leave_flotilla` / Esc (in room) | — | #45 |
 | `signal_keys` / `signal_status` | — | #45 |
+| `neon_dash` / `dash_status` / `dash` | — | #48 |
 
-Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [signal-keys.md](signal-keys.md).
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md).
 
 ## Snapshot fields
-`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `signal_keys` (keys / finale / pad)
+`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress)
