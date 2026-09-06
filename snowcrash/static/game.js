@@ -884,11 +884,12 @@
       const cols = fpvColPlan();
       ascii = new VideoAsciiCanvas(fpvCanvas, {
         cols,
-        // Playtest pass 2 (#88): lift midtones slightly; keep neon punch
-        brightness: 1.58,
-        contrast: 1.62,
-        gamma: 0.74,
-        saturate: 1.62,
+        // #95: after Catppuccin, pass-2 knobs (1.58/1.62/0.74) crushed midtones
+        // into one dense glyph — ease stretch so scene luminance spreads again
+        brightness: 1.34,
+        contrast: 1.4,
+        gamma: 0.86,
+        saturate: 1.48,
         autoColor: true,
         bg: rgbCss(themePal().crust),
         fit: true,
@@ -905,20 +906,33 @@
     }
 
     function wallColor(ch, side, dist) {
-      const near = Math.max(0.28, Math.min(1, 1.85 / Math.max(0.2, dist)));
+      // #95: keep Catppuccin hues but darken bases + ease distance boost so
+      // VideoAscii luminance indices don't all collapse to one dense glyph.
+      const near = Math.max(0.22, Math.min(1, 1.7 / Math.max(0.25, dist)));
       const p = themePal();
       let base;
-      if (ch === "+") base = p.yellow;
-      else if (ch === "~") base = p.sapphire;
-      else base = p.teal;
-      let r = base[0], g = base[1], b = base[2];
-      if (side) {
-        r *= 0.82; g *= 0.82; b *= 0.88;
+      let scale;
+      if (ch === "+") {
+        base = p.yellow;
+        scale = 0.72;
+      } else if (ch === "~") {
+        base = p.sapphire;
+        scale = 0.68;
+      } else {
+        base = p.teal;
+        scale = 0.58;
       }
-      // Keep prior contrast boost so Catppuccin stays FPV-readable
-      r = Math.min(255, r * near * 1.42);
-      g = Math.min(255, g * near * 1.42);
-      b = Math.min(255, b * near * 1.48);
+      let r = base[0] * scale;
+      let g = base[1] * scale;
+      let b = base[2] * scale;
+      if (side) {
+        r *= 0.78;
+        g *= 0.78;
+        b *= 0.85;
+      }
+      r = Math.min(255, r * near * 1.15);
+      g = Math.min(255, g * near * 1.15);
+      b = Math.min(255, b * near * 1.2);
       return [r | 0, g | 0, b | 0];
     }
 
@@ -936,35 +950,43 @@
       const mid = H / 2;
       const plane = (s.plane || (s.player && s.player.plane) || "STREET").toUpperCase();
 
+      // #95: theme-tinted sky/street bands with distinct luminance from walls
+      const pal = themePal();
+      const mixRgb = (a, b, t) => [
+        (a[0] + (b[0] - a[0]) * t) | 0,
+        (a[1] + (b[1] - a[1]) * t) | 0,
+        (a[2] + (b[2] - a[2]) * t) | 0,
+      ];
       const ceil = sctx.createLinearGradient(0, 0, 0, mid);
       if (plane === "AIR") {
-        ceil.addColorStop(0, "#1e4a72");
-        ceil.addColorStop(1, "#4a96c4");
+        ceil.addColorStop(0, rgbCss(mixRgb(pal.crust, pal.sapphire, 0.35)));
+        ceil.addColorStop(1, rgbCss(mixRgb(pal.base, pal.sky, 0.45)));
       } else if (plane === "UNDER") {
-        ceil.addColorStop(0, "#0a0610");
-        ceil.addColorStop(1, "#281018");
+        ceil.addColorStop(0, rgbCss(mixRgb(pal.crust, pal.mauve, 0.12)));
+        ceil.addColorStop(1, rgbCss(mixRgb(pal.mantle, pal.red, 0.18)));
       } else {
-        ceil.addColorStop(0, "#0a1828");
-        ceil.addColorStop(1, "#153050");
+        ceil.addColorStop(0, rgbCss(mixRgb(pal.crust, pal.sky, 0.08)));
+        ceil.addColorStop(1, rgbCss(mixRgb(pal.mantle, pal.sapphire, 0.22)));
       }
       sctx.fillStyle = ceil;
       sctx.fillRect(0, 0, W, mid);
 
       const floor = sctx.createLinearGradient(0, mid, 0, H);
       if (plane === "AIR") {
-        floor.addColorStop(0, "#243848");
-        floor.addColorStop(1, "#122030");
+        floor.addColorStop(0, rgbCss(mixRgb(pal.base, pal.teal, 0.18)));
+        floor.addColorStop(1, rgbCss(mixRgb(pal.crust, pal.sapphire, 0.12)));
       } else if (plane === "UNDER") {
-        floor.addColorStop(0, "#1a0c12");
-        floor.addColorStop(1, "#0c0608");
+        floor.addColorStop(0, rgbCss(mixRgb(pal.mantle, pal.red, 0.14)));
+        floor.addColorStop(1, rgbCss(mixRgb(pal.crust, pal.mauve, 0.08)));
       } else {
-        floor.addColorStop(0, "#152230");
-        floor.addColorStop(1, "#243848");
+        // Street: mid-dark floor (readable as lighter/denser glyphs than ceiling)
+        floor.addColorStop(0, rgbCss(mixRgb(pal.base, pal.teal, 0.16)));
+        floor.addColorStop(1, rgbCss(mixRgb(pal.mantle, pal.teal, 0.1)));
       }
       sctx.fillStyle = floor;
       sctx.fillRect(0, mid, W, H - mid);
 
-      sctx.strokeStyle = "rgba(92,240,255,0.14)";
+      sctx.strokeStyle = "rgba(" + pal.sky.join(",") + ",0.14)";
       sctx.lineWidth = 1;
       for (let i = 1; i <= 8; i++) {
         const y = mid + (i * i * (H - mid)) / 80;
@@ -1053,7 +1075,8 @@
         for (let sx = drawStartX; sx <= drawEndX; sx++) {
           if (transformY >= depths[sx]) continue;
           const edge = sx === drawStartX || sx === drawEndX;
-          const glow = edge ? 1.25 : 1;
+          // #95: punch entity billboards above wall midtones for glyph contrast
+          const glow = edge ? 1.35 : 1.18;
           const rr = Math.min(255, rgb[0] * glow);
           const gg = Math.min(255, rgb[1] * glow);
           const bb = Math.min(255, rgb[2] * glow);
