@@ -163,9 +163,10 @@ ICE_PROBES = {
 
 HELP_TEXT = """\
 CONTROLS — 8-WAY + MULTIPLANE
-  W/A/S/D           — move relative to facing (chord WA/WD/SA/SD = diagonals)
-  Q / E             — turn left / right
+  W/A/S/D           — move relative to facing (forward/strafe/back)
+  E / ,             — turn right / left (TUI: q quits; web q = turn left)
   Arrows            — turn (Left/Right) or step (Up/Down) relative
+  v                 — toggle FPV ↔ overhead map (TUI / SSH)
   y u h j k l b n   — absolute octile (TUI / fallback)
   Numpad 1-9        — absolute octile
   t / [ / PgUp      — ascend plane (street→air, under→street)
