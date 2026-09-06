@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Synthetic OSM-schema fixture for CI / offline spike (#83).
+  NOT a real OpenStreetMap extract — invented geometry in a fake WGS84 bbox
+  near 34.05,-118.25 (Fractured LA theme). Schema mirrors OSM XML so the
+  converter can be exercised without hitting Overpass.
+
+  When replacing with live OSM data, ship ODbL attribution:
+  © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
+-->
+<osm version="0.6" generator="adventure-snowcrash-fixture">
+  <bounds minlat="34.0480" minlon="-118.2520" maxlat="34.0520" maxlon="-118.2460"/>
+
+  <!-- Street grid nodes (roughly 5x4 block) -->
+  <node id="1" lat="34.0482" lon="-118.2518"/>
+  <node id="2" lat="34.0482" lon="-118.2500"/>
+  <node id="3" lat="34.0482" lon="-118.2482"/>
+  <node id="4" lat="34.0482" lon="-118.2464"/>
+  <node id="5" lat="34.0495" lon="-118.2518"/>
+  <node id="6" lat="34.0495" lon="-118.2500"/>
+  <node id="7" lat="34.0495" lon="-118.2482"/>
+  <node id="8" lat="34.0495" lon="-118.2464"/>
+  <node id="9" lat="34.0508" lon="-118.2518"/>
+  <node id="10" lat="34.0508" lon="-118.2500"/>
+  <node id="11" lat="34.0508" lon="-118.2482"/>
+  <node id="12" lat="34.0508" lon="-118.2464"/>
+  <node id="13" lat="34.0518" lon="-118.2518"/>
+  <node id="14" lat="34.0518" lon="-118.2500"/>
+  <node id="15" lat="34.0518" lon="-118.2482"/>
+  <node id="16" lat="34.0518" lon="-118.2464"/>
+
+  <!-- Building corners -->
+  <node id="20" lat="34.0486" lon="-118.2514"/>
+  <node id="21" lat="34.0486" lon="-118.2504"/>
+  <node id="22" lat="34.0492" lon="-118.2504"/>
+  <node id="23" lat="34.0492" lon="-118.2514"/>
+  <node id="24" lat="34.0486" lon="-118.2496"/>
+  <node id="25" lat="34.0486" lon="-118.2486"/>
+  <node id="26" lat="34.0492" lon="-118.2486"/>
+  <node id="27" lat="34.0492" lon="-118.2496"/>
+  <node id="28" lat="34.0499" lon="-118.2514"/>
+  <node id="29" lat="34.0499" lon="-118.2504"/>
+  <node id="30" lat="34.0505" lon="-118.2504"/>
+  <node id="31" lat="34.0505" lon="-118.2514"/>
+  <node id="32" lat="34.0499" lon="-118.2478"/>
+  <node id="33" lat="34.0499" lon="-118.2468"/>
+  <node id="34" lat="34.0505" lon="-118.2468"/>
+  <node id="35" lat="34.0505" lon="-118.2478"/>
+
+  <!-- Park / plaza -->
+  <node id="40" lat="34.0500" lon="-118.2495"/>
+  <node id="41" lat="34.0500" lon="-118.2485"/>
+  <node id="42" lat="34.0507" lon="-118.2485"/>
+  <node id="43" lat="34.0507" lon="-118.2495"/>
+
+  <!-- Canal / water -->
+  <node id="50" lat="34.0481" lon="-118.2470"/>
+  <node id="51" lat="34.0519" lon="-118.2470"/>
+
+  <!-- Landmarks (POIs) -->
+  <node id="60" lat="34.0489" lon="-118.2509">
+    <tag k="amenity" v="internet_cafe"/>
+    <tag k="name" v="Jackpoint Kiosk"/>
+  </node>
+  <node id="61" lat="34.0512" lon="-118.2469">
+    <tag k="amenity" v="bureau_de_change"/>
+    <tag k="name" v="Metaverse Uplink"/>
+  </node>
+  <node id="62" lat="34.0502" lon="-118.2490">
+    <tag k="amenity" v="bar"/>
+    <tag k="name" v="Neon Club"/>
+  </node>
+  <node id="63" lat="34.0490" lon="-118.2491">
+    <tag k="shop" v="convenience"/>
+    <tag k="name" v="Street Vendor"/>
+  </node>
+  <node id="64" lat="34.0502" lon="-118.2510">
+    <tag k="landuse" v="industrial"/>
+    <tag k="name" v="Faraday Yard"/>
+  </node>
+
+  <!-- Horizontal streets -->
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/>
+    <tag k="highway" v="primary"/>
+    <tag k="name" v="Pacific Rim Blvd"/>
+  </way>
+  <way id="101">
+    <nd ref="5"/><nd ref="6"/><nd ref="7"/><nd ref="8"/>
+    <tag k="highway" v="residential"/>
+    <tag k="name" v="Courier Alley"/>
+  </way>
+  <way id="102">
+    <nd ref="9"/><nd ref="10"/><nd ref="11"/><nd ref="12"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="name" v="Burbclave Way"/>
+  </way>
+  <way id="103">
+    <nd ref="13"/><nd ref="14"/><nd ref="15"/><nd ref="16"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="name" v="Uplink Rim"/>
+  </way>
+
+  <!-- Vertical streets -->
+  <way id="110">
+    <nd ref="1"/><nd ref="5"/><nd ref="9"/><nd ref="13"/>
+    <tag k="highway" v="residential"/>
+  </way>
+  <way id="111">
+    <nd ref="2"/><nd ref="6"/><nd ref="10"/><nd ref="14"/>
+    <tag k="highway" v="primary"/>
+  </way>
+  <way id="112">
+    <nd ref="3"/><nd ref="7"/><nd ref="11"/><nd ref="15"/>
+    <tag k="highway" v="residential"/>
+  </way>
+  <way id="113">
+    <nd ref="4"/><nd ref="8"/><nd ref="12"/><nd ref="16"/>
+    <tag k="highway" v="service"/>
+  </way>
+
+  <!-- Buildings -->
+  <way id="200">
+    <nd ref="20"/><nd ref="21"/><nd ref="22"/><nd ref="23"/><nd ref="20"/>
+    <tag k="building" v="yes"/>
+  </way>
+  <way id="201">
+    <nd ref="24"/><nd ref="25"/><nd ref="26"/><nd ref="27"/><nd ref="24"/>
+    <tag k="building" v="retail"/>
+  </way>
+  <way id="202">
+    <nd ref="28"/><nd ref="29"/><nd ref="30"/><nd ref="31"/><nd ref="28"/>
+    <tag k="building" v="industrial"/>
+  </way>
+  <way id="203">
+    <nd ref="32"/><nd ref="33"/><nd ref="34"/><nd ref="35"/><nd ref="32"/>
+    <tag k="building" v="commercial"/>
+  </way>
+
+  <!-- Park -->
+  <way id="300">
+    <nd ref="40"/><nd ref="41"/><nd ref="42"/><nd ref="43"/><nd ref="40"/>
+    <tag k="leisure" v="park"/>
+    <tag k="name" v="Plaza Green"/>
+  </way>
+
+  <!-- Water / canal -->
+  <way id="400">
+    <nd ref="50"/><nd ref="51"/>
+    <tag k="waterway" v="canal"/>
+    <tag k="name" v="LA River Spur"/>
+  </way>
+</osm>
