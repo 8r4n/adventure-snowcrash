@@ -535,9 +535,20 @@ class GlobeMixin:
         cd_until = float(agent.globe.get("cooldown_until") or 0)
         regions_out: List[Dict[str, Any]] = []
         for r in self.globe_defs.get("regions", []):
+            rid = r.get("id")
+            eco_nodes = []
+            if hasattr(self, "_ecology_nodes_for_region"):
+                eco_nodes = [
+                    {
+                        "id": n.get("id"),
+                        "resource": n.get("resource"),
+                        "name": n.get("name"),
+                    }
+                    for n in self._ecology_nodes_for_region(str(rid or ""))
+                ]
             regions_out.append(
                 {
-                    "id": r.get("id"),
+                    "id": rid,
                     "name": r.get("name"),
                     "kind": r.get("kind"),
                     "continent": r.get("continent"),
@@ -545,6 +556,8 @@ class GlobeMixin:
                     "lon": r.get("lon"),
                     "label": r.get("label"),
                     "home": bool(r.get("home")),
+                    "ecology": eco_nodes,
+                    "has_ecology": bool(eco_nodes),
                 }
             )
         shard_seed = None
@@ -577,6 +590,11 @@ class GlobeMixin:
             "shard_seed": shard_seed,
             "zoom": "globe" if agent.globe.get("panel_open") else "street",
             "news_geo_hook": True,
+            "ecology_nodes": (
+                self._ecology_globe_overlay()
+                if hasattr(self, "_ecology_globe_overlay")
+                else []
+            ),
             "hint": (
                 "Globe open — pick a pin / region id, then teleport (credits + cooldown)."
                 if agent.globe.get("panel_open")

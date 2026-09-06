@@ -27,6 +27,7 @@ from .soft_hardcore import SoftHardcoreMixin
 from .jaunte import JaunteMixin
 from .empathy import EmpathyMixin
 from .forecasts import ForecastMixin
+from .ecology import EcologyMixin
 from .primer import PrimerMixin
 from .sleeves import SleevesMixin
 
@@ -123,7 +124,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, EcologyMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -160,6 +161,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._jaunte_init()
         self._empathy_init()
         self._forecast_init()
+        self._ecology_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -219,6 +221,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._jaunte_bootstrap_agent(agent)
         self._empathy_bootstrap_agent(agent)
         self._forecast_bootstrap_agent(agent)
+        self._ecology_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -886,6 +889,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
     def year_tick(self) -> None:
         self._tick_weather()
         self._tick_forecasts()
+        self._tick_ecology()
         self._tick_street_events()
         self._tick_neon_dash()
         self._tick_ice_heist()
@@ -1166,6 +1170,22 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "nudge_news", "nudge_news_arc", "nudge_news_arc_intensity",
         ) or a.startswith("nudge_"):
             return self._forecast_action(agent, a, arg or "")
+
+        if a in (
+            "ecology", "ecology_panel", "open_ecology", "resource_wars",
+            "scarce", "ecology_open",
+            "ecology_close", "close_ecology",
+            "ecology_status", "resource_status", "ecology_where",
+            "ecology_list", "resource_list", "list_nodes", "scarce_list",
+            "ecology_claim", "claim_resource", "resource_claim", "claim_node",
+            "ecology_contract_claim",
+            "ecology_raid", "resource_raid", "raid_resource", "raid_node",
+            "ecology_contest",
+            "ecology_raid_resolve", "resolve_ecology_raid", "ecology_raid_clear",
+            "ecology_contract", "resource_contract", "accept_ecology_contract",
+            "ecology_offer",
+        ):
+            return self._ecology_action(agent, a, arg or "")
 
         return False
 
@@ -1757,6 +1777,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "jaunte": self._jaunte_snapshot(agent),
             "empathy": self._empathy_snapshot(agent),
             "forecast": self._forecast_snapshot(agent),
+            "ecology": self._ecology_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 

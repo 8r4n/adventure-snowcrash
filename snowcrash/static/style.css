@@ -2248,3 +2248,22 @@ header.topbar .panel-dock {
   border: 0;
 }
 .theme-label { display: inline-flex; align-items: center; }
+
+/* Scarce resource ecology (#57) */
+.globe-svg .pin.ecology { fill: #66c2a5; stroke: #0a1520; }
+.globe-svg .pin.ecology.bandwidth { fill: #7ad4ff; }
+.globe-svg .pin.ecology.water { fill: #66c2a5; }
+.globe-svg .pin.ecology.uplink_spectrum { fill: #ffcc66; }
+.globe-ecology-strip { margin-top: 0.35rem; font-size: 0.62rem; color: #7a8794; }
+.globe-ecology-strip .eco-chip {
+  display: inline-block; margin: 0.1rem 0.2rem 0.1rem 0;
+  padding: 0.08rem 0.3rem; border-radius: 0.25rem;
+  background: #14202c; border: 1px solid #243040;
+}
+.year-panel .panel-body.ecology-body { max-height: 18rem; }
+.ecology-meta { margin-bottom: 0.4rem; line-height: 1.35; }
+.ecology-nodes .row { align-items: flex-start; gap: 0.35rem; }
+.ecology-nodes .eco-ctrl { color: #ffcc66; }
+.ecology-nodes .eco-pressure { color: #7ad4ff; font-variant-numeric: tabular-nums; }
+.ecology-streetnet { margin-top: 0.4rem; font-size: 0.62rem; color: #7a8794; max-height: 4.5rem; overflow-y: auto; }
+.ecology-streetnet .sn-line { margin: 0.12rem 0; }

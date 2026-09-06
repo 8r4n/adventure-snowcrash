@@ -68,3 +68,7 @@ Not claimed done in this slice:
 - [ ] Daily news pipeline (#51) consuming `attach_news_geo` in production automation
 
 This stub is enough for news to attach `region_id` and for players to hop onto playable shards.
+
+## Ecology overlay (#57)
+
+Scarce resource nodes (bandwidth / water / uplink spectrum) appear on globe pins via `ecology_nodes` and per-region `has_ecology`. See [ecology.md](ecology.md).
