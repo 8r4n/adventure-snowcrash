@@ -1710,3 +1710,27 @@ body:not(.intro-active) {
 #app.declutter .year-panel summary {
   font-size: 0.62rem;
 }
+
+
+/* Cyberspace jack-in overlay (#47) */
+.cyber-box {
+  max-width: min(92vw, 520px);
+  background: rgba(5, 12, 18, 0.94);
+  border: 1px solid #39c5cf;
+  box-shadow: 0 0 24px rgba(57, 197, 207, 0.35);
+  padding: 1rem 1.2rem;
+  color: #9ef0f0;
+}
+.cyber-title {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #39c5cf;
+  margin-bottom: 0.5rem;
+}
+.cyber-map {
+  margin: 0.4rem 0 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.15;
+  color: #7ee787;
+  text-shadow: 0 0 6px rgba(61, 214, 140, 0.35);
+}

@@ -1191,6 +1191,8 @@ class GameWorld(YearFeaturesMixin):
             def _aggro_ok(p: PlayerAgent) -> bool:
                 if p.is_invulnerable():
                     return False
+                if getattr(p, "mode", "") == "cyberspace":
+                    return False
                 if az == C.PLANE_STREET and self._near_any_spawn(p.actor.x, p.actor.y):
                     return False
                 return True
@@ -1282,6 +1284,10 @@ class GameWorld(YearFeaturesMixin):
 
         if agent.mode == "inventory":
             self._handle_inventory(agent, action, arg)
+            return
+
+        if agent.mode == "cyberspace":
+            self._cyber_handle_action(agent, action, arg)
             return
 
         if agent.mode in ("dead", "won"):
@@ -1988,6 +1994,13 @@ class GameWorld(YearFeaturesMixin):
             "xp_next": int(getattr(C, "XP_PER_LEVEL", 40)),
         }
         snap.update(self.year_snapshot_fields(agent))
+        # Cyberspace (#47): swap ASCII map to node lattice while jacked
+        cyber = snap.get("cyberspace") or {}
+        if agent.mode == "cyberspace" and cyber.get("active") and cyber.get("map"):
+            snap["map"] = list(cyber["map"])
+            snap["width"] = int(cyber.get("width") or len(cyber["map"][0]))
+            snap["height"] = int(cyber.get("height") or len(cyber["map"]))
+            snap["street_map_paused"] = True
         # Spectate: overlay target camera lightly
         if getattr(agent, "spectating", None) and agent.spectating in self.players:
             tgt = self.players[agent.spectating]

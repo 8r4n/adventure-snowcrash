@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .. import constants as C
 from ..entities import Actor, make_infected, make_thug
 from ..items import Item
+from .cyberspace import CyberspaceMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -109,7 +110,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin:
+class YearFeaturesMixin(CyberspaceMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -177,6 +178,8 @@ class YearFeaturesMixin:
         agent.repair_needed = int(getattr(agent, "repair_needed", 0) or 0)
         if not isinstance(getattr(agent, "ice_cooldowns", None), dict):
             agent.ice_cooldowns = {}
+        if not isinstance(getattr(agent, "cyber", None), dict):
+            agent.cyber = {"active": False}
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -922,6 +925,11 @@ class YearFeaturesMixin:
             agent.log("Auth nick stub bound: %s (token %s — staging only)." % (nick, token))
             return True
 
+        if a in ("jack_in", "jackin", "cyberspace", "enter_jack", "cyber_in"):
+            return self._cyber_jack_in(agent, arg or "")
+        if a in ("jack_out", "jackout", "unjack", "leave_cyber", "cyber_out"):
+            return self._cyber_jack_out(agent)
+
         if a in ("ice_probe", "probe", "ice"):
             return self._ice_probe_action(agent, arg or "")
 
@@ -1502,6 +1510,7 @@ class YearFeaturesMixin:
             },
             "aoi_radius": 28,
             "ice": self._ice_snapshot(agent),
+            "cyberspace": self._cyber_snapshot(agent),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:
