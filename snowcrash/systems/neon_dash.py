@@ -355,6 +355,10 @@ class NeonDashMixin:
         grant = getattr(self, "_grant_season_xp", None)
         if callable(grant):
             grant(agent, NEON_DASH_REWARD_SEASON_XP)
+        # Forecast soft-influence (#58): a clean dash cools Flotilla pressure slightly
+        soft = getattr(self, "_forecast_soft_influence", None)
+        if callable(soft):
+            soft(agent, "flotilla_pressure", -0.02, reason="Neon Dash finish")
 
         rng = getattr(self, "rng", None)
         line_tpl = FINISH_LINES[0]

@@ -1278,6 +1278,7 @@
       primerBody: document.getElementById("primer-body"),
       jaunteBody: document.getElementById("jaunte-body"),
       empathyBody: document.getElementById("empathy-body"),
+      forecastBody: document.getElementById("forecast-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -1312,6 +1313,7 @@
     let lastKillSig = "";
     let lastJaunteFbSig = "";
     let lastEmpathyFbSig = "";
+    let lastForecastFbSig = "";
   let lastWishSig = "";
     let lastSkillOpen = false;
     let lastDead = false;
@@ -2337,6 +2339,72 @@
     }
 
 
+
+    function renderForecast(s) {
+      if (!els.forecastBody) return;
+      const fc = defObj(s.forecast);
+      if (!fc || fc.metrics == null) {
+        els.forecastBody.innerHTML = '<div class="panel-empty">Forecast lattice offline</div>';
+        els.forecastBody.classList.remove("forecast-body");
+        return;
+      }
+      els.forecastBody.classList.add("forecast-body");
+      const fb = defObj(fc.last_feedback);
+      const fbText = defStr(fb.text, "");
+      if (fbText) {
+        const sig = fbText + "|" + defNum(fb.t, 0);
+        if (sig !== lastForecastFbSig) {
+          lastForecastFbSig = sig;
+          const toastKind =
+            fb.kind === "warn" ? "warn"
+            : fb.kind === "pass" ? "jaunte"
+            : "info";
+          toast(fbText, toastKind, 4200);
+        }
+      }
+      const metrics = defArr(fc.metrics);
+      const rows = metrics.length
+        ? metrics.map((m) => {
+            const id = defStr(m.id, "");
+            const label = defStr(m.label, id);
+            const pct = defNum(m.pct, 0);
+            const band = defStr(m.band, "moderate");
+            const hint = defStr(m.hint, "");
+            return (
+              `<div class="row" title="${escapeHtml(hint)}">` +
+              `<span style="min-width:7.5rem"><strong>${escapeHtml(label)}</strong><br/>` +
+              `<span class="band-${escapeHtml(band)}">${escapeHtml(band)} · ${pct}%</span></span>` +
+              `<span class="bar"><i style="width:${Math.max(2, Math.min(100, pct))}%"></i></span>` +
+              `<span class="forecast-nudge-btns">` +
+              `<button type="button" data-forecast-nudge="${escapeHtml(id)}|down" title="Nudge down">−</button>` +
+              `<button type="button" data-forecast-nudge="${escapeHtml(id)}|up" title="Nudge up">+</button>` +
+              `</span></div>`
+            );
+          }).join("")
+        : '<div class="panel-empty">No metrics</div>';
+      const season = defObj(fc.season);
+      const hooks = defObj(fc.hooks);
+      const news = defArr(fc.news_hooks);
+      const newsLine = news.length
+        ? news.slice(-2).map((n) => escapeHtml(defStr(n.text, "").slice(0, 48))).join(" · ")
+        : "awaiting daily beats (#51)";
+      const cd = defNum(fc.nudge_cooldown, 0);
+      els.forecastBody.innerHTML =
+        `<div class="forecast-meta"><strong>StreetNet Forecast</strong> · week ${defNum(fc.week, 1)}` +
+        ` · ${defNum(fc.week_ticks_left, 0)} ticks left<br/>` +
+        `<span class="dim">${escapeHtml(defStr(fc.headline, ""))}</span></div>` +
+        `<div class="forecast-metrics">${rows}</div>` +
+        `<div class="row"><span>Nudge cd ${Math.ceil(cd)}s · cost ${defNum(fc.nudge_focus_cost, 2)} Focus · ` +
+        `your nudges ${defNum(fc.player_nudges, 0)}</span></div>` +
+        `<div class="forecast-hooks">Season: ${escapeHtml(defStr(season.season_name || season.id, "—"))}` +
+        ` T${defNum(season.tier, 0)} · news hooks: ${hooks.daily_news ? "on" : "off"}<br/>` +
+        `Recent arcs: ${newsLine}</div>` +
+        `<div class="row"><button type="button" data-forecast="open">Refresh</button>` +
+        `<button type="button" data-forecast="status">Status</button>` +
+        `<button type="button" data-forecast="close">Close</button></div>` +
+        `<div class="dim" style="margin-top:0.25rem">${escapeHtml(defStr(fc.hint, ""))}</div>`;
+    }
+
     function renderIce(s) {
       if (!els.iceBody) return;
       const ice = defObj(s.ice);
@@ -2549,6 +2617,8 @@
         renderSleeves(s);
         renderPrimer(s);
         renderJaunte(s);
+        renderEmpathy(s);
+        renderForecast(s);
         renderCyberHint(s);
         renderWishToy(s);
         styleLogFees(s);
@@ -2724,6 +2794,32 @@
           else if (v === "status") send("jaunte_status");
           else if (v === "close") send("jaunte_close");
           else send("jaunte");
+        }],
+      ]);
+      bindPanel(els.empathyBody, [
+        ["data-empathy", (v) => {
+          if (v === "audit") send("empathy_audit");
+          else if (v === "reclaim") send("bounty_reclaim");
+          else if (v === "abandon") send("bounty_abandon");
+          else if (v === "status") send("empathy_status");
+          else if (v === "close") send("empathy_close");
+          else send("empathy");
+        }],
+        ["data-empathy-answer", (v) => send("empathy_answer", v)],
+        ["data-bounty-accept", (v) => send("bounty_accept", v)],
+        ["data-bounty-turnin", (v) => send("bounty_turnin", v)],
+      ]);
+      bindPanel(els.forecastBody, [
+        ["data-forecast", (v) => {
+          if (v === "status") send("forecast_status");
+          else if (v === "close") send("forecast_close");
+          else send("forecast");
+        }],
+        ["data-forecast-nudge", (v) => {
+          const parts = String(v || "").split("|");
+          const metric = parts[0] || "";
+          const dir = parts[1] || "down";
+          if (metric) send("forecast_nudge", metric + " " + dir);
         }],
       ]);
       if (els.npcCue) {
@@ -3438,6 +3534,14 @@
       ev.preventDefault();
       if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("empathy");
       send("empathy");
+      return;
+    }
+
+    // Season forecasts (#58): Shift+F opens forecast panel
+    if (ev.key === "F" && ev.shiftKey) {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("forecast");
+      send("forecast");
       return;
     }
 

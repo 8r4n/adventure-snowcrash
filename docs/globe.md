@@ -51,6 +51,8 @@ beat = world.attach_news_geo(
 
 Nearest-region snap when only lat/lon is provided.
 
+Season forecasts (#58) prefer `world.attach_news_arc(...)` which stamps geo via this hook and bumps news-arc intensity. Geo-only stamps still soft-bump intensity when the forecast lattice is online.
+
 ## Web UI
 
 Dock **Globe** · schematic SVG Earth with pins · region list **Hop** buttons · **Recall home**. Shift+G opens panel + `globe` action.

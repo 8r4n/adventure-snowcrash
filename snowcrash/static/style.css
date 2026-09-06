@@ -2198,6 +2198,26 @@ header.topbar .panel-dock {
 .empathy-btns { display: flex; flex-direction: column; gap: 0.25rem; flex-shrink: 0; }
 
 
+/* Season forecasts / psychohistory-lite (#58) */
+.year-panel .panel-body.forecast-body { max-height: 18rem; }
+.forecast-meta { margin-bottom: 0.4rem; line-height: 1.35; }
+.forecast-metrics .row { align-items: center; gap: 0.4rem; }
+.forecast-metrics .bar {
+  flex: 1; height: 0.45rem; border-radius: 3px;
+  background: rgba(30, 40, 55, 0.9); overflow: hidden;
+  border: 1px solid rgba(87, 132, 168, 0.35);
+}
+.forecast-metrics .bar > i {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, #39c5cf, #ff6b9d);
+}
+.forecast-metrics .band-low { color: #7ee787; }
+.forecast-metrics .band-moderate { color: #ffcc66; }
+.forecast-metrics .band-elevated { color: #ff9e64; }
+.forecast-metrics .band-critical { color: #ff6b9d; }
+.forecast-nudge-btns { display: flex; gap: 0.25rem; flex-shrink: 0; }
+.forecast-hooks { color: #7a8794; font-size: 0.65rem; margin-top: 0.35rem; }
+
 /* Theme picker (#90) */
 #theme-select {
   background: var(--panel);
