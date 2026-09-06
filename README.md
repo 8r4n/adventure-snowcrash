@@ -273,6 +273,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Uplink Hop / Street Jaunt (learned TP) | [docs/jaunte.md](docs/jaunte.md) | #62 · parent #42 · ties #54 |
 | Empathy audit + synth bounty contracts | [docs/empathy-bounties.md](docs/empathy-bounties.md) | #63 · parent #42 · related #27/#28 |
 | Season forecasts (street trends) | [docs/season-forecasts.md](docs/season-forecasts.md) | #58 · parent #42 · related #33/#51 |
+| Canticle Pilgrimage (multi-courier arcs) | [docs/pilgrimage.md](docs/pilgrimage.md) | #61 · parent #42 · related #15/#35 |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |

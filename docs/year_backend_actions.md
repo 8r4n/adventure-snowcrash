@@ -56,8 +56,16 @@
 | `forecast` / `forecast_status` / `forecast_close` | — | #58 |
 | `forecast_nudge` / `nudge` | metric [up|down] | #58 |
 | `nudge_ambush` / `nudge_flotilla` / `nudge_news` | optional up|down | #58 |
+| `pilgrimage_open` / `pilgrim_lobby` | — | #61 |
+| `pilgrimage_join` | lobby id | #61 |
+| `pilgrimage_ready` / `pilgrimage_unready` | — | #61 |
+| `pilgrimage_start` | optional `dev` | #61 |
+| `pilgrimage` / `pilgrimage_status` | — | #61 |
+| `pilgrim_complete` / `seal_canticle` | — (at shrine) | #61 |
+| `enter_pilgrimage` / `canticle_finale` | — (shared Spire) | #61 |
+| `leave_pilgrimage` / Esc (in Spire) | — | #61 |
 
-Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [ice-heists.md](ice-heists.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md), [globe.md](globe.md), [sleeves.md](sleeves.md), [primer.md](primer.md), [jaunte.md](jaunte.md), [empathy-bounties.md](empathy-bounties.md), [season-forecasts.md](season-forecasts.md).
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [ice-heists.md](ice-heists.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md), [globe.md](globe.md), [sleeves.md](sleeves.md), [primer.md](primer.md), [jaunte.md](jaunte.md), [empathy-bounties.md](empathy-bounties.md), [season-forecasts.md](season-forecasts.md), [pilgrimage.md](pilgrimage.md).
 
 ## Snapshot fields
-`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `ice_heist` (vault layers / omen / AI stub), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress), `heat` (meter / shed / patrol), `corp_patrol` (patrol card), `soft_hardcore`, `globe` (region / Earth pins / cooldown / news_geo_hook), `sleeves`, `primer` (teaching chapters / rewards), `jaunte` (Uplink Hop ranks / cooldown / feedback), `empathy` (audit / synth bounties / heat·rep), `forecast` (week / 3 metrics / nudge / season·news hooks), `death_cause`
+`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `ice_heist` (vault layers / omen / AI stub), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress), `heat` (meter / shed / patrol), `corp_patrol` (patrol card), `soft_hardcore`, `globe` (region / Earth pins / cooldown / news_geo_hook), `sleeves`, `primer` (teaching chapters / rewards), `jaunte` (Uplink Hop ranks / cooldown / feedback), `empathy` (audit / synth bounties / heat·rep), `forecast` (week / 3 metrics / nudge / season·news hooks), `pilgrimage` (lobby 3–5 / Canticle beat / Spire finale), `death_cause`
