@@ -111,6 +111,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **Other players** appear as letter/number glyphs (unique color) in FPV billboards and the ASCII GPS.
 - **Chat** — press **Enter**, type a message (or `/say hi`), Send. Global chat for the demo.
 - **Quest (anti-grief)** — each courier can clone **Payload-Zero** into a personal sleeve; the world copy remains so others are not soft-locked. Delivering to the uplink completes *your* win only.
+- **Sleeves / avatar hop (#59)** — swap **street / club / undercity** shells at safehouse with clear stat tradeoffs; premium kits optionally rent for credits. See [docs/sleeves.md](docs/sleeves.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
 
 ### Play together (two browsers)
@@ -184,6 +185,7 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `p` (web) | Open ICE dock panel |
 | `j` (web) | Jack in at `J` / jack out in cyberspace ([docs](docs/cyberspace.md)); else absolute south |
 | `heist_start` (web chat/action) | Deep ICE heist at `J` — 3 layers ([docs](docs/ice-heists.md)) |
+| `Shift+H` (web) | Sleeves locker / avatar hop ([docs](docs/sleeves.md)) |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
 
@@ -242,6 +244,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Corp patrol pressure (heat) | [docs/corp-patrol.md](docs/corp-patrol.md) | #50 · parent #42 |
 | Soft hardcore (opt-in death tax) | [docs/soft-hardcore.md](docs/soft-hardcore.md) | #49 · parent #42 |
 | Globe map + region teleport | [docs/globe.md](docs/globe.md) | #54 · parent #42 (slice; issue stays open) |
+| Sleeve / avatar hop (stat tradeoffs) | [docs/sleeves.md](docs/sleeves.md) | #59 · parent #42 |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |

@@ -1178,6 +1178,7 @@
       raidBody: document.getElementById("raid-body"),
       iceBody: document.getElementById("ice-body"),
       globeBody: document.getElementById("globe-body"),
+      sleevesBody: document.getElementById("sleeves-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -1945,6 +1946,65 @@
         `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a pin to uplink-hop."))}</div>`;
     }
 
+
+    function renderSleeves(s) {
+      if (!els.sleevesBody) return;
+      const sl = defObj(s.sleeves);
+      const shells = defArr(sl.shells);
+      if (!shells.length) {
+        els.sleevesBody.innerHTML = '<div class="panel-empty">Sleeves locker offline</div>';
+        els.sleevesBody.classList.remove("sleeves-body");
+        return;
+      }
+      els.sleevesBody.classList.add("sleeves-body");
+      const atHome = !!sl.at_safehouse;
+      const cur = defStr(sl.current, "street");
+      const curName = defStr(sl.current_name, cur);
+      const st = defObj(sl.stats);
+      const meta =
+        `<div class="sleeves-meta"><strong>${escapeHtml(curName)}</strong> · ` +
+        `<span class="sleeves-stats">ATK ${defNum(st.attack, 0)} DEF ${defNum(st.defense, 0)} HACK ${defNum(st.hack, 0)} · HP ${defNum(st.max_hp, 0)} FOC ${defNum(st.max_focus, 0)}</span><br/>` +
+        `Safehouse: ${atHome ? "OPEN — hop ready" : "closed — enter with house"} · hops ${defNum(sl.hops, 0)}</div>`;
+      const list = shells.map((sh) => {
+        const id = defStr(sh.id, "");
+        const name = defStr(sh.name, id);
+        const trade = defStr(sh.tradeoffs, "");
+        const tag = defStr(sh.tagline, "");
+        const premium = !!sh.premium;
+        const rent = defNum(sh.rent_credits, 0);
+        const accessible = !!sh.accessible;
+        const isCur = !!sh.current || id === cur;
+        const rentLabel = premium
+          ? (accessible ? "rented/owned" : `rent ${rent} cr`)
+          : "free";
+        let buttons = "";
+        if (isCur) {
+          buttons = `<button type="button" disabled>Active</button>`;
+        } else if (!atHome) {
+          buttons = `<button type="button" disabled title="Enter safehouse first">Locked</button>`;
+        } else if (!accessible && premium) {
+          buttons =
+            `<button type="button" data-sleeve-rent="${escapeHtml(id)}">Rent ${rent}</button>` +
+            `<button type="button" data-sleeve-hop="${escapeHtml(id)}">Rent+Hop</button>`;
+        } else {
+          buttons = `<button type="button" data-sleeve-hop="${escapeHtml(id)}">Hop</button>`;
+        }
+        const cls = isCur ? "row current" : "row";
+        return (
+          `<div class="${cls}"><span><strong>${escapeHtml(name)}</strong> ` +
+          `<span class="dim">${escapeHtml(rentLabel)}</span><br/>` +
+          `<span class="dim">${escapeHtml(tag)}</span><br/>` +
+          `<span class="dim">${escapeHtml(trade)}</span></span>${buttons}</div>`
+        );
+      }).join("");
+      els.sleevesBody.innerHTML =
+        meta +
+        `<div class="sleeves-list">${list}</div>` +
+        `<div class="row"><button type="button" data-sleeve="house">Toggle safehouse</button>` +
+        `<button type="button" data-sleeve="status">Status</button></div>` +
+        `<div class="row dim">${escapeHtml(defStr(sl.hint, "Hop shells at safehouse."))}</div>`;
+    }
+
     function renderIce(s) {
       if (!els.iceBody) return;
       const ice = defObj(s.ice);
@@ -2164,6 +2224,7 @@
           const pname = btn.getAttribute("data-panel");
           openPanel(pname);
           if (pname === "globe") send("globe");
+          if (pname === "sleeves") send("sleeves");
           Sound.play("click");
         });
       }
@@ -2937,6 +2998,14 @@
       ev.preventDefault();
       if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("globe");
       send("globe");
+      return;
+    }
+
+    // Sleeves (#59): Shift+H opens sleeves / avatar hop panel
+    if (ev.key === "H") {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("sleeves");
+      send("sleeves");
       return;
     }
 
