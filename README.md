@@ -183,6 +183,7 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `z`/`x`/`c` (web) | ICE probes: stun / reveal / scramble ([docs](docs/ice-probes.md)) |
 | `p` (web) | Open ICE dock panel |
 | `j` (web) | Jack in at `J` / jack out in cyberspace ([docs](docs/cyberspace.md)); else absolute south |
+| `heist_start` (web chat/action) | Deep ICE heist at `J` — 3 layers ([docs](docs/ice-heists.md)) |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
 
@@ -235,6 +236,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 |---------|-----|--------|
 | ICE probe quickhacks (Focus) | [docs/ice-probes.md](docs/ice-probes.md) | #46 · parent #42 |
 | Jack-in cyberspace puzzle layer | [docs/cyberspace.md](docs/cyberspace.md) | #47 · parent #42 |
+| Deep ICE heist runs + hostile AI | [docs/ice-heists.md](docs/ice-heists.md) | #56 · parent #42 |
 | Signal Keys scavenger hunt | [docs/signal-keys.md](docs/signal-keys.md) | #45 · parent #42 |
 | Neon Dash timed street race | [docs/neon-dash.md](docs/neon-dash.md) | #48 · parent #42 |
 | Corp patrol pressure (heat) | [docs/corp-patrol.md](docs/corp-patrol.md) | #50 · parent #42 |

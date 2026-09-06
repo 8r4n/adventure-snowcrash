@@ -177,7 +177,9 @@ CONTROLS — 8-WAY + MULTIPLANE
   ice_probe <type>  — Focus ICE probe: stun | reveal | scramble (#46)
   (web) z/x/c       — stun / reveal / scramble probes · ICE dock
   jack_in / j (web) — jack into cyberspace node at jackpoint J (#47)
-  jack_out / Esc    — leave cyberspace; restore street pad
+  jack_in heist     — deep ICE heist (3 layers) at J (#56)
+  heist_start       — start Black Lattice Vault heist at J
+  jack_out / Esc    — leave cyberspace/heist; restore street pad
   r                 — respawn (when dead)
   . / space         — wait
   ?                 — this help
@@ -199,6 +201,7 @@ MAP
   J jackpoint  U uplink  @ you  & NPC  i infected  t thug  d drone
   c street camera (ICE probe target)
   Cyberspace nodes: # wall . floor I ICE * loot % core X exit
+  Deep heist layers: same glyphs; L3 hosts Null Choir AI stub
 """
 
 

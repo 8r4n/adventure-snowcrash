@@ -1210,7 +1210,7 @@ class GameWorld(YearFeaturesMixin):
             def _aggro_ok(p: PlayerAgent) -> bool:
                 if p.is_invulnerable():
                     return False
-                if getattr(p, "mode", "") == "cyberspace":
+                if getattr(p, "mode", "") in ("cyberspace", "heist"):
                     return False
                 if az == C.PLANE_STREET and self._near_any_spawn(p.actor.x, p.actor.y):
                     return False
@@ -1314,6 +1314,9 @@ class GameWorld(YearFeaturesMixin):
 
         if agent.mode == "cyberspace":
             self._cyber_handle_action(agent, action, arg)
+            return
+        if agent.mode == "heist":
+            self._ice_heist_handle_action(agent, action, arg)
             return
 
         if agent.mode == "flotilla":
@@ -2041,6 +2044,13 @@ class GameWorld(YearFeaturesMixin):
             snap["map"] = list(cyber["map"])
             snap["width"] = int(cyber.get("width") or len(cyber["map"][0]))
             snap["height"] = int(cyber.get("height") or len(cyber["map"]))
+            snap["street_map_paused"] = True
+        # Deep ICE heist (#56): swap ASCII map to vault layer while running
+        heist = snap.get("ice_heist") or {}
+        if agent.mode == "heist" and heist.get("active") and heist.get("map"):
+            snap["map"] = list(heist["map"])
+            snap["width"] = int(heist.get("width") or len(heist["map"][0]))
+            snap["height"] = int(heist.get("height") or len(heist["map"]))
             snap["street_map_paused"] = True
         # Spectate: overlay target camera lightly
         if getattr(agent, "spectating", None) and agent.spectating in self.players:
