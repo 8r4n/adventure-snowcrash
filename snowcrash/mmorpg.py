@@ -937,6 +937,12 @@ class GameWorld(YearFeaturesMixin):
 
     def _quest_objective(self, agent: PlayerAgent) -> Dict[str, Any]:
         """GTA/WoW-style active objective + compass toward jackpoint/uplink."""
+        # Signal Keys (#45) may retarget compass when hunt engaged / payload done
+        sk_obj = getattr(self, "_signal_keys_objective", None)
+        if callable(sk_obj):
+            alt = sk_obj(agent)
+            if alt:
+                return alt
         jx, jy = self.jackpoint_pos
         ux, uy = self.uplink_pos
         px, py = agent.actor.x, agent.actor.y
@@ -999,6 +1005,11 @@ class GameWorld(YearFeaturesMixin):
                 break
         for vid, (vx, vy) in getattr(self, "vendor_positions", {}).items():
             marks.append({"id": "vendor_%s" % vid, "name": "Vendor", "glyph": "$", "x": vx, "y": vy, "z": 0})
+        for kid, (kx, ky) in getattr(self, "signal_key_positions", {}).items():
+            marks.append({"id": kid, "name": "Signal Key", "glyph": "*", "x": kx, "y": ky, "z": 0})
+        pad = getattr(self, "flotilla_pad", None)
+        if pad:
+            marks.append({"id": "flotilla_pad", "name": "Flotilla Pad", "glyph": "U", "x": pad[0], "y": pad[1], "z": 0})
         return marks
 
     def _grant_kill_rewards(self, agent: PlayerAgent, victim: Actor) -> None:
@@ -1288,6 +1299,11 @@ class GameWorld(YearFeaturesMixin):
 
         if agent.mode == "cyberspace":
             self._cyber_handle_action(agent, action, arg)
+            return
+
+        if agent.mode == "flotilla":
+            if self._signal_keys_handle_mode(agent, action):
+                self.update_fov(agent)
             return
 
         if agent.mode in ("dead", "won"):
@@ -1583,6 +1599,9 @@ class GameWorld(YearFeaturesMixin):
         agent.actor.inventory.append(fi.item)
         agent.log("Picked up %s." % fi.item.name)
         agent.sfx("pickup")
+        on_sk = getattr(self, "_on_signal_key_pickup", None)
+        if callable(on_sk):
+            on_sk(agent, fi.item)
         self.update_fov(agent)
 
     def _handle_inventory(self, agent: PlayerAgent, action: str, arg: Optional[str]) -> None:

@@ -23,8 +23,11 @@
 | `ice_stun` / `probe_reveal` / … | — (id in action name) | #46 |
 | `jack_in` / `jackin` / `cyberspace` | optional `maze` \| `ice_gate` | #47 |
 | `jack_out` / `unjack` / `escape` (while jacked) | — | #47 |
+| `enter_flotilla` / `flotilla` / `signal_finale` | — (need 3 Signal Keys near pad) | #45 |
+| `leave_flotilla` / Esc (in room) | — | #45 |
+| `signal_keys` / `signal_status` | — | #45 |
 
-Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md).
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [signal-keys.md](signal-keys.md).
 
 ## Snapshot fields
-`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`)
+`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `signal_keys` (keys / finale / pad)
