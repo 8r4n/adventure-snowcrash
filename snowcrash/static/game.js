@@ -779,10 +779,12 @@
       const cols = Math.min(180, Math.max(110, Math.floor(pw / 5.5)));
       ascii = new VideoAsciiCanvas(fpvCanvas, {
         cols,
-        brightness: 1.18,
-        contrast: 1.12,
+        brightness: 1.48,
+        contrast: 1.55,
+        gamma: 0.78,
+        saturate: 1.55,
         autoColor: true,
-        bg: "#05080c",
+        bg: "#02050a",
         fit: true,
       });
       ascii.setSourceCanvas(scene);
@@ -798,21 +800,21 @@
     }
 
     function wallColor(ch, side, dist) {
-      const near = Math.max(0.15, Math.min(1, 1.6 / Math.max(0.2, dist)));
+      const near = Math.max(0.28, Math.min(1, 1.85 / Math.max(0.2, dist)));
       let r, g, b;
       if (ch === "+") {
-        r = 240; g = 180; b = 41;
+        r = 255; g = 210; b = 64;
       } else if (ch === "~") {
-        r = 42; g = 111; b = 158;
+        r = 64; g = 168; b = 230;
       } else {
-        r = 40; g = 190; b = 205;
+        r = 72; g = 235; b = 255;
       }
       if (side) {
-        r *= 0.72; g *= 0.72; b *= 0.78;
+        r *= 0.82; g *= 0.82; b *= 0.88;
       }
-      r = Math.min(255, r * near * 1.15);
-      g = Math.min(255, g * near * 1.15);
-      b = Math.min(255, b * near * 1.2);
+      r = Math.min(255, r * near * 1.35);
+      g = Math.min(255, g * near * 1.35);
+      b = Math.min(255, b * near * 1.4);
       return [r | 0, g | 0, b | 0];
     }
 
@@ -832,33 +834,33 @@
 
       const ceil = sctx.createLinearGradient(0, 0, 0, mid);
       if (plane === "AIR") {
-        ceil.addColorStop(0, "#1a3a5c");
-        ceil.addColorStop(1, "#3d7ea6");
+        ceil.addColorStop(0, "#1e4a72");
+        ceil.addColorStop(1, "#4a96c4");
       } else if (plane === "UNDER") {
-        ceil.addColorStop(0, "#050308");
-        ceil.addColorStop(1, "#1a0a12");
+        ceil.addColorStop(0, "#0a0610");
+        ceil.addColorStop(1, "#281018");
       } else {
-        ceil.addColorStop(0, "#060a14");
-        ceil.addColorStop(1, "#0a1528");
+        ceil.addColorStop(0, "#071018");
+        ceil.addColorStop(1, "#102038");
       }
       sctx.fillStyle = ceil;
       sctx.fillRect(0, 0, W, mid);
 
       const floor = sctx.createLinearGradient(0, mid, 0, H);
       if (plane === "AIR") {
-        floor.addColorStop(0, "#1a2838");
-        floor.addColorStop(1, "#0c1824");
+        floor.addColorStop(0, "#243848");
+        floor.addColorStop(1, "#122030");
       } else if (plane === "UNDER") {
-        floor.addColorStop(0, "#12080c");
-        floor.addColorStop(1, "#080406");
+        floor.addColorStop(0, "#1a0c12");
+        floor.addColorStop(1, "#0c0608");
       } else {
-        floor.addColorStop(0, "#0a1018");
-        floor.addColorStop(1, "#121c28");
+        floor.addColorStop(0, "#101820");
+        floor.addColorStop(1, "#1a2838");
       }
       sctx.fillStyle = floor;
       sctx.fillRect(0, mid, W, H - mid);
 
-      sctx.strokeStyle = "rgba(57,197,207,0.08)";
+      sctx.strokeStyle = "rgba(92,240,255,0.14)";
       sctx.lineWidth = 1;
       for (let i = 1; i <= 8; i++) {
         const y = mid + (i * i * (H - mid)) / 80;
@@ -1012,20 +1014,23 @@
       sctx.fillRect(cx - 1, cy - 1, 3, 3);
 
       const turn = s.turn || 0;
-      sctx.fillStyle = "rgba(0,0,0,0.12)";
-      const phase = ((t * 60) | 0) % 3;
-      for (let y = phase; y < H; y += 3) {
+      // Light scanlines — keep CRT flavor without muddying midtones
+      sctx.fillStyle = "rgba(0,0,0,0.045)";
+      const phase = ((t * 60) | 0) % 4;
+      for (let y = phase; y < H; y += 4) {
         sctx.fillRect(0, y, W, 1);
       }
-      sctx.fillStyle = "rgba(57,197,207,0.08)";
-      for (let n = 0; n < 40; n++) {
+      sctx.fillStyle = "rgba(92,240,255,0.06)";
+      for (let n = 0; n < 28; n++) {
         const nx = (n * 97 + turn * 13 + ((t * 40) | 0)) % W;
         const ny = (n * 53 + turn * 7 + ((t * 25) | 0)) % H;
         sctx.fillRect(nx, ny, 2, 1);
       }
-      const vig = sctx.createRadialGradient(cx, cy, H * 0.2, cx, cy, H * 0.75);
+      // Soft vignette — edges only, center stays bright/neon
+      const vig = sctx.createRadialGradient(cx, cy, H * 0.35, cx, cy, H * 0.92);
       vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(1, "rgba(0,0,0,0.45)");
+      vig.addColorStop(0.7, "rgba(0,0,0,0.05)");
+      vig.addColorStop(1, "rgba(0,0,0,0.22)");
       sctx.fillStyle = vig;
       sctx.fillRect(0, 0, W, H);
     }
@@ -1879,7 +1884,9 @@
         const ready = !!p.ready || readyIn <= 0.05;
         const cd = ready ? "" : ` · cd ${readyIn.toFixed(1)}s`;
         const disabled = (!ready || focus < cost) ? " disabled" : "";
-        return `<div class="row ice-probe"><span><strong>${escapeHtml(name)}</strong> <span class="dim">(${cost} Focus${cd})</span><br/><span class="dim">${escapeHtml(desc)}</span></span><button type="button" data-ice="${escapeHtml(id)}"${disabled}>Probe</button></div>`;
+        const btnLabel = ({ stun: "Stun", reveal: "Reveal", scramble: "Scramble" })[id]
+          || (name.split(/\s+/)[0] || "Probe");
+        return `<div class="row ice-probe"><span><strong>${escapeHtml(name)}</strong> <span class="dim">(${cost} Focus${cd})</span><br/><span class="dim">${escapeHtml(desc)}</span></span><button type="button" data-ice="${escapeHtml(id)}"${disabled}>${escapeHtml(btnLabel)}</button></div>`;
       }).join("");
       const nearRows = nearby.length
         ? nearby.slice(0, 8).map((t) => {
@@ -2672,8 +2679,14 @@
       return;
     }
 
+    // Shift+J → quest journal (avoids clash with lowercase j jack-in)
+    if (ev.key === "J") {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("journal");
+      return;
+    }
     // Cyberspace (#47): j jack_in at jackpoint · jack_out while jacked · else vim south
-    if (ev.key === "j" || ev.key === "J") {
+    if (ev.key === "j") {
       ev.preventDefault();
       if (state && state.mode === "cyberspace") {
         send("jack_out");
