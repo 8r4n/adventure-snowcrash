@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Set
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -117,6 +117,22 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                 "deploy_env": env,
                 "is_dev": env == "dev",
             },
+        )
+
+    @app.get("/sw.js")
+    async def service_worker() -> FileResponse:
+        """Root-scoped light offline shell worker (#75)."""
+        return FileResponse(
+            STATIC / "sw.js",
+            media_type="application/javascript; charset=utf-8",
+            headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+        )
+
+    @app.get("/manifest.webmanifest")
+    async def web_manifest() -> FileResponse:
+        return FileResponse(
+            STATIC / "manifest.webmanifest",
+            media_type="application/manifest+json",
         )
 
     @app.get("/api/env")
