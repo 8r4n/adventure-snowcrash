@@ -171,6 +171,10 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `r` | Restart (after death/win) |
 | `q` | Quit (TUI) |
 | `m` (web) | Mute / unmute SFX |
+| `j` (web) | Jack in at jackpoint `J` / jack out in cyberspace (else absolute south) |
+| `Shift+J` (web) | Open quest journal |
+| `z` / `x` / `c` (web) | ICE probes: Stun / Reveal / Scramble |
+| `p` (web) | Open ICE dock |
 | Space / Esc (web) | Skip opening intro or 1st-person cutscene |
 
 Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** next to the Metaverse uplink custodian to win.
@@ -181,7 +185,7 @@ Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** ne
 
 **Opening cinematic:** `VideoAsciiCanvas` plays `static/cutscenes/intro/montage.mp4` fullscreen. Rebuild with `python scripts/gen_intro_video.py` (Pillow + ffmpeg).
 
-**Web gameplay FPV:** each move/turn (plus a low-rate idle rAF for scanlines/noise) paints a neon first-person scene (perspective walls, ceiling/floor gradients, entity billboards) to an offscreen canvas, then samples it through the same ASCII renderer onto `#fpv-canvas`. Same colored density as the intro — not a plain `<pre>` raycaster.
+**Web gameplay FPV:** each move/turn (plus a low-rate idle rAF for scanlines/noise) paints a neon first-person scene (perspective walls, ceiling/floor gradients, entity billboards) to an offscreen canvas, then samples it through the same ASCII renderer onto `#fpv-canvas`. Tuned for **high glyph contrast** (brightness/contrast/gamma/saturation + soft vignette) so continuous play stays readable — not a plain `<pre>` raycaster. See `docs/fpv.md`.
 
 **Street GPS:** enhanced ASCII minimap (glyph language, 2×2 upscaled/colorized) in matching METAVERSE LAYER chrome.
 
