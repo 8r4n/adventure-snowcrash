@@ -2027,19 +2027,28 @@
 
     function renderCyberHint(s) {
       const cyber = defObj(s.cyberspace);
+      const heist = defObj(s.ice_heist);
       const btn = document.getElementById("btn-cyber-jack");
       if (btn) {
-        const active = s.mode === "cyberspace" && !!cyber.active;
+        const heistActive = s.mode === "heist" && !!heist.active;
+        const cyberActive = s.mode === "cyberspace" && !!cyber.active;
+        const active = cyberActive || heistActive;
         const can = !!cyber.can_jack_in;
         btn.disabled = !(active || can);
         btn.textContent = active ? "Jack out" : "Jack in";
-        btn.title = active
+        btn.title = heistActive
+          ? "Abort deep heist (Esc / j) — stun/debt/heat, no soft-lock"
+          : cyberActive
           ? "Exit cyberspace node (Esc / j)"
-          : (can ? "Jack into cyberspace at jackpoint (j)" : "Reach jackpoint (J) to jack in");
+          : (can
+            ? "Jack into cyberspace at J (j). Deep heist: chat heist_start"
+            : "Reach jackpoint (J) to jack in / heist_start");
         btn.dataset.cyber = active ? "out" : "in";
       }
       const fpv = document.getElementById("fpv-status");
-      if (fpv && s.mode === "cyberspace" && cyber.active) {
+      if (fpv && s.mode === "heist" && heist.active) {
+        fpv.textContent = "HEIST · L" + defNum(heist.layer, 1) + "/3";
+      } else if (fpv && s.mode === "cyberspace" && cyber.active) {
         fpv.textContent = "CYBER · " + defStr(cyber.node_type, "node").toUpperCase();
       }
     }
@@ -2685,6 +2694,16 @@
       const nt = cyber.node_type || "node";
       overlay.classList.remove("hidden");
       overlay.innerHTML = `<div class="box cyber-box"><div class="cyber-title">CYBERSPACE · ${escapeHtml(nt)}</div><pre class="cyber-map">${escapeHtml(body)}</pre><div class="dim">${escapeHtml(hint)}</div><div class="dim">Esc / jack_out · ice_probe stun|reveal melts I</div></div>`;
+    } else if (s.mode === "heist") {
+      invMode = false;
+      const heist = s.ice_heist || {};
+      const rows = heist.map || s.map || [];
+      const body = Array.isArray(rows) ? rows.join("\n") : String(rows);
+      const hint = heist.layer_hint || heist.hint || "Deep heist — melt ICE, take core, exit X.";
+      const layer = heist.layer || 1;
+      const ai = heist.ai ? (" · " + (heist.ai.name || "AI") + " stub HP " + (heist.ai.hp || "?") + "/" + (heist.ai.max_hp || "?")) : "";
+      overlay.classList.remove("hidden");
+      overlay.innerHTML = `<div class="box cyber-box"><div class="cyber-title">HEIST · L${escapeHtml(String(layer))}/3${escapeHtml(ai)}</div><pre class="cyber-map">${escapeHtml(body)}</pre><div class="dim">${escapeHtml(hint)}</div><div class="dim">Esc / heist_abort · ice_probe stun|reveal melts I · fail = stun/debt/heat (no soft-lock)</div></div>`;
     } else {
       invMode = false;
       overlay.classList.add("hidden");
@@ -2831,7 +2850,7 @@
     // Cyberspace (#47): j jack_in at jackpoint · jack_out while jacked · else vim south
     if (ev.key === "j") {
       ev.preventDefault();
-      if (state && state.mode === "cyberspace") {
+      if (state && (state.mode === "cyberspace" || state.mode === "heist")) {
         send("jack_out");
         return;
       }

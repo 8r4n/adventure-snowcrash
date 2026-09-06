@@ -52,7 +52,7 @@ Insufficient Focus, unknown type, empty stun/scramble range, or active cooldown 
 
 ## Relation to cyberspace (#47)
 
-Inside a jacked **ICE-gate** node, `stun` and `reveal` melt nearby `I` cells (`_cyber_clear_ice_near`: radius 1 for stun, 2 for reveal). `scramble` does nothing useful in-node (no street hostiles). See [cyberspace.md](cyberspace.md).
+Inside a jacked **ICE-gate** node, `stun` and `reveal` melt nearby `I` cells (`_cyber_clear_ice_near`: radius 1 for stun, 2 for reveal). `scramble` does nothing useful in-node (no street hostiles). See [cyberspace.md](cyberspace.md). Deep heists reuse the same probes: [ice-heists.md](ice-heists.md) (#56).
 
 ## TUI note
 

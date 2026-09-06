@@ -1,6 +1,6 @@
 # Jack-in cyberspace puzzle layer
 
-Issue **#47** (parent campaign **#42**). Same courier identity: stand at the street **jackpoint (`J`)**, enter a short ASCII node, solve a maze or ICE-gate puzzle, return with loot — street pad and facing restored exactly. Synergizes with [ICE probes](ice-probes.md) (#46) on ICE-gate nodes.
+Issue **#47** (parent campaign **#42**). Same courier identity: stand at the street **jackpoint (`J`)**, enter a short ASCII node, solve a maze or ICE-gate puzzle, return with loot — street pad and facing restored exactly. Synergizes with [ICE probes](ice-probes.md) (#46) on ICE-gate nodes. Deep multi-layer vault runs: [ice-heists.md](ice-heists.md) (#56).
 
 Source of truth: `snowcrash/systems/cyberspace.py` (`CyberspaceMixin`), routed from `year_features` / `GameWorld.handle_action` when `agent.mode == "cyberspace"`. Web overlay + Jack dock in `game.js` / `index.html`.
 

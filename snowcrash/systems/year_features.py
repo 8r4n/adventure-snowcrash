@@ -18,6 +18,7 @@ from ..entities import Actor, make_infected, make_thug
 from ..items import Item
 from .corp_patrol import CorpPatrolMixin
 from .cyberspace import CyberspaceMixin
+from .ice_heists import IceHeistMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
@@ -114,7 +115,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -141,6 +142,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         self._seed_ice_cameras()
         self._signal_keys_init()
         self._neon_dash_init()
+        self._ice_heist_init()
         self._corp_patrol_init()
         self._soft_hardcore_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
@@ -193,6 +195,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
             agent.cyber = {"active": False}
         self._signal_keys_bootstrap_agent(agent)
         self._neon_dash_bootstrap_agent(agent)
+        self._ice_heist_bootstrap_agent(agent)
         self._soft_hardcore_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
@@ -821,6 +824,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
         self._tick_weather()
         self._tick_street_events()
         self._tick_neon_dash()
+        self._tick_ice_heist()
         self._tick_corp_patrol()
         self._tick_npc_schedules()
         self._tick_boss_telegraphs()
@@ -953,9 +957,22 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
             return True
 
         if a in ("jack_in", "jackin", "cyberspace", "enter_jack", "cyber_in"):
+            arg_l = (arg or "").strip().lower()
+            if arg_l in ("heist", "deep", "vault", "ice_heist", "deep_heist"):
+                return self._ice_heist_start(agent, arg or "")
             return self._cyber_jack_in(agent, arg or "")
         if a in ("jack_out", "jackout", "unjack", "leave_cyber", "cyber_out"):
+            if getattr(agent, "mode", None) == "heist":
+                return self._ice_heist_jack_out(agent, reason="manual")
             return self._cyber_jack_out(agent)
+
+        if a in (
+            "heist_start", "deep_heist", "ice_heist", "start_heist",
+            "heist_begin", "vault_heist",
+            "heist", "heist_status", "heist_info", "vault_status",
+            "heist_abort", "heist_out", "leave_heist",
+        ):
+            return self._ice_heist_action(agent, a, arg or "")
 
         if a in (
             "enter_flotilla", "flotilla", "flotilla_enter", "signal_finale",
@@ -1570,6 +1587,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, Neo
             "aoi_radius": 28,
             "ice": self._ice_snapshot(agent),
             "cyberspace": self._cyber_snapshot(agent),
+            "ice_heist": self._ice_heist_snapshot(agent),
             "signal_keys": self._signal_keys_snapshot(agent),
             "neon_dash": self._neon_dash_snapshot(agent),
             "heat": heat_snap,
