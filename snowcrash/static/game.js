@@ -773,10 +773,19 @@
       "+": [240, 180, 41],
     };
 
+    function fpvColPlan() {
+      const pw = (fpvStage && fpvStage.clientWidth) || 800;
+      const large = !!(typeof document !== "undefined" && document.body && document.body.classList.contains("large-type"));
+      const narrow = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+      const div = large || narrow ? 7.2 : 5.5;
+      const minCols = large || narrow ? 72 : 110;
+      const maxCols = large || narrow ? 120 : 180;
+      return Math.min(maxCols, Math.max(minCols, Math.floor(pw / div)));
+    }
+
     function ensureAscii() {
       if (ascii || !fpvCanvas || typeof VideoAsciiCanvas === "undefined") return ascii;
-      const pw = (fpvStage && fpvStage.clientWidth) || 800;
-      const cols = Math.min(180, Math.max(110, Math.floor(pw / 5.5)));
+      const cols = fpvColPlan();
       ascii = new VideoAsciiCanvas(fpvCanvas, {
         cols,
         brightness: 1.48,
@@ -794,8 +803,7 @@
     function resizeAscii() {
       const eng = ensureAscii();
       if (!eng || !fpvStage) return;
-      const cols = Math.min(180, Math.max(110, Math.floor(fpvStage.clientWidth / 5.5)));
-      eng.setCols(cols);
+      eng.setCols(fpvColPlan());
       eng.setSourceCanvas(scene);
     }
 
@@ -1220,13 +1228,6 @@
         panel.open = true;
         try { panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (_) {}
       }
-
-      document.querySelectorAll("[data-panel-open]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          openPanel(btn.getAttribute("data-panel-open"));
-          Sound.play("click");
-        });
-      });
 
       if (els.panelDock) {
         els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
@@ -2002,6 +2003,13 @@
           Sound.play("click");
         });
       }
+      document.querySelectorAll("[data-panel-open]").forEach((btn) => {
+        btn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          openPanel(btn.getAttribute("data-panel-open"));
+          Sound.play("click");
+        });
+      });
       const ircCollapse = document.getElementById("btn-irc-collapse");
       if (ircCollapse) ircCollapse.addEventListener("click", () => toggleIrcCollapse());
 
@@ -2149,9 +2157,18 @@
         if (els.ircModBar) els.ircModBar.classList.add("hidden");
       });
 
-      // Mobile virtual joystick / chord pad (#31)
+      // Mobile virtual joystick / chord pad (#31 / #75)
       const vjoy = document.getElementById("vjoy");
       const chord = document.getElementById("chord-pad");
+      function blockScrollBleed(el) {
+        if (!el) return;
+        const block = (ev) => { ev.preventDefault(); };
+        el.addEventListener("touchmove", block, { passive: false });
+        el.addEventListener("gesturestart", block, { passive: false });
+      }
+      blockScrollBleed(els.mobileHud);
+      blockScrollBleed(vjoy);
+      blockScrollBleed(chord);
       function bindTouchAct(root, attr, prefix) {
         if (!root) return;
         const fire = (ev) => {
@@ -2167,6 +2184,14 @@
       }
       bindTouchAct(vjoy, "data-move", "move");
       bindTouchAct(chord, "data-act", "act");
+      // Prefer large-type FPV glyphs on narrow viewports (#75)
+      try {
+        const wantLarge = localStorage.getItem("snowcrash_large_type");
+        const narrow = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+        if (wantLarge === "1" || (wantLarge !== "0" && narrow)) {
+          document.body.classList.add("large-type");
+        }
+      } catch (_) {}
 
       // Optional nick polish (#25)
       if (els.ircNick) {

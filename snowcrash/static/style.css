@@ -23,6 +23,8 @@ html, body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 #app {
   width: 100%;
@@ -32,7 +34,10 @@ html, body {
   height: 100dvh;
   max-width: none;
   margin: 0;
-  padding: 0.45rem 0.65rem 0.55rem;
+  padding: max(0.45rem, env(safe-area-inset-top, 0px))
+           max(0.65rem, env(safe-area-inset-right, 0px))
+           max(0.55rem, env(safe-area-inset-bottom, 0px))
+           max(0.65rem, env(safe-area-inset-left, 0px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1629,24 +1634,28 @@ body:not(.intro-active) {
 .nick-optional { margin-top: 0.65rem !important; }
 .name-gate-card .dim { color: #6e7681; font-weight: 400; letter-spacing: 0; text-transform: none; }
 
-/* Mobile HUD (#31) */
+/* Mobile HUD (#31) + playability slice (#75) */
 .mobile-hud {
   display: none;
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0.35rem;
+  bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
   z-index: 8;
-  padding: 0 0.4rem;
+  padding: 0 max(0.4rem, env(safe-area-inset-right, 0px)) 0 max(0.4rem, env(safe-area-inset-left, 0px));
   justify-content: space-between;
   align-items: flex-end;
   pointer-events: none;
   gap: 0.5rem;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 .vjoy, .chord-pad {
   pointer-events: auto;
   display: grid;
   gap: 0.2rem;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 .vjoy {
   grid-template-columns: repeat(3, 2.4rem);
@@ -1664,8 +1673,10 @@ body:not(.intro-active) {
   font-family: var(--mono);
   font-size: 0.75rem;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .vjoy-btn:active, .chord-pad button:active {
   background: rgba(57, 197, 207, 0.25);
@@ -1673,31 +1684,70 @@ body:not(.intro-active) {
 }
 .vjoy-idle { opacity: 0.25; }
 
-@media (max-width: 720px) {
+/* Narrow / coarse-pointer: show mobile HUD by default (#75 / #31) */
+@media (max-width: 720px), ((max-width: 1024px) and (pointer: coarse)) {
   .mobile-hud { display: flex; }
   #app.declutter #layout {
     grid-template-columns: 1fr;
   }
   #app.declutter #side {
-    max-height: 42vh;
+    max-height: min(40vh, 22rem);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  /* Single scroll owner — avoid nested scroll hell on Journal/ICE/dock panels */
+  #app.declutter .year-panel .panel-body {
+    max-height: none;
+    overflow: visible;
+  }
+  #app.declutter .stats-compact {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--panel);
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #21262d;
   }
   #app.declutter .panel-dock {
     width: 100%;
     order: 3;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 0.15rem;
   }
   header.topbar {
     flex-wrap: wrap;
   }
   #minimap-wrap {
     width: min(42vw, 160px) !important;
-    right: 0.4rem;
-    bottom: 7.5rem;
+    right: max(0.4rem, env(safe-area-inset-right, 0px));
+    bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
   }
   .fpv-stage { min-height: 38vh; }
-  .toast-stack { top: auto; bottom: 8rem; right: 0.4rem; }
-  .kill-feed { top: auto; bottom: 8rem; left: 0.4rem; max-width: 45vw; }
+  /* Toasts under topbar — do not cover sticky HP/Focus in #side or mobile HUD */
+  .toast-stack {
+    top: calc(env(safe-area-inset-top, 0px) + 4.6rem);
+    bottom: auto;
+    right: max(0.4rem, env(safe-area-inset-right, 0px));
+    max-height: 28vh;
+    overflow: hidden;
+  }
+  .kill-feed {
+    top: calc(env(safe-area-inset-top, 0px) + 4.6rem);
+    bottom: auto;
+    left: max(0.4rem, env(safe-area-inset-left, 0px));
+    max-width: 45vw;
+    max-height: 24vh;
+    overflow: hidden;
+  }
   #chat-panel.compact .irc-nicks-wrap { display: none; }
   #chat-panel.compact .irc-body { grid-template-columns: 1fr; }
+  body.large-type .fpv-stage { min-height: 42vh; }
+  body.large-type #fpv-canvas { image-rendering: pixelated; }
 }
 
 @media (max-width: 420px) {

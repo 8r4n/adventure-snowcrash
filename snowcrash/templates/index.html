@@ -3,7 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05080c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Snowcrash" />
+  <meta name="description" content="Cyberpunk Metaverse streets — playable rogue-like / MMORPG." />
   <title>{{ title }}</title>
+  <link rel="manifest" href="/static/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body class="{% if is_dev %}env-dev{% else %}env-production{% endif %}">
@@ -95,6 +104,12 @@
             </div>
             <div id="npc-cue" class="npc-cue hidden" aria-live="polite"></div>
             <div id="duel-banner" class="duel-banner hidden">DUEL · CONSENT</div>
+            <div id="corp-patrol-banner" class="corp-patrol-banner hidden" aria-live="polite">
+              <div id="corp-patrol-name" class="corp-name">CORP PATROL</div>
+              <div id="corp-patrol-meta" class="corp-meta"></div>
+              <div id="corp-patrol-tip" class="corp-tip"></div>
+              <button type="button" id="btn-contest-patrol" class="btn-contest hidden">Contest patrol</button>
+            </div>
           </div>
         </div>
 
@@ -135,6 +150,18 @@
 
       <aside id="side">
         <div id="stats" class="stats-compact"></div>
+        <div id="heat-hud" class="heat-hud" hidden aria-live="polite">
+          <div class="heat-row">
+            <span class="heat-label">HEAT</span>
+            <div class="heat-bar-wrap" title="Street heat — kills &amp; Signal Keys raise it; safehouse cools it">
+              <div id="heat-bar" class="heat-bar"></div>
+              <div id="heat-spawn-mark" class="heat-spawn-mark" title="Patrol spawn threshold"></div>
+            </div>
+            <span id="heat-value" class="heat-value">0</span>
+            <span id="heat-tier" class="heat-tier">cool</span>
+          </div>
+          <div id="heat-hint" class="heat-hint"></div>
+        </div>
 
         <details id="party-panel" class="side-fold year-panel" data-panel="party">
           <summary>Party</summary>
@@ -304,5 +331,12 @@
   </div>
   <script src="/static/ascii-video.js"></script>
   <script src="/static/game.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
