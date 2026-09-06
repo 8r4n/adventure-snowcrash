@@ -1011,7 +1011,7 @@ body:not(.intro-active) {
   font-size: 0.7rem;
 }
 #app.declutter #layout {
-  grid-template-columns: 1fr minmax(220px, 260px);
+  grid-template-columns: 1fr minmax(240px, 300px);
   gap: 0.5rem;
   padding: 0.4rem 0.5rem 0.25rem;
 }
@@ -1142,9 +1142,11 @@ body:not(.intro-active) {
 .panel-dock {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.2rem;
+  gap: 0.18rem;
   align-items: center;
   margin-left: 0.35rem;
+  max-width: min(100%, 42rem);
+  row-gap: 0.18rem;
 }
 .dock-btn {
   appearance: none;
@@ -1152,12 +1154,14 @@ body:not(.intro-active) {
   color: var(--dim);
   border: 1px solid #1e3a40;
   border-radius: 4px;
-  padding: 0.15rem 0.4rem;
+  padding: 0.12rem 0.34rem;
   font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .dock-btn:hover,
 .dock-btn.active {
@@ -1268,15 +1272,31 @@ body:not(.intro-active) {
 .kill-feed .kf-line .killer { color: var(--neon); }
 .kill-feed .kf-line .victim { color: var(--dim); }
 
-/* Side year panels */
+/* Side year panels — accordion (one open) so bodies can breathe */
 .year-panel .panel-body {
   font-family: var(--mono);
   font-size: 0.7rem;
   line-height: 1.4;
-  max-height: 9rem;
+  max-height: min(42vh, 18rem);
   overflow-y: auto;
+  overflow-x: hidden;
   margin-top: 0.25rem;
   color: #9da7b3;
+  word-break: break-word;
+}
+.year-panel .panel-body .row {
+  min-width: 0;
+}
+.year-panel .panel-body .row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.year-panel .ice-probe {
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.year-panel .ice-probe button {
+  flex-shrink: 0;
 }
 .year-panel .panel-body .row {
   display: flex;
@@ -1983,3 +2003,38 @@ body:not(.intro-active) {
 .primer-list .row.done { opacity: 0.72; }
 .primer-list .dim { color: #6a7682; font-size: 0.62rem; }
 .primer-voice { color: #9ad4ff; font-family: ui-monospace, monospace; font-size: 0.68rem; }
+
+
+/* ============================================================
+   Playtest HUD polish (#88) — docks / ICE / FPV readability
+   ============================================================ */
+header.topbar {
+  align-items: flex-start;
+}
+header.topbar .panel-dock {
+  margin-top: 0.1rem;
+}
+#app.declutter .year-panel[open] {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+#app.declutter .year-panel[open] .panel-body {
+  /* Prefer one scroll surface inside the open panel */
+  max-height: min(48vh, 22rem);
+}
+@media (max-width: 1100px) {
+  header.topbar {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+  }
+  .panel-dock {
+    width: 100%;
+    margin-left: 0;
+    max-width: 100%;
+  }
+}
+@media (max-width: 720px), ((max-width: 1024px) and (pointer: coarse)) {
+  #app.declutter .year-panel[open] .panel-body {
+    max-height: none; /* #side remains the single scroll owner on narrow */
+  }
+}

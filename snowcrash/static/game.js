@@ -788,10 +788,11 @@
       const cols = fpvColPlan();
       ascii = new VideoAsciiCanvas(fpvCanvas, {
         cols,
-        brightness: 1.48,
-        contrast: 1.55,
-        gamma: 0.78,
-        saturate: 1.55,
+        // Playtest pass 2 (#88): lift midtones slightly; keep neon punch
+        brightness: 1.58,
+        contrast: 1.62,
+        gamma: 0.74,
+        saturate: 1.62,
         autoColor: true,
         bg: "#02050a",
         fit: true,
@@ -820,9 +821,9 @@
       if (side) {
         r *= 0.82; g *= 0.82; b *= 0.88;
       }
-      r = Math.min(255, r * near * 1.35);
-      g = Math.min(255, g * near * 1.35);
-      b = Math.min(255, b * near * 1.4);
+      r = Math.min(255, r * near * 1.42);
+      g = Math.min(255, g * near * 1.42);
+      b = Math.min(255, b * near * 1.48);
       return [r | 0, g | 0, b | 0];
     }
 
@@ -848,8 +849,8 @@
         ceil.addColorStop(0, "#0a0610");
         ceil.addColorStop(1, "#281018");
       } else {
-        ceil.addColorStop(0, "#071018");
-        ceil.addColorStop(1, "#102038");
+        ceil.addColorStop(0, "#0a1828");
+        ceil.addColorStop(1, "#153050");
       }
       sctx.fillStyle = ceil;
       sctx.fillRect(0, 0, W, mid);
@@ -862,8 +863,8 @@
         floor.addColorStop(0, "#1a0c12");
         floor.addColorStop(1, "#0c0608");
       } else {
-        floor.addColorStop(0, "#101820");
-        floor.addColorStop(1, "#1a2838");
+        floor.addColorStop(0, "#152230");
+        floor.addColorStop(1, "#243848");
       }
       sctx.fillStyle = floor;
       sctx.fillRect(0, mid, W, H - mid);
@@ -1023,7 +1024,7 @@
 
       const turn = s.turn || 0;
       // Light scanlines — keep CRT flavor without muddying midtones
-      sctx.fillStyle = "rgba(0,0,0,0.045)";
+      sctx.fillStyle = "rgba(0,0,0,0.035)";
       const phase = ((t * 60) | 0) % 4;
       for (let y = phase; y < H; y += 4) {
         sctx.fillRect(0, y, W, 1);
@@ -1035,10 +1036,10 @@
         sctx.fillRect(nx, ny, 2, 1);
       }
       // Soft vignette — edges only, center stays bright/neon
-      const vig = sctx.createRadialGradient(cx, cy, H * 0.35, cx, cy, H * 0.92);
+      const vig = sctx.createRadialGradient(cx, cy, H * 0.4, cx, cy, H * 0.95);
       vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(0.7, "rgba(0,0,0,0.05)");
-      vig.addColorStop(1, "rgba(0,0,0,0.22)");
+      vig.addColorStop(0.72, "rgba(0,0,0,0.03)");
+      vig.addColorStop(1, "rgba(0,0,0,0.16)");
       sctx.fillStyle = vig;
       sctx.fillRect(0, 0, W, H);
     }
@@ -1238,16 +1239,26 @@
       setTimeout(() => { try { el.remove(); } catch (_) {} }, ms || 4200);
     }
 
-    function openPanel(name) {
+    function openPanel(name, opts) {
+      const optsSafe = opts || {};
       const panel = document.querySelector('.year-panel[data-panel="' + name + '"]');
+      // Accordion: only one year panel open — stops Journal/ICE/Primer/Globe stacking & clipping
+      document.querySelectorAll(".year-panel").forEach((p) => {
+        if (p !== panel) p.open = false;
+      });
       if (panel) {
-        panel.open = true;
-        try { panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (_) {}
+        if (optsSafe.toggle && panel.open) {
+          panel.open = false;
+        } else {
+          panel.open = true;
+          try { panel.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (_) {}
+        }
       }
 
       if (els.panelDock) {
+        const activeName = panel && panel.open ? name : "";
         els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
-          b.classList.toggle("active", b.getAttribute("data-panel") === name);
+          b.classList.toggle("active", !!activeName && b.getAttribute("data-panel") === activeName);
         });
       }
     }
@@ -2143,6 +2154,11 @@
         els.iceBody.innerHTML = '<div class="panel-empty">ICE layer offline</div>';
         return;
       }
+      const hasAny = nearby.length > 0;
+      const hasHostile = nearby.some((t) => {
+        const k = defStr(t.kind, "");
+        return k === "drone" || k === "thug_deck";
+      });
       const probeRows = probes.map((p) => {
         const id = defStr(p.id, "");
         const name = defStr(p.name, id);
@@ -2151,10 +2167,19 @@
         const readyIn = defNum(p.ready_in, 0);
         const ready = !!p.ready || readyIn <= 0.05;
         const cd = ready ? "" : ` · cd ${readyIn.toFixed(1)}s`;
-        const disabled = (!ready || focus < cost) ? " disabled" : "";
+        let needTarget = false;
+        let missHint = "";
+        if (id === "stun" && !hasAny) {
+          needTarget = true;
+          missHint = " · no target";
+        } else if (id === "scramble" && !hasHostile) {
+          needTarget = true;
+          missHint = " · need hostile";
+        }
+        const disabled = (!ready || focus < cost || needTarget) ? " disabled" : "";
         const btnLabel = ({ stun: "Stun", reveal: "Reveal", scramble: "Scramble" })[id]
           || (name.split(/\s+/)[0] || "Probe");
-        return `<div class="row ice-probe"><span><strong>${escapeHtml(name)}</strong> <span class="dim">(${cost} Focus${cd})</span><br/><span class="dim">${escapeHtml(desc)}</span></span><button type="button" data-ice="${escapeHtml(id)}"${disabled}>${escapeHtml(btnLabel)}</button></div>`;
+        return `<div class="row ice-probe"><span><strong>${escapeHtml(name)}</strong> <span class="dim">(${cost} Focus${cd}${missHint})</span><br/><span class="dim">${escapeHtml(desc)}</span></span><button type="button" data-ice="${escapeHtml(id)}"${disabled} title="${needTarget ? "No valid target in range — Focus will not be spent" : ""}">${escapeHtml(btnLabel)}</button></div>`;
       }).join("");
       const nearRows = nearby.length
         ? nearby.slice(0, 8).map((t) => {
@@ -2164,13 +2189,17 @@
             const flags = [t.stunned ? "STUN" : null, t.scrambled ? "SCRAM" : null].filter(Boolean).join(" ");
             return `<div class="row dim">${escapeHtml(kind)} · ${escapeHtml(name)} · d${dist}${flags ? " · " + flags : ""}</div>`;
           }).join("")
-        : '<div class="panel-empty">No cameras / drones / thug decks in range</div>';
+        : '<div class="panel-empty">No cameras / drones / thug decks in range — Stun/Scramble keep Focus</div>';
+      const emptyHostileNote = hasAny && !hasHostile
+        ? '<div class="panel-empty">Cameras only — Scramble needs a drone or thug (Focus kept)</div>'
+        : "";
       els.iceBody.innerHTML =
         `<div class="row"><strong>Focus</strong><span>${focus}/${maxF}</span></div>` +
         `<div class="row dim">${escapeHtml(defStr(ice.hint, "Spend Focus on StreetNet ICE probes."))}</div>` +
         probeRows +
         `<div class="row"><strong>Nearby ICE</strong></div>` +
-        nearRows;
+        nearRows +
+        emptyHostileNote;
     }
 
     function renderAnalytics(s) {
@@ -2345,6 +2374,30 @@
       });
 
       if (els.panelDock) {
+        // Native <details> summary clicks — keep year panels accordion'd
+        document.querySelectorAll(".year-panel").forEach((panel) => {
+          panel.addEventListener("toggle", () => {
+            if (!panel.open) {
+              if (els.panelDock) {
+                els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
+                  if (b.getAttribute("data-panel") === panel.getAttribute("data-panel")) {
+                    b.classList.remove("active");
+                  }
+                });
+              }
+              return;
+            }
+            document.querySelectorAll(".year-panel").forEach((p) => {
+              if (p !== panel) p.open = false;
+            });
+            const name = panel.getAttribute("data-panel");
+            if (els.panelDock && name) {
+              els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
+                b.classList.toggle("active", b.getAttribute("data-panel") === name);
+              });
+            }
+          });
+        });
         els.panelDock.addEventListener("click", (ev) => {
           const btn = ev.target && ev.target.closest ? ev.target.closest("[data-panel]") : null;
           if (!btn) {
@@ -2352,7 +2405,7 @@
             return;
           }
           const pname = btn.getAttribute("data-panel");
-          openPanel(pname);
+          openPanel(pname, { toggle: true });
           if (pname === "globe") send("globe");
           if (pname === "sleeves") send("sleeves");
           if (pname === "primer") send("primer");

@@ -397,7 +397,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "nearby": self._ice_nearby_targets(agent, radius=int(getattr(C, "ICE_PROBE_RADIUS_DEFAULT", 10))),
             "focus": int(agent.actor.focus),
             "max_focus": int(agent.actor.max_focus),
-            "hint": "Spend Focus to probe cameras, drones, or thug decks (z/x/c or ICE dock).",
+            "hint": "z Stun / x Reveal / c Scramble (Scramble needs a drone or thug — cams alone keep Focus).",
         }
 
     def _ice_probe_action(self, agent, arg: str) -> bool:
@@ -429,7 +429,23 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         radius = int(defn["radius"])
         duration = float(defn.get("duration", 0) or 0)
         targets = self._ice_nearby_targets(agent, radius=radius)
-        if pid != "reveal" and not targets:
+        if pid == "stun" and not targets:
+            agent.log(
+                "No camera, drone, or thug deck in Stun range (%d) — move closer (Focus kept)."
+                % radius
+            )
+            return True
+        if pid == "scramble":
+            # Cameras alone must not burn Focus: Aggro Scramble needs a hostile trail.
+            hostiles = [t for t in targets if t.get("kind") in ("drone", "thug_deck")]
+            if not hostiles:
+                agent.log(
+                    "No drones or thug decks in Scramble range (%d) — "
+                    "need a hostile trail (Street Cams alone don't count; Focus kept)."
+                    % radius
+                )
+                return True
+        if pid not in ("stun", "reveal", "scramble") and not targets:
             agent.log("No camera, drone, or thug deck in probe range (%d)." % radius)
             return True
 
@@ -509,8 +525,9 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
                 if d <= radius:
                     cam["stunned_until"] = max(float(cam.get("stunned_until", 0) or 0), now + duration * 0.5)
             agent.log(
-                "Aggro Scramble shreds local targeting (−%d Focus) — %d hostiles lose your trail for %.0fs."
-                % (cost, n, duration)
+                "Aggro Scramble shreds local targeting (−%d Focus) — "
+                "%d hostile%s lose your trail for %.0fs."
+                % (cost, n, "" if n == 1 else "s", duration)
             )
             return True
 
