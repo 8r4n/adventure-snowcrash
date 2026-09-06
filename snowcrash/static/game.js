@@ -1177,6 +1177,7 @@
       seasonBody: document.getElementById("season-body"),
       raidBody: document.getElementById("raid-body"),
       iceBody: document.getElementById("ice-body"),
+      globeBody: document.getElementById("globe-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -1887,6 +1888,63 @@
     }
 
 
+
+    function latLonToSvg(lat, lon, w, h) {
+      const x = ((Number(lon) + 180) / 360) * w;
+      const y = ((90 - Number(lat)) / 180) * h;
+      return [x, y];
+    }
+
+    function renderGlobe(s) {
+      if (!els.globeBody) return;
+      const g = defObj(s.globe);
+      const regions = defArr(g.regions);
+      if (!regions.length) {
+        els.globeBody.innerHTML = '<div class="panel-empty">Globe layer offline</div>';
+        els.globeBody.classList.remove("globe-body");
+        return;
+      }
+      els.globeBody.classList.add("globe-body");
+      const cur = defStr(g.region_id, "");
+      const home = defStr(g.home_region_id, "");
+      const cost = defNum(g.cost_credits, 15);
+      const cd = defNum(g.cooldown_remaining, 0);
+      const reg = defObj(g.region);
+      const w = 200, h = 100;
+      const pins = regions.map((r) => {
+        const id = defStr(r.id, "");
+        const [x, y] = latLonToSvg(r.lat, r.lon, w, h);
+        const cls = ["pin"];
+        if (id === home || r.home) cls.push("home");
+        if (id === cur) cls.push("here");
+        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")";
+        return `<circle class="${cls.join(" ")}" data-tp="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.2"><title>${title}</title></circle>`;
+      }).join("");
+      // Schematic continents (not GIS-accurate) — original Metaverse art only
+      const land = `
+        <ellipse class="land" cx="42" cy="42" rx="28" ry="22"/>
+        <ellipse class="land" cx="55" cy="68" rx="14" ry="18"/>
+        <ellipse class="land" cx="105" cy="38" rx="22" ry="16"/>
+        <ellipse class="land" cx="115" cy="58" rx="18" ry="20"/>
+        <ellipse class="land" cx="148" cy="48" rx="26" ry="20"/>
+        <ellipse class="land" cx="165" cy="72" rx="16" ry="12"/>
+        <ellipse class="land" cx="100" cy="18" rx="40" ry="8"/>
+        <ellipse class="land" cx="100" cy="90" rx="30" ry="6"/>
+      `;
+      const list = regions.slice().sort((a, b) => String(a.name).localeCompare(String(b.name))).map((r) => {
+        const id = defStr(r.id, "");
+        const name = defStr(r.name, id);
+        const here = id === cur ? " · HERE" : "";
+        const disabled = (cd > 0.5 && id !== cur) ? " disabled" : "";
+        return `<div class="row"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}</span></span><button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></div>`;
+      }).join("");
+      els.globeBody.innerHTML =
+        `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}<br/>Hop cost ${cost} cr · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"} · <button type="button" data-globe="recall">Recall home</button></div>` +
+        `<svg class="globe-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Schematic Earth region picker"><rect class="ocean" width="${w}" height="${h}"/>${land}${pins}</svg>` +
+        `<div class="globe-region-list">${list}</div>` +
+        `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a pin to uplink-hop."))}</div>`;
+    }
+
     function renderIce(s) {
       if (!els.iceBody) return;
       const ice = defObj(s.ice);
@@ -2077,6 +2135,7 @@
         renderSeason(s);
         renderRaid(s);
         renderIce(s);
+        renderGlobe(s);
         renderCyberHint(s);
         renderWishToy(s);
         styleLogFees(s);
@@ -2102,7 +2161,9 @@
             if (ev.target && ev.target.id === "btn-collapse-irc") toggleIrcCollapse();
             return;
           }
-          openPanel(btn.getAttribute("data-panel"));
+          const pname = btn.getAttribute("data-panel");
+          openPanel(pname);
+          if (pname === "globe") send("globe");
           Sound.play("click");
         });
       }
@@ -2188,6 +2249,14 @@
       bindPanel(els.contractsBody, [["data-contract", (v) => send("contract_accept", v)]]);
       bindPanel(els.seasonBody, [["data-season-claim", (v) => send("season_claim", v)]]);
       bindPanel(els.raidBody, [["data-raid", (v) => send("raid_" + v)]]);
+      bindPanel(els.globeBody, [
+        ["data-tp", (v) => send("teleport", v)],
+        ["data-globe", (v) => {
+          if (v === "recall") send("globe_recall");
+          else if (v === "open") send("globe");
+          else send("globe_" + v);
+        }],
+      ]);
       if (els.npcCue) {
         els.npcCue.addEventListener("click", (ev) => {
           const btn = ev.target.closest("[data-dlg]");
@@ -2860,6 +2929,14 @@
         return;
       }
       send("s_abs");
+      return;
+    }
+
+    // Globe (#54): Shift+G opens globe panel + open_globe action
+    if (ev.key === "G") {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("globe");
+      send("globe");
       return;
     }
 
