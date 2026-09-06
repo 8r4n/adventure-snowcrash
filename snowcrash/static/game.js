@@ -1387,7 +1387,18 @@
           els.deathOverlay.classList.remove("hidden");
           if (els.deathCause) {
             const cause = defObj(s.dead);
-            els.deathCause.textContent = defStr(cause.cause || cause.by || s.death_cause, "Courier down");
+            const sh = defObj(s.soft_hardcore);
+            const pen = defObj(sh.last_penalty);
+            let msg = defStr(cause.cause || cause.by || s.death_cause, "Courier down");
+            if (sh.enabled && pen.summary) {
+              msg = defStr(s.death_cause, msg);
+              if (msg.indexOf(String(pen.summary)) < 0) {
+                msg = msg + " " + String(pen.summary);
+              }
+            } else if (sh.enabled) {
+              msg = msg + " Soft hardcore is armed.";
+            }
+            els.deathCause.textContent = msg;
           }
           if (els.respawnOptions) {
             if (opts.length) {

@@ -206,8 +206,9 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                 return
             name = str(msg.get("name") or "Courier")
             reconnect_id = msg.get("id")
+            soft_hc = bool(msg.get("soft_hardcore") or msg.get("hardcore"))
             async with lock:
-                agent = world.join(name, reconnect_id=reconnect_id)
+                agent = world.join(name, reconnect_id=reconnect_id, soft_hardcore=soft_hc)
                 world.reconnect_parked(agent)
                 player_id = agent.id
                 sockets[ws] = player_id

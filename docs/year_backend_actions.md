@@ -30,8 +30,10 @@
 | `heat` / `heat_status` / `corp_heat` | — | #50 |
 | `corp_patrol` / `patrol_status` | — | #50 |
 | `contest_patrol` / `crew_contest` | — (need crew) | #50 |
+| `hardcore` / `soft_hardcore` / `hardcore_on` / `hardcore_off` | on\|off | #49 |
+| `pay_hardcore_debt` / `hardcore_debt` | — | #49 |
 
-Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md).
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md).
 
 ## Snapshot fields
 `skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress)

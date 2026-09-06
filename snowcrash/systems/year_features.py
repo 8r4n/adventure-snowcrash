@@ -20,6 +20,7 @@ from .corp_patrol import CorpPatrolMixin
 from .cyberspace import CyberspaceMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
+from .soft_hardcore import SoftHardcoreMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -113,7 +114,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -141,6 +142,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
         self._signal_keys_init()
         self._neon_dash_init()
         self._corp_patrol_init()
+        self._soft_hardcore_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -174,6 +176,8 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
             "equipped": None,
         }
         agent.dead = False
+        if not hasattr(agent, "death_cause"):
+            agent.death_cause = None
         agent.respawn_options = []
         agent.spectating = None
         agent.muted = set(getattr(agent, "muted", set()) or set())
@@ -189,6 +193,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
             agent.cyber = {"active": False}
         self._signal_keys_bootstrap_agent(agent)
         self._neon_dash_bootstrap_agent(agent)
+        self._soft_hardcore_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -673,6 +678,9 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
         agent.dead = True
         agent.lost = True
         agent.mode = "dead"
+        # Soft hardcore tax before overlay messaging (no-op when opted out).
+        self._soft_hardcore_apply_death_penalty(agent, killer_name=killer_name)
+        agent.death_cause = self._soft_hardcore_death_cause(agent, killer_name=killer_name)
         agent.respawn_options = [
             {"id": "safe_pad", "label": "Safe street pad (default)"},
             {"id": "district", "label": "District node (near current district)"},
@@ -684,12 +692,16 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
             "killer": killer_name,
             "tick": self.tick,
         }
+        pen = (getattr(agent, "soft_hardcore", None) or {}).get("last_penalty") or {}
+        if pen.get("applied"):
+            feed["hardcore"] = True
+            feed["via"] = "soft-hardcore"
         self.kill_feed.append(feed)
         if len(self.kill_feed) > 30:
             self.kill_feed = self.kill_feed[-30:]
         self.system_chat("%s flatlined by %s." % (agent.name, killer_name))
         self._analytics("death", agent, killer=killer_name)
-        agent.repair_needed = min(40, agent.repair_needed + 8)
+        agent.repair_needed = min(40, int(getattr(agent, "repair_needed", 0) or 0) + 8)
         # Party ping
         if agent.party_id and agent.party_id in self.parties:
             self.parties[agent.party_id]["ping"] = {
@@ -700,6 +712,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
     def _year_respawn(self, agent, choice: Optional[str] = None) -> None:
         choice = choice or "safe_pad"
         agent.dead = False
+        agent.death_cause = None
         agent.respawn_options = []
         # Call existing respawn then maybe relocate
         self._respawn(agent)
@@ -975,6 +988,14 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
             return self._ice_probe_action(agent, a[4:])
         if a.startswith("probe_") and a[6:] in C.ICE_PROBES:
             return self._ice_probe_action(agent, a[6:])
+
+        if a in (
+            "hardcore", "soft_hardcore", "hardcore_status", "soft_hardcore_status",
+            "hardcore_on", "soft_hardcore_on", "hardcore_optin",
+            "hardcore_off", "soft_hardcore_off", "hardcore_optout",
+            "pay_hardcore_debt", "hardcore_debt",
+        ):
+            return self._soft_hardcore_action(agent, a, arg or "")
 
         return False
 
@@ -1553,6 +1574,8 @@ class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, Cybersp
             "neon_dash": self._neon_dash_snapshot(agent),
             "heat": heat_snap,
             "corp_patrol": heat_snap.get("patrol"),
+            "soft_hardcore": self._soft_hardcore_snapshot(agent),
+            "death_cause": getattr(agent, "death_cause", None),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:
