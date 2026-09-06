@@ -22,13 +22,17 @@
       this.ctx = canvas.getContext("2d", { alpha: false });
       this.cols = opts.cols || 160;
       this.charset = opts.charset || DEFAULT_CHARSET;
-      this.brightness = opts.brightness != null ? opts.brightness : 1.15;
-      this.contrast = opts.contrast != null ? opts.contrast : 1.1;
+      this.brightness = opts.brightness != null ? opts.brightness : 1.28;
+      this.contrast = opts.contrast != null ? opts.contrast : 1.35;
+      // <1 lifts dark midtones into denser glyphs (readability on neon scenes)
+      this.gamma = opts.gamma != null ? opts.gamma : 0.82;
+      // >1 punches chroma toward neon without washing luminance
+      this.saturate = opts.saturate != null ? opts.saturate : 1.35;
       this.fontFamily =
         opts.fontFamily || '"JetBrains Mono","Fira Code",ui-monospace,monospace';
-      this.bg = opts.bg || "#05080c";
+      this.bg = opts.bg || "#03060a";
       this.autoColor = opts.autoColor !== false;
-      this.monoColor = opts.monoColor || "#39c5cf";
+      this.monoColor = opts.monoColor || "#5cf0ff";
       this.fit = opts.fit !== false;
       this.cellAspect = opts.cellAspect != null ? opts.cellAspect : 0.55;
 
@@ -222,6 +226,8 @@
       const setLen = set.length;
       const bright = this.brightness;
       const contrast = this.contrast;
+      const gamma = this.gamma > 0 ? this.gamma : 1;
+      const sat = this.saturate != null ? this.saturate : 1;
       const auto = this.autoColor;
 
       ctx.fillStyle = this.bg;
@@ -239,8 +245,19 @@
           r = Math.min(255, Math.max(0, ((r - 128) * contrast + 128) * bright));
           g = Math.min(255, Math.max(0, ((g - 128) * contrast + 128) * bright));
           b = Math.min(255, Math.max(0, ((b - 128) * contrast + 128) * bright));
-          const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-          const idx = Math.min(setLen - 1, Math.floor(lum * setLen));
+          if (sat !== 1) {
+            const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            r = Math.min(255, Math.max(0, gray + (r - gray) * sat));
+            g = Math.min(255, Math.max(0, gray + (g - gray) * sat));
+            b = Math.min(255, Math.max(0, gray + (b - gray) * sat));
+          }
+          let lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+          if (gamma !== 1) lum = Math.pow(Math.max(0, Math.min(1, lum)), gamma);
+          // Bias away from empty space so dim walls still draw a glyph
+          const idx = Math.min(
+            setLen - 1,
+            Math.max(lum > 0.02 ? 1 : 0, Math.floor(lum * setLen))
+          );
           const glyph = set[idx];
           if (glyph === " ") continue;
           if (auto) {
@@ -282,6 +299,8 @@
       this.charset = this._renderer.charset;
       this.brightness = this._renderer.brightness;
       this.contrast = this._renderer.contrast;
+      this.gamma = this._renderer.gamma;
+      this.saturate = this._renderer.saturate;
       this.fontFamily = this._renderer.fontFamily;
       this.bg = this._renderer.bg;
       this.autoColor = this._renderer.autoColor;
