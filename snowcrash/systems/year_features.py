@@ -23,6 +23,7 @@ from .ice_heists import IceHeistMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
 from .soft_hardcore import SoftHardcoreMixin
+from .jaunte import JaunteMixin
 from .primer import PrimerMixin
 from .sleeves import SleevesMixin
 
@@ -35,6 +36,7 @@ SKILL_CATALOG = {
     "mono_form": {"name": "Mono Form", "desc": "+1 attack"},
     "faraday_mind": {"name": "Faraday Mind", "desc": "Resist signal storm focus drain"},
     "burb_charm": {"name": "Burb Charm", "desc": "Vendor prices -10%"},
+    "uplink_jaunte": {"name": "Uplink Jaunte", "desc": "Train Street Jaunt hops (rank +1)"},
 }
 
 LOADOUT_SLOTS = ("weapon", "armor", "trinket")
@@ -118,7 +120,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, SignalKeysMixin, NeonDashMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -151,6 +153,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._globe_init()
         self._sleeves_init()
         self._primer_init()
+        self._jaunte_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -206,6 +209,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._sleeves_bootstrap_agent(agent)
         self._primer_bootstrap_agent(agent)
         self._globe_bootstrap_agent(agent)
+        self._jaunte_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -893,6 +897,8 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
                 agent.actor.max_focus += 1
                 agent.actor.focus += 1
             agent.log("Learned skill: %s" % SKILL_CATALOG[sid]["name"])
+            if sid == "uplink_jaunte" and hasattr(self, "_jaunte_on_skill_pick"):
+                self._jaunte_on_skill_pick(agent)
             return True
 
         if a == "set_loadout":
@@ -1058,6 +1064,18 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "sleeve_undercity", "shell_undercity", "sleeve_tunnel",
         ):
             return self._sleeves_action(agent, a, arg or "")
+
+        if a in (
+            "jaunte", "street_jaunt", "street_jaunte", "jaunt",
+            "open_jaunte", "jaunte_panel", "uplink_jaunte",
+            "jaunte_short", "jaunt_short", "street_hop", "short_jaunt",
+            "jaunte_district", "jaunt_district", "district_hop", "district_jaunt",
+            "jaunte_globe", "jaunt_globe", "globe_jaunt", "jaunte_tp",
+            "jaunte_status", "jaunt_status", "uplink_status",
+            "jaunte_train", "train_jaunte", "jaunt_train",
+            "jaunte_close", "close_jaunte",
+        ):
+            return self._jaunte_action(agent, a, arg or "")
 
         return False
 
@@ -1645,6 +1663,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "globe": self._globe_snapshot(agent),
             "sleeves": self._sleeves_snapshot(agent),
             "primer": self._primer_snapshot(agent),
+            "jaunte": self._jaunte_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 

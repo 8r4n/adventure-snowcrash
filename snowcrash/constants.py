@@ -180,6 +180,8 @@ CONTROLS — 8-WAY + MULTIPLANE
   jack_in heist     — deep ICE heist (3 layers) at J (#56)
   heist_start       — start Black Lattice Vault heist at J
   jack_out / Esc    — leave cyberspace/heist; restore street pad
+  jaunte / street_jaunt — Uplink Hop skill (#62): short|district|globe
+  jaunte_train      — spend skill pick to raise hop rank
   r                 — respawn (when dead)
   . / space         — wait
   ?                 — this help
