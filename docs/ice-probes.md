@@ -10,7 +10,7 @@ Source of truth: `snowcrash/constants.py` (`ICE_PROBES`), `snowcrash/systems/yea
 |----|------|------:|---------:|-------:|---------:|--------|
 | `stun` | Stun Spike | 4 | 12s | 8 | 6s | Freeze the **nearest** camera, drone, or thug deck in range |
 | `reveal` | ICE Scan | 3 | 8s | 12 | 10s | Pulse StreetNet fog; tag nearby cameras / drones / thug decks (works even with no live targets) |
-| `scramble` | Aggro Scramble | 5 | 15s | 10 | 8s | Hostiles in range wander (ignore chase); cameras get a half-duration soft stun |
+| `scramble` | Aggro Scramble | 5 | 15s | 10 | 8s | Needs ≥1 drone/thug; hostiles wander; cameras get a half-duration soft stun as bonus |
 
 Default nearby-list radius in the ICE snapshot: **10** (`ICE_PROBE_RADIUS_DEFAULT`).
 
@@ -20,7 +20,7 @@ Default nearby-list radius in the ICE snapshot: **10** (`ICE_PROBE_RADIUS_DEFAUL
 - **Drones** (`d`) and **thug decks** (`t`) — living enemies on the same plane; stun sets `stunned_until`, scramble sets `scrambled_until`.
 - AI (`enemy_tick`): stunned actors skip the tick; scrambled actors **wander only** (no chase). Couriers in cyberspace are not aggro targets.
 
-Stun/scramble require at least one target in the probe’s radius (reveal does not).
+Stun requires at least one camera/drone/thug in radius. **Scramble requires a drone or thug deck** — Street Cams alone do **not** spend Focus (playtest #88). Reveal does not need live targets.
 
 ## How to fire
 
@@ -41,7 +41,7 @@ Dock button **ICE** is the same panel. Buttons send `ice_probe` with the probe i
 - Shortcuts: `ice_stun`, `probe_reveal`, `ice_scramble`, etc. (`ice_*` / `probe_*` prefixes)
 - Chat-style aliases: `probe`, `ice` with the same arg
 
-Insufficient Focus, unknown type, empty stun/scramble range, or active cooldown → log only; Focus is not spent on a failed cast (except reveal, which always spends when Focus/cooldown allow).
+Insufficient Focus, unknown type, empty stun range, scramble with no hostiles (cameras-only), or active cooldown → clear log (**Focus kept**). Reveal still spends when Focus/cooldown allow (fog pulse even with no live nodes).
 
 ## Focus & cooldowns
 

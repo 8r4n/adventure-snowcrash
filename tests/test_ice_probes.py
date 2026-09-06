@@ -92,3 +92,44 @@ def test_insufficient_focus():
     w.handle_action(a, "ice_stun")
     assert a.actor.focus == 0
     assert not any("Stun Spike" in m and "Focus" in m and "−" in m for m in a.messages[-3:])
+
+def test_scramble_no_hostiles_keeps_focus():
+    """Street Cam alone must not burn Focus on Aggro Scramble (playtest #88)."""
+    w = GameWorld(50)
+    a = _join_ready(w, "CamOnly")
+    # Park on spawn where cameras are seeded; strip living hostiles from range
+    for e in list(w.npcs_enemies):
+        if e.alive and e.faction == "enemy":
+            e.x, e.y = 0, 0
+            e.alive = False
+    # Ensure at least one camera near the courier
+    assert getattr(w, "ice_cameras", None)
+    cam = w.ice_cameras[0]
+    w._force_set_pos(a, int(cam["x"]), int(cam["y"]), int(cam.get("z", 0) or 0), "t")
+    nearby = w._ice_nearby_targets(a, radius=int(C.ICE_PROBES["scramble"]["radius"]))
+    assert any(t["kind"] == "camera" for t in nearby), "camera should be in range"
+    assert not any(t["kind"] in ("drone", "thug_deck") for t in nearby)
+    before = a.actor.focus
+    a.last_action_ts = 0
+    w.handle_action(a, "ice_probe", "scramble")
+    assert a.actor.focus == before
+    assert any("Focus kept" in m or "hostile trail" in m for m in a.messages[-4:])
+
+
+def test_stun_no_target_keeps_focus():
+    w = GameWorld(51)
+    a = _join_ready(w, "EmptyStun")
+    for e in list(w.npcs_enemies):
+        if e.alive and e.faction == "enemy":
+            e.alive = False
+    # Move cameras far away
+    for cam in getattr(w, "ice_cameras", []) or []:
+        cam["x"], cam["y"] = 0, 0
+    # Place courier away from 0,0
+    w._force_set_pos(a, min(w.gmap.width - 2, 40), min(w.gmap.height - 2, 40), 0, "t")
+    before = a.actor.focus
+    a.last_action_ts = 0
+    w.handle_action(a, "ice_probe", "stun")
+    assert a.actor.focus == before
+    assert any("Focus kept" in m or "Stun range" in m for m in a.messages[-4:])
+
