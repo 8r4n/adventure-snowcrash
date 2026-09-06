@@ -1180,6 +1180,7 @@
       globeBody: document.getElementById("globe-body"),
       sleevesBody: document.getElementById("sleeves-body"),
       primerBody: document.getElementById("primer-body"),
+      jaunteBody: document.getElementById("jaunte-body"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -1212,7 +1213,8 @@
     let lastDistrictId = null;
     let lastEventSig = "";
     let lastKillSig = "";
-    let lastWishSig = "";
+    let lastJaunteFbSig = "";
+  let lastWishSig = "";
     let lastSkillOpen = false;
     let lastDead = false;
     let weatherKind = "";
@@ -1863,6 +1865,15 @@
         } else if (low.includes("repair")) {
           seenFeeMsgs.add(key);
           toast(t, "repair", 4000);
+        } else if (low.includes("misfire")) {
+          seenFeeMsgs.add(key);
+          toast(t, "misfire", 4500);
+        } else if (low.includes("street jaunt") || low.includes("uplink hop") || low.includes("district hop") || low.includes("globe hop")) {
+          seenFeeMsgs.add(key);
+          toast(t, "jaunte", 4000);
+        } else if (low.includes("uplink cooldown")) {
+          seenFeeMsgs.add(key);
+          toast(t, "cooldown", 3500);
         }
       });
       if (seenFeeMsgs.size > 80) {
@@ -2066,6 +2077,61 @@
         `<button type="button" data-primer="close">Close</button></div>`;
     }
 
+
+    function renderJaunte(s) {
+      if (!els.jaunteBody) return;
+      const j = defObj(s.jaunte);
+      if (!Object.keys(j).length) {
+        els.jaunteBody.innerHTML = '<div class="panel-empty">Uplink Hop offline</div>';
+        els.jaunteBody.classList.remove("jaunte-body");
+        return;
+      }
+      els.jaunteBody.classList.add("jaunte-body");
+      const rank = defNum(j.rank, 0);
+      const rankName = defStr(j.rank_name, "Untrained");
+      const xp = defNum(j.xp, 0);
+      const xpNext = j.xp_next != null ? defNum(j.xp_next, 0) : null;
+      const cd = defNum(j.cooldown, 0);
+      const ready = !!j.ready || cd <= 0.05;
+      const costs = defObj(j.focus_costs);
+      const ranks = defArr(j.ranks);
+      const rankRows = ranks.map((r) => {
+        const unlocked = !!r.unlocked || defNum(r.rank, 0) <= rank;
+        const cls = unlocked ? "" : " dim unlock";
+        return `<div class="row jaunte-ranks${cls}"><span>R${defNum(r.rank, 0)} ${escapeHtml(defStr(r.name, ""))}</span><span class="dim">${escapeHtml(defStr(r.unlocks, ""))}</span></div>`;
+      }).join("");
+      const fb = defObj(j.last_feedback);
+      const fbText = defStr(fb.text, "");
+      const fbKind = defStr(fb.kind, "");
+      if (fbText) {
+        const sig = fbKind + "|" + fbText.slice(0, 96) + "|" + defNum(fb.t, 0);
+        if (sig !== lastJaunteFbSig) {
+          lastJaunteFbSig = sig;
+          const cls = fbKind === "misfire" ? "misfire"
+            : fbKind === "cooldown" || fbKind === "focus" ? "cooldown"
+            : fbKind === "rankup" || fbKind === "success" ? "jaunte"
+            : "event";
+          toast(fbText, cls, 4500);
+        }
+      }
+      els.jaunteBody.innerHTML =
+        `<div class="jaunte-meta"><strong>${escapeHtml(rankName)}</strong> · rank ${rank}` +
+        ` · xp ${xp}${xpNext != null ? "/" + xpNext : ""}` +
+        ` · cd ${ready ? "ready" : cd.toFixed(0) + "s"}<br/>` +
+        `<span class="dim">${escapeHtml(defStr(j.hint, "Train short → district → globe hops."))}</span></div>` +
+        rankRows +
+        `<div class="row"><strong>Focus</strong><span>short ${defNum(costs.short, 3)} · district ${defNum(costs.district, 6)} · globe ${defNum(costs.globe, 8)}</span></div>` +
+        `<div class="row">` +
+        `<button type="button" data-jaunte="short">Short</button>` +
+        `<button type="button" data-jaunte="district"${rank < 2 ? " title=\"Rank 2+ (misfire risk)\"" : ""}>District</button>` +
+        `<button type="button" data-jaunte="globe"${rank < 3 ? " title=\"Rank 3+ (misfire risk)\"" : ""}>Globe…</button>` +
+        `<button type="button" data-jaunte="train">Train</button>` +
+        `</div>` +
+        `<div class="row"><button type="button" data-jaunte="open">Refresh</button>` +
+        `<button type="button" data-jaunte="status">Status</button>` +
+        `<button type="button" data-jaunte="close">Close</button></div>`;
+    }
+
     function renderIce(s) {
       if (!els.iceBody) return;
       const ice = defObj(s.ice);
@@ -2259,6 +2325,7 @@
         renderGlobe(s);
         renderSleeves(s);
         renderPrimer(s);
+        renderJaunte(s);
         renderCyberHint(s);
         renderWishToy(s);
         styleLogFees(s);
@@ -2289,6 +2356,7 @@
           if (pname === "globe") send("globe");
           if (pname === "sleeves") send("sleeves");
           if (pname === "primer") send("primer");
+          if (pname === "jaunte") send("jaunte");
           Sound.play("click");
         });
       }
@@ -2396,6 +2464,19 @@
         ["data-primer", (v) => {
           if (v === "close") send("primer_close");
           else send("primer");
+        }],
+      ]);
+      bindPanel(els.jaunteBody, [
+        ["data-jaunte", (v) => {
+          if (v === "short") send("jaunte_short");
+          else if (v === "district") send("jaunte_district");
+          else if (v === "globe") {
+            const rid = window.prompt("Globe hop region id (e.g. neo_tokyo):", "neo_tokyo");
+            if (rid) send("jaunte_globe", rid);
+          } else if (v === "train") send("jaunte_train");
+          else if (v === "status") send("jaunte_status");
+          else if (v === "close") send("jaunte_close");
+          else send("jaunte");
         }],
       ]);
       if (els.npcCue) {
@@ -3094,6 +3175,14 @@
       ev.preventDefault();
       if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("primer");
       send("primer");
+      return;
+    }
+
+    // Uplink Hop / Street Jaunt (#62): Shift+U opens jaunte panel
+    if (ev.key === "U" && ev.shiftKey) {
+      ev.preventDefault();
+      if (typeof YearUI !== "undefined" && YearUI.openPanel) YearUI.openPanel("jaunte");
+      send("jaunte");
       return;
     }
 

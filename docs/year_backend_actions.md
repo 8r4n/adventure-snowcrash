@@ -43,8 +43,12 @@
 | `sleeves` / `sleeve` / `sleeve_rent` / `sleeve_status` | street|club|undercity | #59 |
 | `sleeve_street` / `sleeve_club` / `sleeve_undercity` | — | #59 |
 | `primer` / `open_primer` / `primer_start` / `primer_close` | chapter id | #60 |
+| `jaunte` / `street_jaunt` / `jaunt` | short\|district\|globe … | #62 |
+| `jaunte_short` / `jaunte_district` / `jaunte_globe` | dir\|id\|region | #62 |
+| `jaunte_train` / `jaunte_status` / `jaunte_close` | — | #62 |
+| `skill_pick` | `uplink_jaunte` (rank +1) | #62 · #12 |
 
-Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [ice-heists.md](ice-heists.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md), [globe.md](globe.md), [sleeves.md](sleeves.md), [primer.md](primer.md).
+Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [ice-heists.md](ice-heists.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md), [soft-hardcore.md](soft-hardcore.md), [globe.md](globe.md), [sleeves.md](sleeves.md), [primer.md](primer.md), [jaunte.md](jaunte.md).
 
 ## Snapshot fields
-`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `ice_heist` (vault layers / omen / AI stub), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress), `heat` (meter / shed / patrol), `corp_patrol` (patrol card), `soft_hardcore`, `globe` (region / Earth pins / cooldown / news_geo_hook), `sleeves`, `primer` (teaching chapters / rewards), `death_cause`
+`skills`, `loadout`, `skill_picks_available`, `shop`, `events`, `party`, `dead`, `respawn_options`, `kill_feed`, `journal`, `district`, `boss`, `craft`, `housing`, `weather`, `tod`, `crew`, `contracts`, `reputation`, `pvp`, `season`, `spectating`, `auth_nick`, `raid`, `economy`, `aoi_radius`, `ice` (probes / nearby / focus), `cyberspace` (active node or `can_jack_in`), `ice_heist` (vault layers / omen / AI stub), `signal_keys` (keys / finale / pad), `neon_dash` (timer / checkpoints / progress), `heat` (meter / shed / patrol), `corp_patrol` (patrol card), `soft_hardcore`, `globe` (region / Earth pins / cooldown / news_geo_hook), `sleeves`, `primer` (teaching chapters / rewards), `jaunte` (Uplink Hop ranks / cooldown / feedback), `death_cause`

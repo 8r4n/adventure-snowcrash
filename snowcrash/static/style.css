@@ -1238,6 +1238,9 @@ body:not(.intro-active) {
 .toast.fee, .toast.repair { border-color: #79c0ff; color: #79c0ff; }
 .toast.event { border-color: var(--warn); }
 .toast.party { border-color: #d2a8ff; color: #d2a8ff; }
+.toast.jaunte { border-color: #7ee787; color: #7ee787; }
+.toast.misfire { border-color: #ff7b72; color: #ff7b72; }
+.toast.cooldown { border-color: #ffa657; color: #ffa657; }
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(12px); }
   to { opacity: 1; transform: translateX(0); }
@@ -1971,6 +1974,8 @@ body:not(.intro-active) {
 
 /* StreetNet Primer (#60) */
 .year-panel .panel-body.primer-body { max-height: 18rem; }
+.year-panel .panel-body.jaunte-body { max-height: 16rem; }
+.jaunte-ranks .dim.unlock { opacity: 0.55; }
 .primer-meta { color: #7a8794; font-size: 0.65rem; margin-bottom: 0.35rem; }
 .primer-list .row { align-items: flex-start; gap: 0.35rem; }
 .primer-list .row button { flex-shrink: 0; font-size: 0.62rem; padding: 0.12rem 0.35rem; }
