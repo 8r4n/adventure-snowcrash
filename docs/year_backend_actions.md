@@ -27,6 +27,9 @@
 | `leave_flotilla` / Esc (in room) | — | #45 |
 | `signal_keys` / `signal_status` | — | #45 |
 | `neon_dash` / `dash_status` / `dash` | — | #48 |
+| `heat` / `heat_status` / `corp_heat` | — | #50 |
+| `corp_patrol` / `patrol_status` | — | #50 |
+| `contest_patrol` / `crew_contest` | — (need crew) | #50 |
 
 Player docs: [ice-probes.md](ice-probes.md), [cyberspace.md](cyberspace.md), [signal-keys.md](signal-keys.md), [neon-dash.md](neon-dash.md).
 

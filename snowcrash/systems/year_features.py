@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .. import constants as C
 from ..entities import Actor, make_infected, make_thug
 from ..items import Item
+from .corp_patrol import CorpPatrolMixin
 from .cyberspace import CyberspaceMixin
 from .neon_dash import NeonDashMixin
 from .signal_keys import SignalKeysMixin
@@ -112,7 +113,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -139,6 +140,7 @@ class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
         self._seed_ice_cameras()
         self._signal_keys_init()
         self._neon_dash_init()
+        self._corp_patrol_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -149,6 +151,7 @@ class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
         agent.party_id = getattr(agent, "party_id", None)
         agent.party_invites = list(getattr(agent, "party_invites", []) or [])
         agent.crew_id = getattr(agent, "crew_id", None)
+        self._corp_patrol_bootstrap_agent(agent)
         agent.housing = getattr(agent, "housing", None) or {
             "room_id": f"room_{agent.id}",
             "stash": [],
@@ -805,6 +808,7 @@ class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
         self._tick_weather()
         self._tick_street_events()
         self._tick_neon_dash()
+        self._tick_corp_patrol()
         self._tick_npc_schedules()
         self._tick_boss_telegraphs()
         for p in self.players.values():
@@ -952,6 +956,14 @@ class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
             "neon_dash_force", "force_neon_dash",
         ):
             return self._neon_dash_action(agent, a, arg or "")
+
+        if a in (
+            "heat", "heat_status", "corp_heat",
+            "contest_patrol", "patrol_contest", "crew_contest",
+            "corp_patrol", "patrol_status",
+            "corp_patrol_force", "force_corp_patrol",
+        ):
+            return self._corp_patrol_action(agent, a, arg or "")
         if getattr(agent, "mode", None) == "flotilla":
             if self._signal_keys_handle_mode(agent, a):
                 return True
@@ -1491,6 +1503,7 @@ class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
                 for r in self.recipe_defs.get("recipes", [])
             ],
         }
+        heat_snap = self._corp_patrol_snapshot(agent)
         # Filter chat mute client-side hint
         return {
             "skills": dict(agent.skills),
@@ -1538,10 +1551,13 @@ class YearFeaturesMixin(SignalKeysMixin, NeonDashMixin, CyberspaceMixin):
             "cyberspace": self._cyber_snapshot(agent),
             "signal_keys": self._signal_keys_snapshot(agent),
             "neon_dash": self._neon_dash_snapshot(agent),
+            "heat": heat_snap,
+            "corp_patrol": heat_snap.get("patrol"),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:
         self._year_bootstrap_agent(agent)
+        self._heat_on_kill(agent, victim)
         if "thug" in (victim.name or "").lower() or victim.glyph == C.ENEMY_THUG:
             self._contract_progress(agent, "kills_thug", 1)
         self._grant_season_xp(agent, 2)

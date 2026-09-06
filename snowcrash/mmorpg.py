@@ -1013,6 +1013,9 @@ class GameWorld(YearFeaturesMixin):
         dash_marks = getattr(self, "_neon_dash_landmarks", None)
         if callable(dash_marks):
             marks.extend(dash_marks())
+        corp_marks = getattr(self, "_corp_patrol_landmarks", None)
+        if callable(corp_marks):
+            marks.extend(corp_marks())
         return marks
 
     def _grant_kill_rewards(self, agent: PlayerAgent, victim: Actor) -> None:
@@ -1216,10 +1219,17 @@ class GameWorld(YearFeaturesMixin):
                 _wander(a, az)
                 continue
 
-            target_agent = min(
-                vulnerable,
-                key=lambda p: abs(p.actor.x - a.x) + abs(p.actor.y - a.y),
-            )
+            prefer = None
+            prefer_fn = getattr(self, "_corp_patrol_prefer_target", None)
+            if callable(prefer_fn):
+                prefer = prefer_fn(a, vulnerable)
+            if prefer is not None:
+                target_agent = prefer
+            else:
+                target_agent = min(
+                    vulnerable,
+                    key=lambda p: abs(p.actor.x - a.x) + abs(p.actor.y - a.y),
+                )
             player = target_agent.actor
             dx = player.x - a.x
             dy = player.y - a.y

@@ -230,6 +230,9 @@ class SignalKeysMixin:
         meta = SIGNAL_KEY_BY_ID[item.id]
         if item.id not in sk["collected"]:
             sk["collected"].append(item.id)
+        on_heat = getattr(self, "_heat_on_signal_key", None)
+        if callable(on_heat):
+            on_heat(agent)
         flags = getattr(agent, "quest_flags", None)
         if not isinstance(flags, dict):
             flags = {}
