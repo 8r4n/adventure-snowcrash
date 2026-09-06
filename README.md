@@ -229,6 +229,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 |---------|-----|--------|
 | ICE probe quickhacks (Focus) | [docs/ice-probes.md](docs/ice-probes.md) | #46 · parent #42 |
 | Jack-in cyberspace puzzle layer | [docs/cyberspace.md](docs/cyberspace.md) | #47 · parent #42 |
+| Signal Keys scavenger hunt | [docs/signal-keys.md](docs/signal-keys.md) | #45 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |
 

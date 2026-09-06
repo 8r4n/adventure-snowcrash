@@ -17,6 +17,7 @@ from .. import constants as C
 from ..entities import Actor, make_infected, make_thug
 from ..items import Item
 from .cyberspace import CyberspaceMixin
+from .signal_keys import SignalKeysMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -110,7 +111,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CyberspaceMixin):
+class YearFeaturesMixin(SignalKeysMixin, CyberspaceMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -135,6 +136,7 @@ class YearFeaturesMixin(CyberspaceMixin):
         self._seed_vendors()
         self._seed_boss()
         self._seed_ice_cameras()
+        self._signal_keys_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -180,6 +182,7 @@ class YearFeaturesMixin(CyberspaceMixin):
             agent.ice_cooldowns = {}
         if not isinstance(getattr(agent, "cyber", None), dict):
             agent.cyber = {"active": False}
+        self._signal_keys_bootstrap_agent(agent)
         if not agent.contracts:
             # Offer first contract
             c = dict(CONTRACT_DEFS[0])
@@ -800,6 +803,9 @@ class YearFeaturesMixin(CyberspaceMixin):
         self._tick_street_events()
         self._tick_npc_schedules()
         self._tick_boss_telegraphs()
+        for p in self.players.values():
+            if p.connected and p.actor.alive:
+                self._maybe_district_signal_clue(p)
         # Bandwidth sink every ~60 ticks
         if self.tick % 60 == 0:
             for p in self.players.values():
@@ -930,6 +936,15 @@ class YearFeaturesMixin(CyberspaceMixin):
         if a in ("jack_out", "jackout", "unjack", "leave_cyber", "cyber_out"):
             return self._cyber_jack_out(agent)
 
+        if a in (
+            "enter_flotilla", "flotilla", "flotilla_enter", "signal_finale",
+            "leave_flotilla", "flotilla_leave", "exit_flotilla",
+            "signal_keys", "signal_status", "keys_status",
+        ):
+            return self._signal_keys_action(agent, a, arg or "")
+        if getattr(agent, "mode", None) == "flotilla":
+            if self._signal_keys_handle_mode(agent, a):
+                return True
         if a in ("ice_probe", "probe", "ice"):
             return self._ice_probe_action(agent, arg or "")
 
@@ -1511,6 +1526,7 @@ class YearFeaturesMixin(CyberspaceMixin):
             "aoi_radius": 28,
             "ice": self._ice_snapshot(agent),
             "cyberspace": self._cyber_snapshot(agent),
+            "signal_keys": self._signal_keys_snapshot(agent),
         }
 
     def year_on_kill(self, agent, victim: Actor) -> None:
