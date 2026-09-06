@@ -244,6 +244,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Corp patrol pressure (heat) | [docs/corp-patrol.md](docs/corp-patrol.md) | #50 · parent #42 |
 | Soft hardcore (opt-in death tax) | [docs/soft-hardcore.md](docs/soft-hardcore.md) | #49 · parent #42 |
 | Globe map + region teleport | [docs/globe.md](docs/globe.md) | #54 · parent #42 (slice; issue stays open) |
+| OSM → ASCII Metaverse shards (research) | [docs/osm-procedural-globe.md](docs/osm-procedural-globe.md) | #83 · parent #42 · links #54/#51 |
 | Sleeve / avatar hop (stat tradeoffs) | [docs/sleeves.md](docs/sleeves.md) | #59 · parent #42 |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
@@ -274,6 +275,9 @@ adventure/
   scripts/gen_sfx.py     # stdlib procedural WAV bake
   scripts/gen_cutscenes.py  # stdlib 1st-person ASCII packs
   scripts/gen_intro_video.py  # Pillow+ffmpeg opening montage MP4
+  scripts/osm_to_ascii_shard.py  # #83 OSM→ASCII shard spike
+  scripts/fixtures/tiny_downtown.osm.xml
+  docs/osm-procedural-globe.md
 ```
 
 ## License
