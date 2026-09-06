@@ -2674,6 +2674,8 @@
           if (pname === "sleeves") send("sleeves");
           if (pname === "primer") send("primer");
           if (pname === "jaunte") send("jaunte");
+          if (pname === "empathy") send("empathy");
+          if (pname === "forecast") send("forecast");
           Sound.play("click");
         });
       }
