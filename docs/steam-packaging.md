@@ -358,6 +358,7 @@ PWA service worker already caches shell only — same philosophy: shell offline,
 
 ## Related docs
 
+- [godot-client.md](godot-client.md) — #109 Godot 4 thin client (mid-term native SKU; Tauri remains fastest v1 wrap of current web)
 - [modding.md](modding.md) — Workshop precursor (#72)
 - [mobile.md](mobile.md) — PWA shell; not a Steam substitute
 - [ci-github-actions.yml](ci-github-actions.yml) — current test CI

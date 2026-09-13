@@ -84,6 +84,7 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 - #31 Mobile-friendly HUD (shipped stub)
 - #68 FPV contrast / readability (`docs/fpv.md`)
 - #67 Steam / desktop packaging (separate)
+- #109 Godot thin client — store-native Android/iOS later; does not block this PWA path ([godot-client.md](godot-client.md))
 - Campaign log: #42
 
 ## Remaining for full #75 acceptance

@@ -1,0 +1,117 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8snowcrashspike1"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/net_client.gd" id="2_net"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Bg" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0666667, 0.0666667, 0.105882, 1)
+
+[node name="NetClient" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_net")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.580392, 0.886275, 0.835294, 1)
+theme_override_font_sizes/font_size = 22
+text = "SNOWCRASH · Godot thin-client spike"
+
+[node name="Hint" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65098, 0.678431, 0.784314, 1)
+theme_override_font_sizes/font_size = 13
+text = "Talks to existing Python /ws (dev :8766). WASD move · Q/E turn after jack-in. See docs/godot-client.md"
+
+[node name="Status" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.886275, 0.686275, 1)
+theme_override_font_sizes/font_size = 16
+text = "disconnected"
+
+[node name="UrlRow" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="UrlCaption" type="Label" parent="Margin/VBox/UrlRow"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.803922, 0.839216, 0.956863, 1)
+text = "WS"
+
+[node name="UrlEdit" type="LineEdit" parent="Margin/VBox/UrlRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ws://127.0.0.1:8766/ws"
+placeholder_text = "ws://127.0.0.1:8766/ws"
+
+[node name="NameRow" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="NameCaption" type="Label" parent="Margin/VBox/NameRow"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.803922, 0.839216, 0.956863, 1)
+text = "Name"
+
+[node name="NameEdit" type="LineEdit" parent="Margin/VBox/NameRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Courier"
+placeholder_text = "display name"
+
+[node name="JoinBtn" type="Button" parent="Margin/VBox/NameRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Jack in"
+
+[node name="Summary" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.803922, 0.839216, 0.956863, 1)
+autowrap_mode = 3
+text = "Last snapshot: (none)"
+
+[node name="MapLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.803922, 0.839216, 0.956863, 1)
+theme_override_font_sizes/font_size = 12
+text = "(ASCII map appears after jack-in)"
+autowrap_mode = 0
