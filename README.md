@@ -5,19 +5,29 @@ A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev**
 
 
 
-## Screenshots
+## Demo
 
-### Opening credits
-
-<p align="center">
-  <img src="docs/screenshots/opening-credits.gif" alt="Snowcrash opening credits — animated ASCII intro" width="720" />
-</p>
-
-### Gameplay
+Feature tour of current **dev** gameplay (jack-in, FPV + Street GPS, StreetNet, docks, ICE, globe, Catppuccin, and more). Highlight GIF below; full ~2 min MP4 linked.
 
 <p align="center">
-  <img src="docs/screenshots/gameplay.gif" alt="Snowcrash gameplay — animated FPV and Street GPS" width="720" />
+  <img src="docs/screenshots/demo-2026-09.gif" alt="Snowcrash demo — jack-in, FPV, Street GPS, docks, ICE, globe" width="720" />
 </p>
+
+<p align="center">
+  <a href="docs/screenshots/demo-2026-09.mp4">Full demo (MP4)</a>
+  ·
+  <a href="docs/demo-video.md">Re-capture recipe</a>
+</p>
+
+<details>
+<summary>Archived screenshots (pre–2026-09)</summary>
+
+<p align="center">
+  <img src="docs/screenshots/archive/opening-credits.gif" alt="Archived opening credits GIF" width="480" />
+  <img src="docs/screenshots/archive/gameplay.gif" alt="Archived gameplay GIF" width="480" />
+</p>
+
+</details>
 
 
 ## Requirements
