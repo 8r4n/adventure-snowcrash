@@ -392,7 +392,7 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
-Remaining #141 slices (do **not** close the issue): cyberspace 3D, globe 3D, lighting/particles/Deck QA, optional ASCII overlay. Entities polish = slice 2 (see [godot-3d.md](godot-3d.md)).
+Remaining #141 slices (do **not** close the issue): globe 3D, lighting/particles/Deck QA, optional ASCII overlay. Street = slice 1 (#142). Entities = slice 2 (#143). Cyberspace / ICE 3D = slice 3 (this PR — see [godot-3d.md](godot-3d.md)).
 
 ### Remaining epic items (later slices)
 
@@ -412,12 +412,13 @@ Remaining #141 slices (do **not** close the issue): cyberspace 3D, globe 3D, lig
 **Systems docks**
 
 - [x] ICE probes (+ list; heists UX still thin) (**#127**)
-- [x] Cyberspace jack-in / jack-out control (**#127**; no cyber map chrome yet)
+- [x] Cyberspace jack-in / jack-out control (**#127**)
+- [x] Cyberspace / ICE **3D lattice** while jacked (**#141** slice 3; web overlay still exists)
 - [x] Globe / teleport (**#127**; schematic Earth SVG left to later)
 - [x] Primer, Jaunte, Sleeves, Forecast, Ecology, Empathy (**#127**)
 - [x] Hello Courier / mod `ui_panel` host (**#127**)
 - [ ] Catppuccin theme throughout (Theme resource, not just consts)
-- [ ] ICE heists deep UX / cyberspace node map chrome
+- [x] ICE heists 3D layer indicators + lattice (**#141** slice 3; dock UX still thin)
 
 **Polish & ship**
 
@@ -429,7 +430,7 @@ Remaining #141 slices (do **not** close the issue): cyberspace 3D, globe 3D, lig
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
 - [ ] Optional: Steam packaging path (#67 / #130) using Godot export
 
-Suggested next slice: **#141 entities / cyberspace 3D**, or GPS minimap + death UX, or desktop export toward Steam (#130).
+Suggested next slice: **#141 globe 3D**, or lighting/particles/Deck QA, or GPS minimap + death UX, or desktop export toward Steam (#130).
 
 ---
 ## Related

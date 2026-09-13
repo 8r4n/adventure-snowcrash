@@ -29,6 +29,7 @@ var _jaunte_region: String = ""
 var _globe_search: String = ""
 var _secondary_gated: bool = false
 var _gate_banner: Label = null
+var _jack_btn: Button = null
 
 
 @onready var dock_bar: HBoxContainer = %DockBar
@@ -163,6 +164,7 @@ func _build_dock_bar() -> void:
 	jack.pressed.connect(_on_jack_pressed)
 	_style_btn(jack, false)
 	dock_bar.add_child(jack)
+	_jack_btn = jack
 
 
 func _make_dock_btn(id: String, label: String) -> Button:
@@ -241,6 +243,7 @@ func _refresh_dock_btn_states() -> void:
 
 func paint(state: Dictionary) -> void:
 	_last_state = state
+	_sync_jack_btn(state)
 	if _secondary_gated:
 		_apply_gate_visibility()
 		return
@@ -249,6 +252,25 @@ func paint(state: Dictionary) -> void:
 	if _open_id.is_empty():
 		return
 	_paint_open_dock(state)
+
+
+func _sync_jack_btn(state: Dictionary) -> void:
+	if _jack_btn == null:
+		return
+	var ice_now := Street3D.ice_active(state)
+	var cyber := _as_dict(state.get("cyberspace", {}))
+	if ice_now:
+		_jack_btn.text = "Jack out"
+		_jack_btn.tooltip_text = "jack_out / Esc — leave cyberspace or abort heist"
+		_style_btn(_jack_btn, true)
+	elif bool(cyber.get("can_jack_in", false)):
+		_jack_btn.text = "Jack in"
+		_jack_btn.tooltip_text = "jack_in at J — maze / ICE gate (heist_start for vault)"
+		_style_btn(_jack_btn, true)
+	else:
+		_jack_btn.text = "Jack"
+		_jack_btn.tooltip_text = "Reach jackpoint (J) to jack_in / heist_start"
+		_style_btn(_jack_btn, false)
 
 
 func _show_empty_dock() -> void:
@@ -558,6 +580,15 @@ func _paint_ice(state: Dictionary) -> void:
 	var player := _as_dict(state.get("player", {}))
 	var focus = ice.get("focus", player.get("focus", state.get("focus", "?")))
 	var max_f = ice.get("max_focus", player.get("max_focus", state.get("max_focus", "?")))
+	if Street3D.ice_active(state):
+		_add_header(Street3D.ice_banner_text(state))
+		var heist := _as_dict(state.get("ice_heist", {}))
+		var cyber := _as_dict(state.get("cyberspace", {}))
+		if bool(heist.get("active", false)):
+			_add_dim(str(heist.get("layer_hint", heist.get("hint", ""))))
+		elif bool(cyber.get("active", false)):
+			_add_dim(str(cyber.get("hint", "")))
+		_add_dim("3D lattice is live — Z stun / X reveal melt I. Esc or Jack out.")
 	if probes.is_empty():
 		_empty("ICE layer offline")
 		return

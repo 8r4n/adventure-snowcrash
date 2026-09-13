@@ -48,6 +48,8 @@ Production server default is port **8765** — change the URL if you point at th
 | R | respawn |
 | V | cycle **3D street** ↔ FPV ASCII ↔ overhead map crop |
 | C | toggle courier camera 1st ↔ close 3rd |
+| J | `jack_in` at J / `jack_out` while jacked (ICE 3D lattice) |
+| Z / X | `ice_probe stun` / `reveal` (melts `I` in-node) |
 | Disconnect | stop reconnect loop |
 
 ### Gamepad / Steam Deck (#132)
@@ -143,9 +145,10 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 - **Mute** button / **M** key; **Audio** panel with Master / SFX / Music sliders (persist `user://snowcrash_client.cfg`).
 - Snapshot `sfx[]` + death / win / uplink / StreetNet ping juice.
 - Music: street bed on the Street; ICE bed while `cyberspace` / `heist`.
+- **ICE 3D (#141 slice 3):** jack-in swaps the 3D world to a neon lattice (not street brick). Trigger: `mode` / `cyberspace.active` / `ice_heist.active`. Avatar uses `px/py` on the node. Layer plate + flash juice. See [`docs/godot-3d.md`](../docs/godot-3d.md).
 - Regenerate: `python scripts/gen_sfx.py && python scripts/gen_music.py`
 - Attribution: [docs/audio.md](../docs/audio.md)
 
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street (#141 slices 1–2, epic open)** are in-tree.
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street + ICE lattice (#141 slices 1–3, epic open)** are in-tree.
