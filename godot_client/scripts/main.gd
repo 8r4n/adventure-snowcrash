@@ -30,6 +30,10 @@ extends Control
 @onready var cam_btn: Button = %CamBtn
 @onready var ice_banner: Label = %IceBanner
 @onready var ice_flash: ColorRect = %IceFlash
+@onready var globe: Globe3D = %Globe3D
+@onready var globe_host: SubViewportContainer = %GlobeHost
+@onready var globe_vp: SubViewport = %GlobeViewport
+@onready var globe_banner: Label = %GlobeBanner
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -45,6 +49,8 @@ var _mode: String = "play"
 var _prev_mode: String = "play"
 var _death_recap_logged: bool = false
 var _was_ice: bool = false
+var _globe_overlay: bool = false
+var _globe_selected: String = ""
 var _flash_t: float = 0.0
 var _flash_in: bool = true
 const ICE_FLASH_SEC := 0.5
@@ -66,6 +72,13 @@ func _ready() -> void:
 	net.server_error.connect(_on_server_error)
 	year_docks.setup(net)
 	year_docks.chat_focus_changed.connect(func(_f): pass)
+	if year_docks.has_signal("globe_open_changed"):
+		year_docks.globe_open_changed.connect(_on_globe_open_changed)
+	if year_docks.has_signal("globe_region_highlight"):
+		year_docks.globe_region_highlight.connect(_on_globe_region_highlight)
+	if globe:
+		globe.pin_selected.connect(_on_globe_pin_selected)
+		globe.pin_activated.connect(_on_globe_pin_activated)
 	_wire_onboarding()
 	_wire_audio()
 	_on_status("disconnected — start dev server on :8766", "warn")
@@ -215,13 +228,17 @@ func _on_cam_toggle() -> void:
 
 func _apply_view_visibility() -> void:
 	var is_3d := _view_mode == "3d"
+	var show_globe := _globe_overlay and is_3d
 	if street_host:
-		street_host.visible = is_3d
+		street_host.visible = is_3d and not show_globe
+	if globe_host:
+		globe_host.visible = show_globe
 	if view_scroll:
 		view_scroll.visible = not is_3d
 	if view_toggle_btn:
-		view_toggle_btn.text = "View: %s" % _view_mode.to_upper()
+		view_toggle_btn.text = "View: %s" % ("GLOBE" if show_globe else _view_mode.to_upper())
 	_sync_street_vp()
+	_sync_globe_vp()
 
 
 func _sync_street_vp() -> void:
@@ -230,6 +247,19 @@ func _sync_street_vp() -> void:
 	var sz := street_host.size
 	if sz.x >= 8.0 and sz.y >= 8.0:
 		street_vp.size = Vector2i(sz)
+
+
+func _sync_globe_vp() -> void:
+	if globe_vp == null or globe_host == null:
+		return
+	var sz := globe_host.size
+	if sz.x >= 8.0 and sz.y >= 8.0:
+		globe_vp.size = Vector2i(sz)
+	# Only render while visible (Deck budget)
+	if globe_vp:
+		globe_vp.render_target_update_mode = (
+			SubViewport.UPDATE_WHEN_VISIBLE if _globe_overlay else SubViewport.UPDATE_DISABLED
+		)
 
 
 func _on_use_pressed() -> void:
@@ -328,6 +358,71 @@ func _paint(state: Dictionary) -> void:
 
 
 
+
+func _on_globe_open_changed(open: bool) -> void:
+	_globe_overlay = open
+	_apply_view_visibility()
+	if globe_banner:
+		globe_banner.visible = open
+
+
+func _on_globe_region_highlight(region_id: String) -> void:
+	_globe_selected = str(region_id)
+	if globe:
+		globe.set_selected_region(_globe_selected)
+
+
+func _on_globe_pin_selected(region_id: String) -> void:
+	_globe_selected = str(region_id)
+	if year_docks and year_docks.has_method("set_globe_selection"):
+		year_docks.set_globe_selection(_globe_selected)
+	_append_log("Globe pin: %s" % _globe_selected)
+
+
+func _on_globe_pin_activated(region_id: String) -> void:
+	if not net.is_joined():
+		return
+	_globe_selected = str(region_id)
+	AudioManager.play_confirm()
+	net.send_action("teleport", _globe_selected)
+	_append_log("Uplink hop → %s" % _globe_selected)
+
+
+func _paint_globe_overlay(state: Dictionary) -> void:
+	var g = state.get("globe", {})
+	if typeof(g) != TYPE_DICTIONARY:
+		g = {}
+	if year_docks and year_docks.has_method("is_globe_open"):
+		_globe_overlay = year_docks.is_globe_open()
+	if globe and _globe_overlay:
+		globe.apply_snapshot(state)
+		if not _globe_selected.is_empty():
+			globe.set_selected_region(_globe_selected)
+	_sync_globe_vp()
+	_apply_view_visibility()
+	if globe_banner:
+		if _globe_overlay and not g.is_empty():
+			globe_banner.visible = true
+			var cost = int(g.get("cost_credits", g.get("hop_cost", 15)))
+			var cd := float(g.get("cooldown_remaining", g.get("cooldown", 0.0)))
+			var cur := str(g.get("region_id", ""))
+			var reg = g.get("region", {})
+			if typeof(reg) == TYPE_DICTIONARY and reg.get("name"):
+				cur = str(reg.get("name"))
+			var cd_txt := "ready" if cd <= 0.05 else "%.0fs" % cd
+			var sel := _globe_selected if not _globe_selected.is_empty() else "(pick pin)"
+			globe_banner.text = (
+				"GLOBE · here %s · hop %d cr · cd %s · sel %s · dbl-click pin / Teleport"
+				% [cur if not cur.is_empty() else "—", cost, cd_txt, sel]
+			)
+			if cd > 0.05:
+				globe_banner.add_theme_color_override("font_color", Catppuccin.PEACH)
+			else:
+				globe_banner.add_theme_color_override("font_color", Catppuccin.YELLOW)
+		else:
+			globe_banner.visible = false
+
+
 func _format_objective(state: Dictionary) -> String:
 	var obj = state.get("objective", "")
 	if typeof(obj) == TYPE_DICTIONARY:
@@ -360,6 +455,7 @@ func _paint_view(state: Dictionary) -> void:
 	if street:
 		street.apply_snapshot(state)
 	_sync_street_vp()
+	_paint_globe_overlay(state)
 	if _view_mode == "3d":
 		return
 	if _view_mode == "fpv":
@@ -489,6 +585,21 @@ func _process(delta: float) -> void:
 				net.send_action("inv_select", _inv_digit_buf)
 			_inv_digit_buf = ""
 			_inv_digit_accum = -1.0
+
+	# Globe overlay: right stick orbits Earth instead of turning courier
+	if _globe_overlay and globe and not _ui_focused():
+		var lx := Input.get_action_strength("look_right") - Input.get_action_strength("look_left")
+		# Fallback axes if look_* unbound
+		if absf(lx) < 0.01:
+			lx = Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+		var ly := Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+		globe.orbit_stick(lx, ly, delta)
+		# A / interact confirms selected pin hop
+		if Input.is_action_just_pressed("interact_get") and not _globe_selected.is_empty() and net.is_joined():
+			_on_globe_pin_activated(_globe_selected)
+		_hold_accum = 0.0
+		_held_action = ""
+		return
 
 	if not net.is_joined() or _ui_focused():
 		_hold_accum = 0.0

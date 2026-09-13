@@ -170,8 +170,8 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 |---|-------|--------|
 | 1 | **3D street vertical slice** — glyphs → meshes, courier camera, WS intents, J/U, ASCII toggle | Done (#142) |
 | 2 | **Entities polish** — distinct silhouettes, facing chevrons, vendors `$`, pickups, landmark billboards | Done (#143) |
-| 3 | **Cyberspace / ICE** — distinct 3D visual language for jack-in layers | **This PR** |
-| 4 | Globe — 3D Earth / region picker or hybrid UI | Open |
+| 3 | **Cyberspace / ICE** — distinct 3D visual language for jack-in layers | Done (#144) |
+| 4 | **Globe** — 3D Earth / region picker hybrid with year dock | **This PR** |
 | 5 | Polish — lighting, particles, materials, Deck device QA | Open |
 | 6 | Optional ASCII overlay (hybrid look on top of 3D) | Open |
 
@@ -196,7 +196,7 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 - [x] Deck-conscious pooling / shared meshes; no extra Omni lights for vendors
 - [x] `docs/godot-3d.md` slice 2 progress updated
 
-### Slice 3 acceptance (this PR)
+### Slice 3 acceptance (shipped #144)
 
 - [x] Distinct 3D visual language while jacked (grid / node lattice / neon ICE walls — not street brick)
 - [x] Triggered from snapshot `mode` / `cyberspace.active` / `ice_heist.active` (same as web)
@@ -208,14 +208,60 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 
 ---
 
+
+## Globe 3D / hybrid (slice 4)
+
+Region pick + uplink teleport stays on existing `/ws` actions (`globe`, `teleport`, `globe_search`, `globe_filter`, `globe_zoom`, `globe_recall`, `globe_close`). Godot only paints.
+
+### How to open globe 3D
+
+1. Jack in (3D street default)
+2. Open the **Globe** year dock (dock bar **Globe**, or cycle docks with Start / Menu)
+3. Main view swaps street SubViewport → **GlobeHost** SubViewport (stylized Catppuccin Earth)
+4. Existing dock UI stays on the right: search, ASCII filter, zoom ladder, region list, Teleport
+5. Close the dock (or cycle past it) → `globe_close` → street 3D restored
+
+ICE / street modes are untouched — globe overlay only while the Globe dock is open and view mode is 3D.
+
+### Pins + hop
+
+| Source | Role |
+|--------|------|
+| `globe.regions[]` | `id`, `name`, `lat`, `lon`, `home`, `has_ascii_shard`, … |
+| `globe.region_id` / `region` | Current sleeve (teal pin) |
+| `globe.cost_credits` | Hop cost (HUD + dock) |
+| `globe.cooldown_remaining` | Cooldown feedback (peach when waiting) |
+| `globe.zoom` | Camera distance ladder (`street` / `region` / `globe`) |
+| `globe.search` / `filter_ascii` | Pin visibility filter (mirrors dock) |
+
+- **Click** pin → select (yellow pulse + dock “Selected pin”)
+- **Double-click** pin / dock **Teleport** / gamepad **A** → `teleport <region_id>`
+- Drag / right-stick orbit; mouse wheel nudges camera distance
+- Home = green, ASCII pilots = sky, other = mauve
+
+Deck: simple sphere + emissive pin spheres (no Earth texture, no extra Omni beyond fill). Globe SubViewport uses `UPDATE_WHEN_VISIBLE` only while the dock is open.
+
+### Slice 4 acceptance (this PR)
+
+- [x] 3D Earth (stylized sphere + grid) with region pins from snapshot `globe` / `regions`
+- [x] Select pin → hop via existing `teleport` intent; cost / cooldown in HUD (`GlobeBanner`)
+- [x] Hybrid SubViewport overlay when Globe dock opens; year-dock search / filter / zoom kept
+- [x] Catppuccin neon look; Deck-conscious (sphere + markers, no photoreal texture)
+- [x] Street + ICE 3D modes intact; no server rewrite
+- [x] `docs/godot-3d.md` slice 4 progress updated
+
+---
 ## Files
 
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, courier rig |
 | `godot_client/scripts/street_3d.gd` | Snapshot → meshes / pooled entities / landmarks / facing / camera / ICE lattice |
-| `godot_client/scenes/main.tscn` | Street SubViewport + HUD overlay + IceBanner / IceFlash |
-| `godot_client/scripts/main.gd` | View cycle, cam toggle, right-stick look, jack-in flash / J Z X |
+| `godot_client/scenes/globe.tscn` | Stylized Earth SubViewport world + orbit camera |
+| `godot_client/scripts/globe_3d.gd` | Region pins from `globe.regions`, pick / teleport signals |
+| `godot_client/scenes/main.tscn` | Street + Globe SubViewports + HUD + IceBanner / GlobeBanner |
+| `godot_client/scripts/main.gd` | View cycle, globe overlay swap, cam toggle, jack-in flash |
+| `godot_client/scripts/year_docks.gd` | Globe dock hybrid list + open/close → overlay |
 | `godot_client/scripts/fpv_ascii.gd` | ASCII FPV / map (kept) |
 
 ---
@@ -235,4 +281,5 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 - [theme-catppuccin.md](theme-catppuccin.md) — palette attribution
 - [cyberspace.md](cyberspace.md) — #47 jack-in nodes
 - [ice-heists.md](ice-heists.md) — #56 Black Lattice Vault
+- [globe.md](globe.md) — #54 region teleport / Earth pins
 - [audio.md](audio.md) — #134 ice bed + pulse

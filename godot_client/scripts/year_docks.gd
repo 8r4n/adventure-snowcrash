@@ -4,6 +4,8 @@ class_name YearDocks
 ## Paints structured snapshot fields; actions match web YearUI / protocol.
 
 signal chat_focus_changed(focused: bool)
+signal globe_open_changed(open: bool)
+signal globe_region_highlight(region_id: String)
 
 const DOCK_DEFS := [
 	{"id": "journal", "label": "Journal", "open_action": ""},
@@ -27,6 +29,8 @@ var _dock_btns: Dictionary = {}  # id -> Button
 var _mod_panel_ids: PackedStringArray = PackedStringArray()
 var _jaunte_region: String = ""
 var _globe_search: String = ""
+var _globe_selected_id: String = ""
+var _globe_ascii_only: bool = false
 var _secondary_gated: bool = false
 var _gate_banner: Label = null
 var _jack_btn: Button = null
@@ -52,6 +56,17 @@ func setup(net_client: NetClient) -> void:
 
 func is_chat_focused() -> bool:
 	return chat_input.has_focus()
+
+func is_globe_open() -> bool:
+	return _open_id == "globe"
+
+
+func set_globe_selection(region_id: String) -> void:
+	_globe_selected_id = str(region_id)
+	if _open_id == "globe":
+		_paint_open_dock(_last_state)
+
+
 
 func set_secondary_gated(gated: bool) -> void:
 	"""Hide year docks + StreetNet during first-session beat (#133 anti-HUD soup)."""
@@ -87,9 +102,14 @@ func cycle_dock() -> void:
 	var idx := ids.find(_open_id)
 	if idx < 0 or idx >= ids.size() - 1:
 		# Close after last
+		var was_globe := _open_id == "globe"
 		_open_id = ""
 		_refresh_dock_btn_states()
 		_show_empty_dock()
+		if was_globe:
+			if net != null and net.is_joined():
+				net.send_action("globe_close")
+			globe_open_changed.emit(false)
 		return
 	_toggle_dock(str(ids[idx + 1]))
 
@@ -188,9 +208,14 @@ func _style_btn(btn: Button, active: bool) -> void:
 
 
 func _on_close_pressed() -> void:
+	var was_globe := _open_id == "globe"
 	_open_id = ""
 	_refresh_dock_btn_states()
 	_show_empty_dock()
+	if was_globe:
+		if net != null and net.is_joined():
+			net.send_action("globe_close")
+		globe_open_changed.emit(false)
 
 
 func _on_jack_pressed() -> void:
@@ -210,10 +235,15 @@ func _on_jack_pressed() -> void:
 func _toggle_dock(id: String) -> void:
 	if _secondary_gated:
 		return
+	var prev := _open_id
 	if _open_id == id:
 		_open_id = ""
 		_refresh_dock_btn_states()
 		_show_empty_dock()
+		if prev == "globe":
+			if net != null and net.is_joined():
+				net.send_action("globe_close")
+			globe_open_changed.emit(false)
 		return
 	_open_id = id
 	_refresh_dock_btn_states()
@@ -221,6 +251,12 @@ func _toggle_dock(id: String) -> void:
 	var open_action := _open_action_for(id)
 	if not open_action.is_empty() and net != null and net.is_joined():
 		net.send_action(open_action)
+	if prev == "globe" and id != "globe":
+		if net != null and net.is_joined():
+			net.send_action("globe_close")
+		globe_open_changed.emit(false)
+	if id == "globe":
+		globe_open_changed.emit(true)
 	_paint_open_dock(_last_state)
 
 
@@ -385,8 +421,19 @@ func _add_action_row(specs: Array) -> void:
 
 
 func _send(action: String, arg = null) -> void:
+	if action == "__globe_select":
+		_globe_selected_id = str(arg) if arg != null else ""
+		globe_region_highlight.emit(_globe_selected_id)
+		if _open_id == "globe":
+			_paint_open_dock(_last_state)
+		return
 	if net == null or not net.is_joined() or action.is_empty():
 		return
+	if action == "teleport" and arg != null:
+		_globe_selected_id = str(arg)
+		globe_region_highlight.emit(_globe_selected_id)
+	if action == "globe_filter":
+		_globe_ascii_only = str(arg) == "ascii"
 	net.send_action(action, arg)
 
 
@@ -659,21 +706,31 @@ func _paint_globe(state: Dictionary) -> void:
 	if regions.is_empty() and g.is_empty():
 		_empty("Globe layer offline")
 		return
-	var cur := str(g.get("region", g.get("current", "")))
-	var reg := _as_dict(g.get("region_info", {}))
+	var cur := str(g.get("region_id", ""))
+	var reg := _as_dict(g.get("region", {}))
 	if reg.is_empty():
+		# legacy fallbacks
+		cur = str(g.get("region", g.get("current", cur)))
 		for r in regions:
 			if typeof(r) == TYPE_DICTIONARY and str(r.get("id", "")) == cur:
 				reg = r
 				break
-	var cost = g.get("hop_cost", g.get("cost", "?"))
-	var cd := float(g.get("cooldown", 0))
-	_add_meta("%s · hop %s cr · cd %s" % [
+	elif cur.is_empty():
+		cur = str(reg.get("id", ""))
+	var cost = g.get("cost_credits", g.get("hop_cost", g.get("cost", "?")))
+	var cd := float(g.get("cooldown_remaining", g.get("cooldown", 0)))
+	var zoom := str(g.get("zoom", "globe"))
+	_add_meta("%s · hop %s cr · cd %s · zoom %s" % [
 		str(reg.get("name", cur if not cur.is_empty() else "—")),
 		str(cost),
 		("ready" if cd <= 0.05 else "%.0fs" % cd),
+		zoom,
 	])
-	_add_dim(str(g.get("hint", "Uplink-hop between Earth regions.")))
+	_add_dim(str(g.get("hint", "3D Earth left · pick a pin or Teleport below.")))
+	_add_dim("Hybrid: SubViewport 3D globe overlays the street view while this dock is open.")
+	if not _globe_selected_id.is_empty():
+		_add_meta("Selected pin: %s" % _globe_selected_id)
+		_add_action_row([{"label": "Teleport selected", "action": "teleport", "arg": _globe_selected_id}])
 	_add_action_row([
 		{"label": "Street", "action": "globe_zoom", "arg": "street"},
 		{"label": "Regions", "action": "globe_zoom", "arg": "region"},
@@ -703,29 +760,44 @@ func _paint_globe(state: Dictionary) -> void:
 	search_row.add_child(search)
 	search_row.add_child(go)
 	dock_body.add_child(search_row)
+	_globe_ascii_only = bool(g.get("filter_ascii", _globe_ascii_only))
 	_add_action_row([
 		{"label": "ASCII filter", "action": "globe_filter", "arg": "ascii"},
 		{"label": "All filter", "action": "globe_filter", "arg": "all"},
 	])
 	var q := _globe_search.strip_edges().to_lower()
+	if q.is_empty():
+		q = str(g.get("search", "")).strip_edges().to_lower()
 	var shown := 0
 	for r in regions:
 		if typeof(r) != TYPE_DICTIONARY:
 			continue
 		var id := str(r.get("id", ""))
 		var name := str(r.get("name", id))
+		if _globe_ascii_only and not bool(r.get("has_ascii_shard", false)) and not bool(r.get("home", false)):
+			continue
 		if not q.is_empty():
-			var hay := (id + " " + name + " " + str(r.get("continent", ""))).to_lower()
+			var hay := (id + " " + name + " " + str(r.get("continent", "")) + " " + str(r.get("label", ""))).to_lower()
 			if q not in hay:
 				continue
 		shown += 1
 		if shown > 24:
 			_add_dim("… truncated")
 			break
-		var mark := " ★" if id == cur else ""
+		var mark := ""
+		if id == cur:
+			mark += " ★"
+		if id == _globe_selected_id:
+			mark += " ▶"
+		if bool(r.get("has_ascii_shard", false)):
+			mark += " ascii"
 		_add_meta("%s%s" % [name, mark])
-		_add_dim(id)
-		_add_action_row([{"label": "Teleport", "action": "teleport", "arg": id}])
+		_add_dim("%s · %s,%s" % [id, r.get("lat", "?"), r.get("lon", "?")])
+		var hop_id := id
+		_add_action_row([
+			{"label": "Select", "action": "__globe_select", "arg": hop_id},
+			{"label": "Teleport", "action": "teleport", "arg": hop_id},
+		])
 
 
 # --- Primer ------------------------------------------------------------------
