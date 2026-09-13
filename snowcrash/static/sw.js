@@ -1,10 +1,11 @@
 /* Snowcrash light offline shell (#75) — caches app shell only; live WS play still needs network. */
-const CACHE = "snowcrash-shell-v2";
+const CACHE = "snowcrash-shell-v3";
 const PRECACHE = [
   "/",
   "/static/style.css",
   "/static/game.js",
   "/static/ascii-video.js",
+  "/static/qrcode.min.js",
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",

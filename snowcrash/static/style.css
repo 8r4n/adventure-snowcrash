@@ -796,7 +796,11 @@ body.env-dev #side {
 .name-gate-card {
   max-width: 420px;
   width: 92%;
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 1.5rem 1.75rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
   border: 1px solid rgba(57, 197, 207, 0.45);
   background: rgba(8, 14, 22, 0.92);
   box-shadow: 0 0 40px rgba(57, 197, 207, 0.15);
@@ -2172,6 +2176,12 @@ body:not(.intro-active) {
   gap: 0.45rem;
   margin-top: 0.85rem;
 }
+.name-gate-card .name-gate-share button {
+  width: auto;
+  margin-top: 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 .btn-copy-join {
   appearance: none;
   background: rgba(57, 197, 207, 0.12);
@@ -2452,4 +2462,107 @@ header.topbar .panel-dock {
   font-size: 0.7rem;
   opacity: 0.7;
   margin-top: 0.35rem;
+}
+
+/* Slice 3 (#75) — QR join + jaunte hop (no window.prompt) */
+.btn-show-qr {
+  appearance: none;
+  background: rgba(210, 168, 255, 0.1);
+  color: #d2a8ff;
+  border: 1px solid rgba(210, 168, 255, 0.45);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.btn-show-qr:active { filter: brightness(1.1); }
+.join-qr {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.join-qr.hidden,
+.join-qr[hidden] { display: none !important; }
+.join-qr-frame {
+  width: min(220px, 72vw);
+  aspect-ratio: 1;
+  background: #fff;
+  padding: 0.4rem;
+  border-radius: 8px;
+  box-shadow: 0 0 18px rgba(210, 168, 255, 0.25);
+}
+.join-qr-frame svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.join-qr-caption {
+  font-size: 0.7rem;
+  text-align: center;
+  max-width: 16rem;
+}
+.jaunte-globe-hop {
+  margin: 0.45rem 0 0.2rem;
+  padding: 0.4rem 0.45rem;
+  border: 1px dashed #1e3a40;
+  border-radius: 6px;
+}
+.jaunte-globe-hop.open {
+  border-style: solid;
+  border-color: rgba(57, 197, 207, 0.45);
+}
+.jaunte-hop-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.jaunte-hop-row input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 2.2rem;
+  background: #0a1520;
+  color: var(--fg);
+  border: 1px solid #1e3a40;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+.jaunte-region-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+.jaunte-region-chips .chip {
+  appearance: none;
+  background: #0a1520;
+  color: var(--accent);
+  border: 1px solid #1e3a40;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+  min-height: 1.8rem;
+}
+
+@media (max-width: 720px) {
+  .toast-stack {
+    top: calc(env(safe-area-inset-top, 0px) + 6.6rem);
+    left: max(0.35rem, env(safe-area-inset-left, 0px));
+    max-width: min(220px, 46vw);
+    max-height: 22vh;
+  }
+  .year-modal-card {
+    max-width: calc(100vw - 1.2rem);
+    margin: 0.4rem;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.2rem);
+    overflow: auto;
+  }
+  .jaunte-hop-row input { font-size: 1rem; } /* iOS zoom-avoid */
 }
