@@ -1,0 +1,15 @@
+{
+  "id": "hello_courier",
+  "name": "Hello Courier",
+  "version": "1.0.0",
+  "api_version": "1.0.0",
+  "description": "Example data-driven mod: one original item and one street broadcast. Original StreetNet fiction only.",
+  "author": "8r4n",
+  "license": "MIT",
+  "attribution": "Bundled first-party example for adventure-snowcrash #72. No third-party assets.",
+  "permissions": ["items", "street_events"],
+  "entry": {
+    "items": "items.json",
+    "street_events": "street_events.json"
+  }
+}
