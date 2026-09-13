@@ -2,11 +2,11 @@
 
 Issue **#72** (related **#37** editor/map tools · **#67** Steam packaging · **#42** campaign). External developers can extend adventure-snowcrash with **data-driven** content without forking core.
 
-**Stack:** JSON manifests + defs loaded by a Python registry. **No arbitrary Python, Lua, or WASM execution** in this phase — justified below. Web UI dock extensions and Workshop distribution remain later (issue stays open).
+**Stack:** JSON manifests + defs loaded by a Python registry. **No arbitrary Python, Lua, WASM, or mod JavaScript** — justified below. Workshop distribution remains later (issue stays open).
 
 Source: `snowcrash/systems/modding.py` (`ModdingMixin`), discovery roots `mods/` and `examples/plugins/`, example `examples/plugins/hello_courier/`.
 
-**Plugin API:** `1.1.0` (additive hooks over slice-1 `1.0.0`).
+**Plugin API:** `1.2.0` (additive: `ui_panel` over 1.1 hooks / 1.0 items).
 
 ## Acceptance map
 
@@ -19,10 +19,12 @@ Source: `snowcrash/systems/modding.py` (`ModdingMixin`), discovery roots `mods/`
 | Hooks: StreetNet / world broadcasts | **Implemented (API 1.1)** |
 | Hooks: ICE probes + lightweight cyberspace nodes | **Implemented (API 1.1)** |
 | Hooks: globe pins / region metadata | **Implemented (API 1.1)** |
+| Hooks: web UI dock panels | **Implemented (API 1.2)** |
 | Hot-reload aligned with `/api/reload_defs` | `reload_mods()` inside reload path |
-| Example `hello_courier` | Items + street events + journal + StreetNet + ICE + globe pin |
+| Example `hello_courier` | Items + street events + journal + StreetNet + ICE + globe pin + **UI panel** |
 | Semver + broken mods fail closed | `api_version` + hard errors skip the mod |
-| Web UI / WASM | **Not in this slice** — remains on #72 |
+| Web UI dock (`ui_panel`) | **Implemented (API 1.2)** — CSP-safe markdown + allowlisted actions |
+| WASM / Lua | **Not in this slice** — remains on #72 |
 
 ## Why JSON-first (not Lua/WASM yet)
 
@@ -36,7 +38,7 @@ Declarative content only for now. Scripted hooks can be added later behind expli
 
 ## Security model (fail closed)
 
-1. **No code execution.** Only `json.load` of files under the mod directory.
+1. **No code execution.** Only `json.load` of files under the mod directory. Web `ui_panel` bodies are escaped/sanitized markdown — **no mod JavaScript**.
 2. **Path jail.** Entry paths must be relative; `..` and absolute paths rejected.
 3. **Permissions allowlist.** Manifest must list capabilities. Unknown or denied permissions (`network`, `fs_write`, `exec`, `python`, `wasm`, …) **reject the whole mod**.
 4. **API semver.** `api_version` major must match host `PLUGIN_API_VERSION` (`1.1.0`); required version must be `<=` host. Incompatible → skip mod, record error.
@@ -65,8 +67,8 @@ Each immediate subdirectory with `mod.json` (or `manifest.json`) is a candidate.
 {
   "id": "hello_courier",
   "name": "Hello Courier",
-  "version": "1.1.0",
-  "api_version": "1.1.0",
+  "version": "1.2.0",
+  "api_version": "1.2.0",
   "description": "…",
   "author": "you",
   "license": "MIT",
@@ -77,7 +79,8 @@ Each immediate subdirectory with `mod.json` (or `manifest.json`) is a candidate.
     "journal",
     "streetnet",
     "ice_nodes",
-    "globe_regions"
+    "globe_regions",
+    "ui_panel"
   ],
   "entry": {
     "items": "items.json",
@@ -85,7 +88,8 @@ Each immediate subdirectory with `mod.json` (or `manifest.json`) is a candidate.
     "journal": "journal.json",
     "streetnet": "streetnet.json",
     "ice_nodes": "ice_nodes.json",
-    "globe_regions": "globe_regions.json"
+    "globe_regions": "globe_regions.json",
+    "ui_panel": "ui_panel.json"
   }
 }
 ```
@@ -109,7 +113,7 @@ Each immediate subdirectory with `mod.json` (or `manifest.json`) is a candidate.
 | `streetnet` | **1.1** | StreetNet / world broadcasts (`streetnet.json`) |
 | `ice_nodes` | **1.1** | ICE probes + lightweight cyberspace nodes (`ice_nodes.json`) |
 | `globe_regions` | **1.1** | Globe pins + metadata regions (`globe_regions.json`) |
-| `ui_panel` | declared only | Future CSP-friendly web dock |
+| `ui_panel` | **1.2** | CSP-friendly YearUI dock panel (`ui_panel.json`) |
 | `network` / `fs_*` / `exec` / `python` / `wasm` | **denied** | Always fail closed |
 
 ### Items (`items.json`)
@@ -260,6 +264,40 @@ When the year street-event ticker fires, weighted mod street events / StreetNet 
 
 Pins appear in globe snapshot `mod_pins`. Metadata regions overlay the globe list but **reject teleport** (visible pins only in this slice).
 
+
+### UI panels (`ui_panel.json`) — API 1.2
+
+CSP-friendly YearUI dock extensions. **No arbitrary JavaScript from mods** — the host renders title + sanitized text/markdown and buttons that call **allowlisted existing game actions** only.
+
+```json
+{
+  "panels": [
+    {
+      "id": "hello_courier.desk",
+      "title": "Hello Courier Desk",
+      "dock_label": "Hello",
+      "body_format": "markdown",
+      "body": "## Hello\n\nExample **CSP-safe** panel.",
+      "actions": [
+        {"label": "List mods", "action": "mods"},
+        {"label": "Grant badge", "action": "mod_item", "arg": "hello_courier.badge"}
+      ]
+    }
+  ]
+}
+```
+
+| Field | Notes |
+|-------|-------|
+| `id` | Namespaced panel id |
+| `title` | Side accordion summary |
+| `dock_label` | Short dock button label (≤24) |
+| `body_format` | `markdown` (default) or `text` |
+| `body` | Original prose; markdown subset: headings, lists, `code`, **bold**, *italic* — HTML escaped first |
+| `actions` | ≤8 buttons; `action` must be allowlisted (`mods`, `mod_item`, `globe`, `ice_probe`, …); optional `arg` sanitized |
+
+Snapshot: `mods.panels` (+ `mods.ui_panel_count`). YearUI injects dock buttons into `#mod-dock-host` and side panels into `#mod-panels-host`.
+
 ### Host integration
 
 | Hook | Behavior |
@@ -273,12 +311,13 @@ Pins appear in globe snapshot `mod_pins`. Metadata regions overlay the globe lis
 | `_all_ice_probes` / `ice_probe` | Core + mod probes |
 | `jack_in` | Optional weighted mod cyberspace node |
 | `_globe_snapshot` | `mod_pins` / `mod_regions` |
-| Snapshot `mods` | Registry summary + errors |
+| Snapshot `mods` | Registry summary + `panels` + errors |
+| YearUI dock | Renders `mods.panels` (CSP markdown + action buttons) |
 | Actions `mods`, `mod_item <id>`, `mod_reload` | List / grant / reload |
 
 ### Compatibility policy
 
-- **Host** `PLUGIN_API_VERSION` is the contract (`1.1.0`).
+- **Host** `PLUGIN_API_VERSION` is the contract (`1.2.0`).
 - **Additive** hooks → bump **minor**; mods on older minors keep working (`1.0.0` still loads).
 - **Breaking** manifest/fields → bump **major**; old mods fail closed with a clear error.
 - Partial apply of a single mod is never done: one bad def skips that mod entirely.
@@ -307,7 +346,7 @@ mkdir -p mods
 ln -sfn ../examples/plugins/hello_courier mods/hello_courier
 ```
 
-In-game:
+In-game / web:
 
 ```text
 mods
@@ -315,6 +354,8 @@ mod_item hello_courier.badge
 ice_probe hello_courier.ping_probe
 globe
 ```
+
+Open the **Hello** button on the YearUI panel dock (injected from `hello_courier.desk`) to try the sample `ui_panel`.
 
 ## Attribution
 
@@ -324,7 +365,6 @@ globe
 
 ## Later phases (still on #72)
 
-- CSP-friendly web UI extension points (`ui_panel`)
 - Optional sandboxed WASM/Lua if JSON is insufficient
 - Teleportable mod regions with shard packs (beyond metadata pins)
 - Steam Workshop-style distribution notes under #67

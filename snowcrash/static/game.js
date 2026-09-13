@@ -1305,6 +1305,8 @@
       empathyBody: document.getElementById("empathy-body"),
       forecastBody: document.getElementById("forecast-body"),
       ecologyBody: document.getElementById("ecology-body"),
+      modPanelsHost: document.getElementById("mod-panels-host"),
+      modDockHost: document.getElementById("mod-dock-host"),
       partyPings: document.getElementById("party-pings"),
       arenaPill: document.getElementById("arena-pill"),
       duelBanner: document.getElementById("duel-banner"),
@@ -2629,6 +2631,156 @@
         emptyHostileNote;
     }
 
+    function modPanelKey(id) {
+      return "mod-" + String(id || "panel")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48) || "mod-panel";
+    }
+
+    /** Limited markdown → HTML. Escapes first — no raw HTML / scripts from mods (CSP-friendly). */
+    function safeModMarkdown(src, asMarkdown) {
+      const raw = String(src || "");
+      if (!asMarkdown) {
+        return '<div class="mod-md"><p>' + escapeHtml(raw).replace(/\n/g, "<br/>") + "</p></div>";
+      }
+      const lines = raw.replace(/\r\n/g, "\n").split("\n");
+      const out = [];
+      let inList = false;
+      function closeList() {
+        if (inList) { out.push("</ul>"); inList = false; }
+      }
+      function inlineFmt(s) {
+        let t = escapeHtml(s);
+        t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+        t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        t = t.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
+        return t;
+      }
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) { closeList(); continue; }
+        const h = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (h) {
+          closeList();
+          const tag = h[1].length === 1 ? "h3" : "h4";
+          out.push("<" + tag + ">" + inlineFmt(h[2]) + "</" + tag + ">");
+          continue;
+        }
+        const li = trimmed.match(/^[-*]\s+(.+)$/);
+        if (li) {
+          if (!inList) { out.push("<ul>"); inList = true; }
+          out.push("<li>" + inlineFmt(li[1]) + "</li>");
+          continue;
+        }
+        closeList();
+        out.push("<p>" + inlineFmt(trimmed) + "</p>");
+      }
+      closeList();
+      return '<div class="mod-md">' + (out.join("") || "<p></p>") + "</div>";
+    }
+
+    function ensureModPanelDom(panel) {
+      const key = modPanelKey(panel.id);
+      const dockHost = els.modDockHost || els.panelDock;
+      if (dockHost && !dockHost.querySelector('.dock-btn[data-panel="' + key + '"]')) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "dock-btn mod-dock-btn";
+        btn.setAttribute("data-panel", key);
+        btn.setAttribute("data-mod-panel", panel.id);
+        btn.title = defStr(panel.title, key) + " (mod)";
+        btn.textContent = defStr(panel.dock_label, "Mod").slice(0, 10);
+        if (els.modDockHost) {
+          els.modDockHost.appendChild(btn);
+        } else if (els.panelDock) {
+          const jack = document.getElementById("btn-cyber-jack");
+          if (jack) els.panelDock.insertBefore(btn, jack);
+          else els.panelDock.appendChild(btn);
+        }
+      }
+      const host = els.modPanelsHost || els.side;
+      if (!host) return key;
+      let details = host.querySelector('.year-panel[data-panel="' + key + '"]');
+      if (!details) {
+        details = document.createElement("details");
+        details.className = "side-fold year-panel mod-panel";
+        details.setAttribute("data-panel", key);
+        details.setAttribute("data-mod-panel", panel.id);
+        const summary = document.createElement("summary");
+        summary.innerHTML = escapeHtml(defStr(panel.title, key)) +
+          '<span class="mod-tag">mod</span>';
+        const body = document.createElement("div");
+        body.className = "panel-body mod-panel-body";
+        body.id = key + "-body";
+        details.appendChild(summary);
+        details.appendChild(body);
+        host.appendChild(details);
+        details.addEventListener("toggle", () => {
+          if (!details.open) {
+            if (els.panelDock) {
+              els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
+                if (b.getAttribute("data-panel") === key) b.classList.remove("active");
+              });
+            }
+            return;
+          }
+          document.querySelectorAll(".year-panel").forEach((p) => {
+            if (p !== details) p.open = false;
+          });
+          if (els.panelDock) {
+            els.panelDock.querySelectorAll(".dock-btn").forEach((b) => {
+              b.classList.toggle("active", b.getAttribute("data-panel") === key);
+            });
+          }
+        });
+      }
+      return key;
+    }
+
+    function renderModPanels(s) {
+      const mods = defObj(s.mods);
+      const panels = defArr(mods.panels || mods.ui_panels);
+      const seen = new Set();
+      for (const panel of panels) {
+        if (!panel || !panel.id) continue;
+        const key = ensureModPanelDom(panel);
+        seen.add(key);
+        const body = document.getElementById(key + "-body");
+        if (!body) continue;
+        const fmt = defStr(panel.body_format, "markdown").toLowerCase();
+        const md = fmt === "markdown" || fmt === "md";
+        const actions = defArr(panel.actions).map((a) => {
+          const label = defStr(a.label, a.action || "Go");
+          const action = defStr(a.action, "");
+          if (!action) return "";
+          const arg = a.arg == null || a.arg === "" ? "" : String(a.arg);
+          return '<button type="button" data-mod-action="' + escapeHtml(action) + '"' +
+            (arg ? ' data-mod-arg="' + escapeHtml(arg) + '"' : "") +
+            ">" + escapeHtml(label) + "</button>";
+        }).filter(Boolean).join("");
+        body.innerHTML =
+          safeModMarkdown(defStr(panel.body, ""), md) +
+          (actions ? '<div class="mod-panel-actions">' + actions + "</div>" : "") +
+          '<div class="mod-panel-meta dim">' +
+          escapeHtml(defStr(panel.mod_id, "mod")) + " · " + escapeHtml(defStr(panel.id, "")) +
+          "</div>";
+      }
+      // Hide dock/details for panels no longer present after reload
+      const hosts = [els.modPanelsHost, els.modDockHost, els.panelDock].filter(Boolean);
+      hosts.forEach((h) => {
+        h.querySelectorAll("[data-mod-panel]").forEach((el) => {
+          const key = el.getAttribute("data-panel");
+          if (key && !seen.has(key)) {
+            if (el.tagName === "DETAILS" || el.classList.contains("dock-btn")) {
+              try { el.remove(); } catch (_) {}
+            }
+          }
+        });
+      });
+    }
+
     function renderAnalytics(s) {
       if (!els.analytics) return;
       const a = defObj(s.analytics || s.debug);
@@ -2784,6 +2936,8 @@
         renderJaunte(s);
         renderEmpathy(s);
         renderForecast(s);
+        renderEcology(s);
+        renderModPanels(s);
         renderCyberHint(s);
         renderWishToy(s);
         styleLogFees(s);
@@ -3010,6 +3164,21 @@
           if (v) send("ecology_raid", v);
         }],
       ]);
+      // Mod UI panels (#72) — buttons send allowlisted existing game actions only
+      const modHost = els.modPanelsHost || els.side;
+      if (modHost && !modHost.dataset.modActionsBound) {
+        modHost.dataset.modActionsBound = "1";
+        modHost.addEventListener("click", (ev) => {
+          const btn = ev.target && ev.target.closest ? ev.target.closest("[data-mod-action]") : null;
+          if (!btn) return;
+          const action = btn.getAttribute("data-mod-action");
+          if (!action) return;
+          const arg = btn.getAttribute("data-mod-arg");
+          if (arg != null && arg !== "") send(action, arg);
+          else send(action);
+          Sound.play("click");
+        });
+      }
       if (els.npcCue) {
         els.npcCue.addEventListener("click", (ev) => {
           const btn = ev.target.closest("[data-dlg]");

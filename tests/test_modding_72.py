@@ -285,7 +285,107 @@ def test_fail_closed_bad_cyber_grid(tmp_path):
     assert any("X exit" in e.message for e in reg.errors)
 
 
-def test_plugin_api_is_1_1():
+def test_plugin_api_is_1_2():
     parts = PLUGIN_API_VERSION.split(".")
     assert int(parts[0]) == 1
-    assert int(parts[1]) >= 1
+    assert int(parts[1]) >= 2
+
+
+def test_hello_courier_ui_panel():
+    reg = ModRegistry()
+    loaded = load_mod(EXAMPLE, reg)
+    assert loaded is not None
+    assert "ui_panel" in loaded.permissions
+    assert any(p["id"] == "hello_courier.desk" for p in reg.ui_panels)
+    panel = next(p for p in reg.ui_panels if p["id"] == "hello_courier.desk")
+    assert panel["title"]
+    assert panel["body_format"] == "markdown"
+    assert panel["dock_label"]
+    assert any(a["action"] == "mod_item" and a.get("arg") == "hello_courier.badge" for a in panel["actions"])
+    snap = reg.snapshot()
+    assert snap["ui_panel_count"] >= 1
+    assert any(p["id"] == "hello_courier.desk" for p in snap["panels"])
+
+
+def test_world_snapshot_includes_mod_panels(monkeypatch):
+    monkeypatch.delenv("SNOWCRASH_DISABLE_MODS", raising=False)
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "1")
+    w = GameWorld(72021)
+    a = _join(w)
+    s = w.snapshot(a)
+    panels = (s.get("mods") or {}).get("panels") or []
+    assert any(p.get("id") == "hello_courier.desk" for p in panels)
+
+
+def test_fail_closed_ui_panel_bad_action(tmp_path):
+    mod = tmp_path / "bad_ui"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "bad_ui",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["ui_panel"],
+                "entry": {"ui_panel": "ui_panel.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (mod / "ui_panel.json").write_text(
+        json.dumps(
+            {
+                "panels": [
+                    {
+                        "id": "bad_ui.panel",
+                        "title": "Nope",
+                        "body": "x",
+                        "actions": [{"label": "Boom", "action": "eval"}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert any("allowlisted" in e.message or "invalid" in e.message for e in reg.errors)
+
+
+def test_fail_closed_ui_panel_html_not_required_but_body_ok(tmp_path):
+    """Body may contain angle brackets; validator accepts text (host escapes)."""
+    mod = tmp_path / "angle_ui"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "angle_ui",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["ui_panel"],
+                "entry": {"ui_panel": "ui_panel.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (mod / "ui_panel.json").write_text(
+        json.dumps(
+            {
+                "panels": [
+                    {
+                        "id": "angle_ui.panel",
+                        "title": "Angles",
+                        "dock_label": "Ang",
+                        "body_format": "text",
+                        "body": "See <script>alert(1)</script> — host must escape.",
+                        "actions": [{"label": "Mods", "action": "mods"}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    loaded = load_mod(mod, reg)
+    assert loaded is not None
+    assert "<script>" in reg.ui_panels[0]["body"]

@@ -1,0 +1,17 @@
+{
+  "panels": [
+    {
+      "id": "hello_courier.desk",
+      "title": "Hello Courier Desk",
+      "dock_label": "Hello",
+      "body_format": "markdown",
+      "body": "## Hello Courier\n\nExample **CSP-safe** mod dock panel. Host YearUI renders title + markdown/text + buttons only — **no arbitrary mod JavaScript**.\n\n- Grant the sample badge\n- List loaded mods\n- Open globe / ICE catalog\n\nSee `docs/modding.md` (`ui_panel`).",
+      "actions": [
+        {"label": "List mods", "action": "mods"},
+        {"label": "Grant badge", "action": "mod_item", "arg": "hello_courier.badge"},
+        {"label": "Globe", "action": "globe"},
+        {"label": "ICE list", "action": "ice_probe", "arg": "list"}
+      ]
+    }
+  ]
+}

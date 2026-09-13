@@ -129,7 +129,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **StreetNet Primer (#60)** — inventory teaching tablet with adaptive mini-quests (ICE / globe / crews); cosmetics + soft skills, no P2W wall. See [docs/primer.md](docs/primer.md).
 - **Uplink Hop / Street Jaunt (#62)** — learned short → district → globe hops with rank gates, Focus cost, and misfire/cooldown feedback. See [docs/jaunte.md](docs/jaunte.md).
 - **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
-- **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; hooks for items, street events, journal, StreetNet, ICE/cyber nodes, globe pins (API 1.1). Example Hello Courier. See [docs/modding.md](docs/modding.md).
+- **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; hooks for items, street events, journal, StreetNet, ICE/cyber nodes, globe pins, CSP-safe UI panels (API 1.2). Example Hello Courier. See [docs/modding.md](docs/modding.md).
 - **Scarce resource ecology (#57)** — bandwidth / condensate water / uplink spectrum wars on globe regions; claim or raid nodes; weather shifts with control. See [docs/ecology.md](docs/ecology.md).
 - **Empathy audit + synth bounties (#63)** — optional StreetNet empathy dialogue test + rogue-synth Retire/Reclaim contracts with heat/reputation swings. See [docs/empathy-bounties.md](docs/empathy-bounties.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
