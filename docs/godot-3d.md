@@ -57,7 +57,7 @@ Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
 - [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
-- [ ] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
+- [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: this section + [steam-quality-bar.md](steam-quality-bar.md) cite (this PR)
 
 ---
@@ -175,6 +175,24 @@ Facing is server `player.facing` (N/E/S/W). Position lerps toward tile centers �
 
 Right stick X is mapped to `look_left` / `look_right` and sent as **`turn_left` / `turn_right`** (existing intents). Keyboard Q/E and L1/R1 unchanged.
 
+### Camera juice (#161) — cosmetic vs authority
+
+Presentation-only feel so the 3D SKU reads closer to Abandoned Spaceship–class free-look **without** client-side position cheating.
+
+| Layer | What happens | Authority? |
+|-------|--------------|------------|
+| **Server pose** | `player.x/y` + `facing` (or ICE avatar `px/py`) from `/ws` snapshot | **Truth** |
+| **Intents** | `forward` / `turn_left` / … unchanged | Server resolves |
+| **Courier mesh lerp** | `Street3D` lerps render pose toward tile centers (`look_pos_rate`) | Cosmetic |
+| **Entity mesh lerp** | Pooled agents lerp between grid cells; snap on first paint / long teleport | Cosmetic |
+| **Look smoothing** | Softer yaw follow (`look_yaw_rate`); toggle via ConfigFile `look_smooth` (default on) | Cosmetic |
+| **Head bob** | Optional cam-pivot bob while the mesh is mid-lerp; **F7** / **Bob** button | Cosmetic |
+| **Landing FOV** | Brief FOV punch when the cosmetic mesh settles on a cell | Cosmetic |
+
+**Deck / Low:** `GraphicsSettings.head_bob()` always returns **false** on Low (pref may stay on for High). Bob defaults **off** in ConfigFile. Omni budget unchanged.
+
+`Refs #163` · `Refs #141` — epics stay open.
+
 ---
 
 ## Renderer + Deck perf budget
@@ -213,6 +231,8 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | Rim Directional | off | on |
 | Materials (#156) | albedo + procedural trim (no normal/ORM) | trim albedo + normal + ORM |
 | Kit scatter (#158) | off (AOI mesh headroom) | crates / pipes / foliage / vents |
+| Head bob (#161) | **forced off** | optional (F7; default off) |
+| Look smooth (#161) | on (cosmetic yaw/pos rates) | on (default) |
 
 ### Particles (slice 5)
 
@@ -452,7 +472,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; lighting #157; ground #159; diegesis #160; camera #161)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; lighting #157; ground #159; diegesis #160)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -541,13 +561,13 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats / #161 camera juice |
 | `godot_client/materials/` | Shared trim / PBR library (#156): `recolor_trim.gdshader`, `library.gd`, `.tres`, generated textures |
 | `godot_client/models/` | #158 original OBJ kit (wall panel, floor tile, door frame, crate, pipe, neon, foliage, vent) |
 | `godot_client/scripts/mesh_kit.gd` | OBJ → ArrayMesh loader + role catalog (`MeshKit`) |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
-| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload |
+| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload (+ #161 bob / look smooth) |
 | `godot_client/scenes/main.tscn` | Street + Globe SubViewports + AsciiOverlay + Quality |
 | `godot_client/scripts/main.gd` | View cycle (3D/3D+ASCII/FPV/map), overlay, globe, cam/quality |
 | `godot_client/scripts/year_docks.gd` | Globe dock hybrid list + open/close → overlay |

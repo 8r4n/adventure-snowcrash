@@ -5,6 +5,7 @@ class_name Street3D
 ## #156: shared trim / PBR + Catppuccin recolor (MaterialLibrary) — Omni budget unchanged.
 ## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
+## #161: camera juice (look smooth, bob, landing FOV, entity mesh lerp) — cosmetic only; /ws authority.
 ## Slice 3: jack-in visual language — grid/node lattice, neon ICE walls, layer plates.
 ## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
 ## Glyphs become PrimitiveMesh instances + Catppuccin trim materials (not solid color only).
@@ -92,6 +93,18 @@ var _last_origin: Vector2i = Vector2i(-99999, -99999)
 var _target_pos: Vector3 = Vector3(0.5, 0.0, 0.5)
 var _target_yaw: float = 0.0
 var _have_pose: bool = false
+## #161 camera juice (render-only).
+var _was_moving: bool = false
+var _land_fov_t: float = 0.0
+var _bob_phase: float = 0.0
+var _pivot_base: Vector3 = Vector3(0.0, 1.28, 0.0)
+const BASE_FOV := 70.0
+const LAND_FOV_SEC := 0.2
+const LAND_FOV_PUNCH := 4.5
+const BOB_AMP_Y := 0.032
+const BOB_AMP_X := 0.014
+const BOB_HZ := 8.5
+const ENTITY_SNAP_DIST := 2.75
 var _jack_light: OmniLight3D
 var _uplink_light: OmniLight3D
 var _pulse: float = 0.0
@@ -285,17 +298,24 @@ func apply_snapshot(state: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
-	if _trans_t > 0.0 and camera:
-		_trans_t = maxf(0.0, _trans_t - delta)
-		var t := 1.0 - (_trans_t / ICE_TRANS_SEC)
-		var punch := sin(t * PI) * (18.0 if _trans_dir > 0 else -12.0)
-		camera.fov = 70.0 + punch
-		if _trans_t <= 0.0:
-			camera.fov = 70.0
+	_update_camera_juice(delta)
 	if not _have_pose:
 		return
-	courier.position = courier.position.lerp(_target_pos, clampf(LERP_POS * delta, 0.0, 1.0))
-	courier.rotation.y = lerp_angle(courier.rotation.y, _target_yaw, clampf(LERP_YAW * delta, 0.0, 1.0))
+	var pos_rate := LERP_POS
+	var yaw_rate := LERP_YAW
+	if GraphicsSettings:
+		pos_rate = GraphicsSettings.look_pos_rate()
+		yaw_rate = GraphicsSettings.look_yaw_rate()
+	courier.position = courier.position.lerp(_target_pos, clampf(pos_rate * delta, 0.0, 1.0))
+	courier.rotation.y = lerp_angle(courier.rotation.y, _target_yaw, clampf(yaw_rate * delta, 0.0, 1.0))
+	var dist := courier.position.distance_to(_target_pos)
+	var moving := dist > 0.05
+	# Landing FOV punch when cosmetic mesh settles on a cell (still server-truth pose).
+	if _was_moving and not moving:
+		_land_fov_t = LAND_FOV_SEC
+	_was_moving = moving
+	_apply_head_bob(delta, moving)
+	_lerp_entity_meshes(delta, pos_rate, yaw_rate)
 	_pulse += delta
 	var pulse := 1.0 + 0.35 * sin(_pulse * 3.2)
 	if _jack_light:
@@ -317,7 +337,8 @@ func _apply_cam_rig() -> void:
 	if cam_pivot == null or camera == null:
 		return
 	if cam_mode == CamMode.FIRST:
-		cam_pivot.position = Vector3(0.0, 1.52, 0.0)
+		_pivot_base = Vector3(0.0, 1.52, 0.0)
+		cam_pivot.position = _pivot_base
 		camera.position = Vector3(0.0, 0.0, 0.12)
 		camera.rotation_degrees = Vector3(0.0, 0.0, 0.0)
 		if courier_mesh:
@@ -330,7 +351,8 @@ func _apply_cam_rig() -> void:
 		if nameplate:
 			nameplate.visible = false
 	else:
-		cam_pivot.position = Vector3(0.0, 1.28, 0.0)
+		_pivot_base = Vector3(0.0, 1.28, 0.0)
+		cam_pivot.position = _pivot_base
 		camera.position = Vector3(0.0, 0.72, 3.35)
 		camera.rotation_degrees = Vector3(-14.0, 0.0, 0.0)
 		if courier_mesh:
@@ -1018,11 +1040,22 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 		var node: Node3D = _entity_pool[i]
 		if i >= needed.size():
 			node.visible = false
+			node.set_meta("have_pose", false)
 			continue
 		var spec: Dictionary = needed[i]
 		node.visible = true
-		node.position = Vector3(float(spec["x"]) + 0.5, 0.0, float(spec["y"]) + 0.5)
-		node.rotation.y = float(spec["yaw"])
+		var target := Vector3(float(spec["x"]) + 0.5, 0.0, float(spec["y"]) + 0.5)
+		var tyaw := float(spec["yaw"])
+		# #161 cosmetic mesh lerp — snap only on first pose / long teleports (not authority).
+		if (not node.has_meta("have_pose")) or (not bool(node.get_meta("have_pose"))):
+			node.position = target
+			node.rotation.y = tyaw
+			node.set_meta("have_pose", true)
+		elif node.position.distance_to(target) > ENTITY_SNAP_DIST:
+			node.position = target
+			node.rotation.y = tyaw
+		node.set_meta("target_pos", target)
+		node.set_meta("target_yaw", tyaw)
 		_style_entity(node, str(spec["role"]), str(spec["label"]), bool(spec.get("facing", false)))
 
 
@@ -1545,3 +1578,54 @@ func _follow_fx() -> void:
 		var holder := _uplink_light.get_parent() as Node3D
 		if holder:
 			_spark.global_position = holder.global_position + Vector3(0.0, 3.1, 0.0)
+
+
+func _update_camera_juice(delta: float) -> void:
+	## Jack-in FOV punch + landing FOV. Never moves authority pose.
+	if camera == null:
+		return
+	var fov := BASE_FOV
+	if _trans_t > 0.0:
+		_trans_t = maxf(0.0, _trans_t - delta)
+		var t := 1.0 - (_trans_t / ICE_TRANS_SEC)
+		var punch := sin(t * PI) * (18.0 if _trans_dir > 0 else -12.0)
+		fov = BASE_FOV + punch
+	elif _land_fov_t > 0.0:
+		_land_fov_t = maxf(0.0, _land_fov_t - delta)
+		var u := 1.0 - (_land_fov_t / LAND_FOV_SEC)
+		fov = BASE_FOV + sin(u * PI) * LAND_FOV_PUNCH
+	camera.fov = fov
+
+
+func _apply_head_bob(delta: float, moving: bool) -> void:
+	if cam_pivot == null:
+		return
+	var bob_on := false
+	if GraphicsSettings:
+		bob_on = GraphicsSettings.head_bob()
+	if not bob_on or not moving:
+		# Ease pivot back to authored rig base (1st / 3rd).
+		cam_pivot.position = cam_pivot.position.lerp(_pivot_base, clampf(12.0 * delta, 0.0, 1.0))
+		if not bob_on:
+			_bob_phase = 0.0
+		return
+	_bob_phase += delta * BOB_HZ
+	var ox := cos(_bob_phase * 0.5) * BOB_AMP_X
+	var oy := sin(_bob_phase) * BOB_AMP_Y
+	# Slightly softer bob in 3rd person so the capsule stays readable.
+	var scale := 1.0 if cam_mode == CamMode.FIRST else 0.55
+	cam_pivot.position = _pivot_base + Vector3(ox * scale, oy * scale, 0.0)
+
+
+func _lerp_entity_meshes(delta: float, pos_rate: float, yaw_rate: float) -> void:
+	## Render-only interpolation between server grid cells. Intents unchanged.
+	for node in _entity_pool:
+		var n := node as Node3D
+		if n == null or not n.visible:
+			continue
+		if not n.has_meta("target_pos"):
+			continue
+		var tp: Vector3 = n.get_meta("target_pos")
+		var ty: float = float(n.get_meta("target_yaw"))
+		n.position = n.position.lerp(tp, clampf(pos_rate * delta, 0.0, 1.0))
+		n.rotation.y = lerp_angle(n.rotation.y, ty, clampf(yaw_rate * delta, 0.0, 1.0))
