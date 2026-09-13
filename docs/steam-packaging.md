@@ -44,6 +44,8 @@ Adventure-snowcrash today:
 
 Steam buyers expect a **double-click desktop app**, not “install Python and run uvicorn.” Packaging must hide the interpreter and either embed a browser UI or open a local URL cleanly.
 
+**SKU posture update (#130):** prefer a **Godot 4** native client as the Steam-marketable product; see [steam-quality-bar.md](steam-quality-bar.md). Tauri + web remains the fastest calendar fallback documented below.
+
 ---
 
 ## Steam Direct & partner account
@@ -358,7 +360,8 @@ PWA service worker already caches shell only — same philosophy: shell offline,
 
 ## Related docs
 
-- [godot-client.md](godot-client.md) — #109 Godot 4 thin client (mid-term native SKU; Tauri remains fastest v1 wrap of current web)
+- [steam-quality-bar.md](steam-quality-bar.md) — #130 north star, comps, gaps; **Godot preferred Steam SKU** (Tauri = calendar fallback)
+- [godot-client.md](godot-client.md) — #109/#118 Godot 4 thin client (preferred native SKU per #130; Tauri remains fastest wrap of current web)
 - [modding.md](modding.md) — Workshop precursor (#72)
 - [mobile.md](mobile.md) — PWA shell; not a Steam substitute
 - [ci-github-actions.yml](ci-github-actions.yml) — current test CI
