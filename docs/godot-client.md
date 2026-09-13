@@ -405,8 +405,9 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 **Polish & ship**
 
 - [ ] Opening intro / jack-in cutscene
-- [ ] SFX + mute
-- [ ] Settings (name, theme, GPS hide, large type)
+- [x] SFX + mute + music beds / volume sliders (**#134** / [audio.md](audio.md))
+- [x] Settings: audio volumes + mute persist (ConfigFile; **#134**); name remember via onboarding
+- [ ] Settings remaining (theme, GPS hide, large type)
 - [ ] Export: Linux/Windows/macOS desktop builds
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
 - [ ] Optional: Steam packaging path (#67 / #130) using Godot export
@@ -416,6 +417,7 @@ Suggested next slice: **GPS minimap + death UX**, or **desktop export** toward S
 ---
 ## Related
 
+- [audio.md](audio.md) — #134 SFX/music buses + trailer bed
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 Steam comps + quality bar; Godot is the **preferred** Steam SKU
 - [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / assets; Tauri = calendar fallback wrap of web
 - [mobile.md](mobile.md) — #75 PWA; Godot is store-native later

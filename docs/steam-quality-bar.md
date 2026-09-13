@@ -87,7 +87,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 | **Packaging research** | [#67](https://github.com/8r4n/adventure-snowcrash/issues/67) closed with [steam-packaging.md](steam-packaging.md): Steam Direct, Tauri+sidecar *fastest wrap*, store asset sizes, Deck/Proton notes. **Does not yet re-center Godot as the preferred Steam SKU** (this doc + #118 do). |
 | **Mods** | JSON plugin API + local pack contract ([modding.md](modding.md), [modding-workshop.md](modding-workshop.md)); Workshop upload not wired. |
 | **Demo / trailer source** | README montage (#111 done); live re-capture still open (#126). |
-| **SFX** | Procedural WAVs under `snowcrash/static/sfx/` (UI/combat cues). No music bed / juice pass for Steam first impressions. |
+| **SFX / music** | Procedural WAVs under `snowcrash/static/sfx/` + Godot AudioBus (**#134**): street/ICE beds, mute + volume ConfigFile, trailer bed in [audio.md](audio.md). |
 | **Onboarding** | StreetNet Primer (#60) teaches systems *in the web client*. Godot/Steam first-10 beat: [godot-onboarding.md](godot-onboarding.md) (#133). |
 | **Mobile / Deck** | PWA research (#75); no Steam Deck Verified checklist or device QA plan yet. |
 
@@ -101,7 +101,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 | 4 World density | Globe (#54) + news arcs (#51) still open; density exists as systems but not as a continuous living world read for new players. |
 | 5 Persistence fantasy | Shared world works on hosted `dev`; Steam SKU needs clear offline vs always-online messaging (#67 open questions) and visible reputation/consequence UX in-client. |
 | 6 Store page | Asset checklist exists in packaging doc; no final capsules/trailer; #126 is live demo source, not a finished Steam trailer. |
-| 7 Audio + juice | Short SFX only; no music identity pass; Godot mute/SFX still unchecked on #118 polish list. |
+| 7 Audio + juice | **Shipped #134:** Godot Master/SFX/Music buses, original street + ICE loops, juice (confirm/death/uplink/StreetNet), volume sliders, trailer bed — see [audio.md](audio.md). |
 | 8 Performance / Deck | No exported Godot build; no Deck Verified checklist; #67 notes Proton risk for webview path (another reason Godot export is preferred). |
 | 9 Workshop | Local JSON packs only; Steamworks Workshop not started (#72). |
 | 10 Review hygiene | QA harness (#112) exists; no “crash-free first hour” Steam checklist or crash reporting wired for a desktop SKU. |
@@ -121,7 +121,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 Order of investment toward the north star:
 
 1. **Godot Steam SKU** — finish #118 play loop → #127 docks/StreetNet parity → export + GodotSteam (see [godot-client.md](godot-client.md)).
-2. **Onboarding / juice** — first-10-minutes fantasy beat (**#133** / [godot-onboarding.md](godot-onboarding.md)) + audio/music pass (**#134**).
+2. **Onboarding / juice** — first-10-minutes fantasy beat (**#133** / [godot-onboarding.md](godot-onboarding.md)) + audio/music pass (**#134** / [audio.md](audio.md)) ✅.
 3. **Store page / trailer** — capsules + live trailer source (#126) using the Godot client when ready; asset sizes remain in [steam-packaging.md](steam-packaging.md).
 4. **Workshop** — keep JSON mods shipping (#72); Workshop when Steamworks is real.
 5. **Deck** — Verified checklist + native Linux depot QA after a playable export exists.
@@ -151,4 +151,5 @@ Still covered by existing opens: Godot SKU **#118** / **#127**, store/trailer so
 - [mobile.md](mobile.md) — #75 PWA; not a Steam substitute
 - [primer.md](primer.md) — in-world teaching tablet (feeds theme 2)
 - [godot-onboarding.md](godot-onboarding.md) — #133 first 10 minutes Godot/Steam beat
+- [audio.md](audio.md) — #134 SFX/music attribution, buses, trailer bed
 - [qa-automation.md](qa-automation.md) — #112 review-hygiene helper

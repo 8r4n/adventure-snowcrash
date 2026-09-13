@@ -3,6 +3,7 @@
 
 Cyberpunk / lo-fi digital blips — stdlib only (wave, struct, math).
 Writes into snowcrash/static/sfx/.
+Mirror into Godot with: python scripts/gen_music.py
 """
 
 from __future__ import annotations
