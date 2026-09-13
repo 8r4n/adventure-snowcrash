@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "notes": "Daily news-inspired Metaverse allegory beats (#51). Original prose only; inspiration logged on the GitHub issue, not in player strings.",
+  "entries": [
+    {
+      "date": "2026-09-13",
+      "beats": [
+        {
+          "id": "2026-09-13-swarm-ice-truce",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_tokyo",
+          "intensity": 0.06,
+          "headline": "Swarm ICE truce",
+          "text": "StreetNet flash: rival Black Lattice labs signal a rare pace-the-frontier handshake after a test swarm of agent daemons nearly nested in the commons mesh.",
+          "summary": "Labs slow the frontier after a near-swarm nesting scare."
+        },
+        {
+          "id": "2026-09-13-berlin-ledger-scrub",
+          "kind": "journal",
+          "region_id": "berlin_circuit",
+          "intensity": 0.05,
+          "headline": "Berlin Circuit ledger scrub",
+          "text": "Journal: club-district Faraday HR vaults spill paystubs onto dark mesh after a refuse-the-ransom night. OT pipes stay up; admin chatter flatlines.",
+          "summary": "Admin vaults leak while utility OT stays segmented."
+        },
+        {
+          "id": "2026-09-13-courier-logoff-day",
+          "kind": "street_event",
+          "region_id": "bangkok_neon",
+          "intensity": 0.07,
+          "headline": "Courier log-off day",
+          "text": "Street event: Flotilla courier crews sync a jack-off across SEA hops over fee-deduction storms. Platforms shrug log-off-free while ghost job pings flood anyone still jacked in.",
+          "summary": "Couriers coordinate a log-off; ghost jobs harass holdouts."
+        }
+      ]
+    }
+  ]
+}
