@@ -11,15 +11,15 @@ config_version=5
 [application]
 
 config/name="Snowcrash Godot Client"
-config/description="Thin WebSocket Godot 4 client for adventure-snowcrash (#118). Talks to existing Python /ws — does not simulate the street."
+config/description="Thin WebSocket Godot 4 client for adventure-snowcrash (#118/#127). StreetNet + year docks; talks to existing Python /ws."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [display]
 
-window/size/viewport_width=1100
-window/size/viewport_height=720
+window/size/viewport_width=1280
+window/size/viewport_height=860
 window/stretch/mode="canvas_items"
 
 [rendering]

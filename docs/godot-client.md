@@ -348,9 +348,9 @@ Reasons:
 
 ## Implementation progress
 
-Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`).
+Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Child slice issues may `Closes #<slice>`.
 
-### Slice 1 — reliable core play loop (**done**, this PR)
+### Slice 1 — reliable core play loop (**done**, #118 play-loop PR)
 
 | Item | Status |
 |------|--------|
@@ -363,6 +363,20 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`).
 | Docs / how-to | Done — this section + `godot_client/README.md` |
 | Optional Python WS harness mirroring Godot envelopes | Done — `scripts/godot_ws_harness.py`, `tests/test_godot_ws_protocol.py` |
 
+### Slice 2 — StreetNet + year docks (**done**, #127)
+
+| Item | Status |
+|------|--------|
+| StreetNet/IRC: chat send/receive + channel list (`/join`) | Done — `year_docks.gd` + `NetClient.send_chat` |
+| Open/close docks from structured snapshot fields (no DOM) | Done — accordion dock bar |
+| Journal | Done — quest/steps paint + `journal_track` |
+| ICE probes + jack in/out | Done — `ice_probe` buttons + Jack dock control |
+| Globe / teleport | Done — zoom/search/filter/recall + `teleport` |
+| Primer, Jaunte, Sleeves, Forecast, Ecology, Empathy | Done — core actions matching web |
+| Hello Courier / mod `ui_panel` host | Done — dynamic dock from `mods.panels` |
+| Catppuccin styling consistent with play-loop | Done |
+| Docs checklist + protocol smoke for dock/chat envelopes | Done |
+
 ### Remaining epic items (later slices)
 
 **Core loop leftovers**
@@ -373,19 +387,20 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`).
 
 **Social & meta**
 
-- [ ] StreetNet / IRC dock
-- [ ] Quest journal + compass
+- [x] StreetNet / IRC dock (**#127**)
+- [x] Quest journal (+ track; compass bearing still HUD-only) (**#127**)
 - [ ] Party / crew / contracts surfaces
 - [ ] Shop / craft / stash / season pass
 
 **Systems docks**
 
-- [ ] ICE probes + heists UX
-- [ ] Cyberspace jack-in
-- [ ] Globe / teleport
-- [ ] Primer, Jaunte, Sleeves, Forecast, Ecology, Empathy
-- [ ] Hello Courier / mod `ui_panel` host
+- [x] ICE probes (+ list; heists UX still thin) (**#127**)
+- [x] Cyberspace jack-in / jack-out control (**#127**; no cyber map chrome yet)
+- [x] Globe / teleport (**#127**; schematic Earth SVG left to later)
+- [x] Primer, Jaunte, Sleeves, Forecast, Ecology, Empathy (**#127**)
+- [x] Hello Courier / mod `ui_panel` host (**#127**)
 - [ ] Catppuccin theme throughout (Theme resource, not just consts)
+- [ ] ICE heists deep UX / cyberspace node map chrome
 
 **Polish & ship**
 
@@ -394,9 +409,9 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`).
 - [ ] Settings (name, theme, GPS hide, large type)
 - [ ] Export: Linux/Windows/macOS desktop builds
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
-- [ ] Optional: Steam packaging path (#67) using Godot export
+- [ ] Optional: Steam packaging path (#67 / #130) using Godot export
 
-Suggested next slice: **docks + StreetNet parity**.
+Suggested next slice: **GPS minimap + death UX**, or **desktop export** toward Steam (#130).
 
 ---
 ## Related

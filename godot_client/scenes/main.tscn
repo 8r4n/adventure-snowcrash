@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://c8snowcrashplayloop1"]
+[gd_scene load_steps=4 format=3 uid="uid://c8snowcrashplayloop1"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/net_client.gd" id="2_net"]
+[ext_resource type="Script" path="res://scripts/year_docks.gd" id="3_docks"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -33,26 +34,26 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
 
 [node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 5
 
 [node name="Title" type="Label" parent="Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.580392, 0.886275, 0.835294, 1)
-theme_override_font_sizes/font_size = 20
-text = "SNOWCRASH · Godot play loop"
+theme_override_font_sizes/font_size = 18
+text = "SNOWCRASH · Godot docks + StreetNet"
 
 [node name="Status" type="Label" parent="Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.976471, 0.886275, 0.686275, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "disconnected"
 
 [node name="ConnRow" type="HBoxContainer" parent="Margin/VBox"]
@@ -60,7 +61,7 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="UrlCaption" type="Label" parent="Margin/VBox/ConnRow"]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(28, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.803922, 0.839216, 0.956863, 1)
 text = "WS"
@@ -79,7 +80,7 @@ text = "Name"
 
 [node name="NameEdit" type="LineEdit" parent="Margin/VBox/ConnRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 0)
+custom_minimum_size = Vector2(110, 0)
 layout_mode = 2
 text = "Courier"
 placeholder_text = "display name"
@@ -98,7 +99,7 @@ text = "Disconnect"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.580392, 0.886275, 0.835294, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 autowrap_mode = 3
 text = "HP —  · Focus —  · XP —  · $—"
 
@@ -106,7 +107,7 @@ text = "HP —  · Focus —  · XP —  · $—"
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.980392, 0.701961, 0.529412, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 autowrap_mode = 3
 text = "Objective: (jack in)"
 
@@ -123,25 +124,25 @@ text = "View: FPV"
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.65098, 0.678431, 0.784314, 1)
-theme_override_font_sizes/font_size = 12
-text = "V toggles FPV ↔ overhead crop"
+theme_override_font_sizes/font_size = 11
+text = "V FPV/map · dock bar opens year panels · StreetNet below"
 
 [node name="Body" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="ViewPanel" type="PanelContainer" parent="Margin/VBox/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 2.2
+size_flags_stretch_ratio = 1.6
 
 [node name="ViewMargin" type="MarginContainer" parent="Margin/VBox/Body/ViewPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
 
 [node name="ViewScroll" type="ScrollContainer" parent="Margin/VBox/Body/ViewPanel/ViewMargin"]
 layout_mode = 2
@@ -160,17 +161,18 @@ autowrap_mode = 0
 [node name="Side" type="VBoxContainer" parent="Margin/VBox/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
-theme_override_constants/separation = 6
+size_flags_stretch_ratio = 0.85
+theme_override_constants/separation = 4
 
 [node name="InvCaption" type="Label" parent="Margin/VBox/Body/Side"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.705882, 0.745098, 0.964706, 1)
+theme_override_font_sizes/font_size = 12
 text = "Inventory"
 
 [node name="InvList" type="ItemList" parent="Margin/VBox/Body/Side"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 140)
+custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_vertical = 3
 allow_reselect = true
@@ -187,21 +189,158 @@ text = "Use selected"
 [node name="LogCaption" type="Label" parent="Margin/VBox/Body/Side"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.705882, 0.745098, 0.964706, 1)
+theme_override_font_sizes/font_size = 12
 text = "Log"
 
 [node name="LogBox" type="RichTextLabel" parent="Margin/VBox/Body/Side"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 160)
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 scroll_following = true
 fit_content = false
 
-[node name="Hint" type="Label" parent="Margin/VBox"]
+[node name="Right" type="VBoxContainer" parent="Margin/VBox/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.35
+theme_override_constants/separation = 4
+
+[node name="YearDocks" type="VBoxContainer" parent="Margin/VBox/Body/Right"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+script = ExtResource("3_docks")
+
+[node name="DockBarScroll" type="ScrollContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+vertical_scroll_mode = 0
+
+[node name="DockBar" type="HBoxContainer" parent="Margin/VBox/Body/Right/YearDocks/DockBarScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DockHead" type="HBoxContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DockTitle" type="Label" parent="Margin/VBox/Body/Right/YearDocks/DockHead"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.705882, 0.745098, 0.964706, 1)
+theme_override_font_sizes/font_size = 13
+text = "Docks"
+
+[node name="DockCloseBtn" type="Button" parent="Margin/VBox/Body/Right/YearDocks/DockHead"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="DockPanel" type="PanelContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.2
+
+[node name="DockMargin" type="MarginContainer" parent="Margin/VBox/Body/Right/YearDocks/DockPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
+
+[node name="DockScroll" type="ScrollContainer" parent="Margin/VBox/Body/Right/YearDocks/DockPanel/DockMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="DockBody" type="VBoxContainer" parent="Margin/VBox/Body/Right/YearDocks/DockPanel/DockMargin/DockScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="IrcHead" type="HBoxContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="IrcCaption" type="Label" parent="Margin/VBox/Body/Right/YearDocks/IrcHead"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.580392, 0.886275, 0.835294, 1)
+theme_override_font_sizes/font_size = 12
+text = "StreetNet"
+
+[node name="IrcChanLabel" type="Label" parent="Margin/VBox/Body/Right/YearDocks/IrcHead"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.980392, 0.701961, 0.529412, 1)
+theme_override_font_sizes/font_size = 12
+text = "#streets"
+
+[node name="IrcTopic" type="Label" parent="Margin/VBox/Body/Right/YearDocks"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65098, 0.678431, 0.784314, 1)
 theme_override_font_sizes/font_size = 11
+autowrap_mode = 3
+text = "#streets — no topic"
+
+[node name="IrcChannelsScroll" type="ScrollContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+vertical_scroll_mode = 0
+
+[node name="IrcChannels" type="HBoxContainer" parent="Margin/VBox/Body/Right/YearDocks/IrcChannelsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="IrcMid" type="HBoxContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="ChatLog" type="RichTextLabel" parent="Margin/VBox/Body/Right/YearDocks/IrcMid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.2
+bbcode_enabled = true
+scroll_following = true
+fit_content = false
+
+[node name="IrcNicks" type="ItemList" parent="Margin/VBox/Body/Right/YearDocks/IrcMid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.8
+
+[node name="ChatRow" type="HBoxContainer" parent="Margin/VBox/Body/Right/YearDocks"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ChatInput" type="LineEdit" parent="Margin/VBox/Body/Right/YearDocks/ChatRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "StreetNet chat · /join #channel"
+
+[node name="ChatSendBtn" type="Button" parent="Margin/VBox/Body/Right/YearDocks/ChatRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Send"
+
+[node name="Hint" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65098, 0.678431, 0.784314, 1)
+theme_override_font_sizes/font_size = 10
 autowrap_mode = 3
 text = "Controls appear after load"

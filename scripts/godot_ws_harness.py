@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate /ws protocol shapes the Godot client sends (#118 slice 1).
+"""Validate /ws protocol shapes the Godot client sends (#118 / #127).
 
 Mirrors godot_client/scripts/net_client.gd message envelopes against a live
 or in-process Python server. Does not require the Godot binary.
@@ -34,8 +34,21 @@ GODOT_ACTIONS = [
     {"type": "action", "action": "escape", "arg": None},
     {"type": "action", "action": ".", "arg": None},
 ]
+# Year docks / StreetNet envelopes Godot year_docks.gd sends (#127)
+GODOT_DOCK_ACTIONS = [
+    {"type": "action", "action": "globe", "arg": None},
+    {"type": "action", "action": "ice_probe", "arg": "list"},
+    {"type": "action", "action": "primer", "arg": None},
+    {"type": "action", "action": "jaunte", "arg": None},
+    {"type": "action", "action": "sleeves", "arg": None},
+    {"type": "action", "action": "forecast", "arg": None},
+    {"type": "action", "action": "ecology", "arg": None},
+    {"type": "action", "action": "empathy", "arg": None},
+    {"type": "action", "action": "mods", "arg": None},
+]
 GODOT_PING = {"type": "ping", "t": 12345}
 GODOT_CHAT = {"type": "chat", "text": "harness ping"}
+GODOT_CHAT_JOIN = {"type": "chat", "text": "/join #streets"}
 
 REQUIRED_SNAPSHOT_KEYS = (
     "player",
@@ -47,6 +60,22 @@ REQUIRED_SNAPSHOT_KEYS = (
     "xp",
     "level",
     "mode",
+)
+
+# Soft year/social keys — present on welcome when year mixins loaded (#127)
+OPTIONAL_DOCK_KEYS = (
+    "chat",
+    "irc",
+    "journal",
+    "ice",
+    "globe",
+    "primer",
+    "jaunte",
+    "sleeves",
+    "forecast",
+    "ecology",
+    "empathy",
+    "mods",
 )
 
 
@@ -66,6 +95,14 @@ def assert_snapshot_keys(state: Dict[str, Any]) -> None:
     player = state.get("player") or {}
     for k in ("name", "x", "y", "hp", "max_hp", "facing_name"):
         assert k in player, f"player missing {k}"
+
+
+def assert_dock_snapshot_fields(state: Dict[str, Any]) -> List[str]:
+    """Return which optional dock keys are present (non-fatal if some missing)."""
+    present = [k for k in OPTIONAL_DOCK_KEYS if k in state]
+    # StreetNet chat/irc should exist for a usable dock
+    assert "chat" in state or "irc" in state, "expected chat or irc for StreetNet"
+    return present
 
 
 def _recv_until(ws, want_types: set[str], limit: int = 12) -> Dict[str, Any]:
@@ -105,7 +142,19 @@ def run_with_starlette_client() -> None:
             assert pong.get("t") == 12345, pong
 
             ws.send_json(dict(GODOT_CHAT))
+            chat_snap = _recv_until(ws, {"snapshot", "error"})
+            if chat_snap.get("type") == "snapshot":
+                assert_dock_snapshot_fields(chat_snap["state"])
+
+            ws.send_json(dict(GODOT_CHAT_JOIN))
             _recv_until(ws, {"snapshot", "error"})
+
+            for payload in GODOT_DOCK_ACTIONS:
+                ws.send_json(payload)
+                snap = _recv_until(ws, {"snapshot", "error"})
+                if snap.get("type") == "snapshot":
+                    assert_snapshot_keys(snap["state"])
+                    assert_dock_snapshot_fields(snap["state"])
 
 
 def run_live(url: str) -> None:
