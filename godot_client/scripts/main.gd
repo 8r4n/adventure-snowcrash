@@ -28,6 +28,8 @@ extends Control
 @onready var street_vp: SubViewport = %StreetViewport
 @onready var view_scroll: ScrollContainer = %ViewScroll
 @onready var cam_btn: Button = %CamBtn
+@onready var ice_banner: Label = %IceBanner
+@onready var ice_flash: ColorRect = %IceFlash
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -42,6 +44,10 @@ var _inv_digit_accum: float = -1.0
 var _mode: String = "play"
 var _prev_mode: String = "play"
 var _death_recap_logged: bool = false
+var _was_ice: bool = false
+var _flash_t: float = 0.0
+var _flash_in: bool = true
+const ICE_FLASH_SEC := 0.5
 
 
 func _ready() -> void:
@@ -164,7 +170,8 @@ func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD / stick move · Q/E / L1 R1 / R-stick turn · G / A get · F / X fire · "
 		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/FPV/map · C camera · Start docks · "
-		+ "StreetNet chat · M mute · Audio (Deck map: docs/steam-deck.md · 3D: docs/godot-3d.md)"
+		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · Audio "
+		+ "(Deck: docs/steam-deck.md · 3D ICE: docs/godot-3d.md)"
 	)
 
 
@@ -313,6 +320,7 @@ func _paint(state: Dictionary) -> void:
 		_death_recap_logged = false
 	_prev_mode = _mode
 
+	_paint_ice_hud(state)
 	_paint_view(state)
 	_paint_inventory(state)
 	_paint_log(state)
@@ -407,6 +415,19 @@ func _append_log(text: String) -> void:
 	log_box.append_text("[color=#89dceb]%s[/color]\n" % text.replace("[", "(").replace("]", ")"))
 
 
+func _send_jack_intent() -> void:
+	if not net.is_joined():
+		return
+	if Street3D.ice_active(_last_state):
+		net.send_action("jack_out")
+		return
+	var cyber: Dictionary = _last_state.get("cyberspace", {})
+	if typeof(cyber) != TYPE_DICTIONARY:
+		cyber = {}
+	if bool(cyber.get("can_jack_in", false)):
+		net.send_action("jack_in")
+
+
 func _ui_focused() -> bool:
 	if name_edit.has_focus() or url_edit.has_focus():
 		return true
@@ -417,7 +438,50 @@ func _ui_focused() -> bool:
 	return focus is LineEdit
 
 
+func _paint_ice_hud(state: Dictionary) -> void:
+	var ice_now := Street3D.ice_active(state)
+	if ice_now != _was_ice:
+		_begin_ice_flash(ice_now)
+		if ice_now:
+			_append_log("Jack-in — lattice overlay (ICE bed)")
+		else:
+			_append_log("Jack-out — street restored")
+		_was_ice = ice_now
+	if ice_banner:
+		ice_banner.visible = ice_now
+		if ice_now:
+			ice_banner.text = Street3D.ice_banner_text(state)
+			var heist = state.get("ice_heist", {})
+			if typeof(heist) == TYPE_DICTIONARY and bool(heist.get("active", false)):
+				ice_banner.add_theme_color_override("font_color", Catppuccin.MAUVE)
+			else:
+				ice_banner.add_theme_color_override("font_color", Catppuccin.SKY)
+
+
+func _begin_ice_flash(entering: bool) -> void:
+	_flash_t = ICE_FLASH_SEC
+	_flash_in = entering
+	if ice_flash:
+		ice_flash.visible = true
+		ice_flash.color = Color(Catppuccin.SKY.r, Catppuccin.SKY.g, Catppuccin.SKY.b, 0.0) if entering else Color(Catppuccin.TEAL.r, Catppuccin.TEAL.g, Catppuccin.TEAL.b, 0.0)
+
+
+func _tick_ice_flash(delta: float) -> void:
+	if ice_flash == null:
+		return
+	if _flash_t <= 0.0:
+		ice_flash.visible = false
+		return
+	_flash_t = maxf(0.0, _flash_t - delta)
+	var a := sin((1.0 - _flash_t / ICE_FLASH_SEC) * PI) * 0.42
+	var c: Color = ice_flash.color
+	c.a = a
+	ice_flash.color = c
+	ice_flash.visible = a > 0.01
+
+
 func _process(delta: float) -> void:
+	_tick_ice_flash(delta)
 	if _inv_digit_accum >= 0.0:
 		_inv_digit_accum += delta
 		if _inv_digit_accum >= INV_DIGIT_MS / 1000.0:
@@ -532,6 +596,19 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if keycode == KEY_C:
 		_on_cam_toggle()
+		get_viewport().set_input_as_handled()
+		return
+	# Web parity: j jack_in at J / jack_out while jacked (#47 / #56 / #141).
+	if keycode == KEY_J:
+		_send_jack_intent()
+		get_viewport().set_input_as_handled()
+		return
+	if keycode == KEY_Z:
+		net.send_action("ice_probe", "stun")
+		get_viewport().set_input_as_handled()
+		return
+	if keycode == KEY_X:
+		net.send_action("ice_probe", "reveal")
 		get_viewport().set_input_as_handled()
 		return
 

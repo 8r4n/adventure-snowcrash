@@ -65,11 +65,67 @@ HUD, inventory, year docks, and StreetNet stay as Control overlay. ASCII path is
 | `B` | boss | oversized red capsule + ring | Red |
 | `c` | street cam | red box on prop pole | Red |
 | `*` | loot / pickup | yellow spark + disc (map `*` + signal-key landmarks) | Yellow |
+| `I` | ICE cell (jacked) | translucent cyan barrier + node sphere | Blue / Sky |
+| `%` | node core (jacked) | pink sphere + ring | Pink |
+| `X` | node exit (jacked) | green portal ring | Green |
+| `A` | Null Choir stub (heist L3) | oversized red capsule + ring | Red |
 | ` ` | void / fog | skipped | — |
 
 Landmarks **J** / **U** spawn from `state.jackpoint` / `state.uplink`. **Vendors** and signal-key loot also read `state.landmarks` (`glyph` `$` / `*`). Other `state.entities` / `state.players` use pooled multi-part meshes + `Label3D` billboards. **Facing chevrons** use snapshot `facing` for self + other couriers (agents).
 
 Map rebuild is **AOI-cropped** (`BUILD_RADIUS` 18) and hashed so a 200×120 city does not instantiate every tile. Entities are **pooled** (cap `MAX_POOLED_ENTITIES` 48) with shared `PrimitiveMesh` + materials — no per-snap alloc, no per-vendor Omni (Deck light budget stays courier + J + U).
+
+---
+
+## Cyberspace / ICE 3D (slice 3)
+
+Jack-in is a **client visual swap**. Python `/ws` already swaps `snapshot.map` to the node lattice while `mode` is `cyberspace` or `heist` (same fields the web overlay uses). Godot does **not** rewrite the server.
+
+### How ICE 3D triggers
+
+Same predicates as web `game.js` (`renderCyberHint` / overlay) and Godot `AudioManager` (#134 ice bed):
+
+```
+in_ice =
+    state.mode == "cyberspace" || state.mode == "heist"
+    || state.cyberspace.active
+    || state.ice_heist.active
+```
+
+| Field | Role |
+|-------|------|
+| `mode` | `"cyberspace"` / `"heist"` while jacked |
+| `cyberspace.active` | maze / ICE-gate node live |
+| `cyberspace.px` / `py` | **avatar** tile (street `player.x/y` stays parked at J) |
+| `cyberspace.node_type` | `maze` / `ice_gate` |
+| `cyberspace.ice_remaining` / `loot_taken` / `hint` | HUD + layer plate |
+| `ice_heist.active` | Black Lattice Vault live |
+| `ice_heist.layer` / `layers` | 1–3; names Perimeter Scrub / Honeycomb Lattice / Core Sanctum |
+| `ice_heist.px` / `py` | vault avatar tile |
+| `ice_heist.ai` | Null Choir stub (L3) |
+| `street_map_paused` | set by server while jacked |
+
+**Critical:** street body coords stay at the jackpoint. 3D courier pose uses `ice_avatar_xy()` → `ice_heist.px/py` else `cyberspace.px/py` else `@` on the swapped map. Street landmarks (J / U / vendors) and street entity pool are hidden while jacked.
+
+### Visual language (not street brick)
+
+| Street | Jacked lattice |
+|--------|----------------|
+| Teal brick `#` boxes | Thin neon **frame + translucent fill** + crown node spheres |
+| Street slab + yellow lane tick | Dark **grid floor** (cross ticks) + mauve lattice nodes |
+| Night fog, Forward+ glow 0.55 | Cyan void, denser fog, glow 0.88 / bloom 0.22 |
+| J / U Omni beacons | No extra lights — emissive ICE / core / exit only |
+
+`I` cells are tall cyan barriers (melt with **Z stun / X reveal**). `%` core and `X` exit are labeled portals. Heist L3 `A` is the Null Choir stub.
+
+### Layer indicators + juice
+
+- HUD `IceBanner` + floating Label3D plate: `CYBER · ICE GATE · ICE n` or `HEIST · L2/3 · Honeycomb Lattice · ICE n`
+- Heist layer **pips** (3 spheres; current layer pink)
+- Jack-in / jack-out: FOV punch + fullscreen flash + `pulse` SFX; music already swaps to `ice_jackin.wav` (#134)
+- **J** jack_in (when `cyberspace.can_jack_in`) / jack_out; dock **Jack** button flips to Jack out
+
+Deck: ICE maps are 9–13 tiles (whole node inside `BUILD_RADIUS`). No extra Omni.
 
 ---
 
@@ -113,8 +169,8 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 | # | Slice | Status |
 |---|-------|--------|
 | 1 | **3D street vertical slice** — glyphs → meshes, courier camera, WS intents, J/U, ASCII toggle | Done (#142) |
-| 2 | **Entities polish** — distinct silhouettes, facing chevrons, vendors `$`, pickups, landmark billboards | **This PR** |
-| 3 | Cyberspace / ICE — distinct 3D visual language for jack-in layers | Open |
+| 2 | **Entities polish** — distinct silhouettes, facing chevrons, vendors `$`, pickups, landmark billboards | Done (#143) |
+| 3 | **Cyberspace / ICE** — distinct 3D visual language for jack-in layers | **This PR** |
 | 4 | Globe — 3D Earth / region picker or hybrid UI | Open |
 | 5 | Polish — lighting, particles, materials, Deck device QA | Open |
 | 6 | Optional ASCII overlay (hybrid look on top of 3D) | Open |
@@ -131,7 +187,7 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 - [ ] 30 fps+ mid-PC / Deck **measured** (documented budget only)
 - [ ] Landmark / vendor pass without any HUD soup (onboarding still uses Control chrome)
 
-### Slice 2 acceptance (this PR)
+### Slice 2 acceptance (shipped #143)
 
 - [x] Other players / NPCs / enemies as **distinct** multi-part meshes (silhouette + Catppuccin), not identical boxes
 - [x] Vendors (`$`), jackpoint **J**, uplink **U** as readable emissive landmarks + billboards
@@ -140,6 +196,16 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 - [x] Deck-conscious pooling / shared meshes; no extra Omni lights for vendors
 - [x] `docs/godot-3d.md` slice 2 progress updated
 
+### Slice 3 acceptance (this PR)
+
+- [x] Distinct 3D visual language while jacked (grid / node lattice / neon ICE walls — not street brick)
+- [x] Triggered from snapshot `mode` / `cyberspace.active` / `ice_heist.active` (same as web)
+- [x] Courier pose from `cyberspace.px/py` or `ice_heist.px/py` (street body stays parked)
+- [x] Heist layer indicators (L1–L3 names + pips + ICE remaining)
+- [x] Jack-in / jack-out transition juice; reuse #134 `pulse` + `ice_jackin` bed
+- [x] Still driven by `/ws` map/entities — no server rewrite
+- [x] `docs/godot-3d.md` slice 3 progress updated
+
 ---
 
 ## Files
@@ -147,9 +213,9 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / pooled entities / landmarks / facing / camera |
-| `godot_client/scenes/main.tscn` | Street SubViewport inside the view pane + HUD overlay |
-| `godot_client/scripts/main.gd` | View cycle, cam toggle, right-stick look |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / pooled entities / landmarks / facing / camera / ICE lattice |
+| `godot_client/scenes/main.tscn` | Street SubViewport + HUD overlay + IceBanner / IceFlash |
+| `godot_client/scripts/main.gd` | View cycle, cam toggle, right-stick look, jack-in flash / J Z X |
 | `godot_client/scripts/fpv_ascii.gd` | ASCII FPV / map (kept) |
 
 ---
@@ -167,3 +233,6 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 - [steam-quality-bar.md](steam-quality-bar.md) — #130; 3D is the Steam presentation goal
 - [steam-deck.md](steam-deck.md) — #132 Deck checklist
 - [theme-catppuccin.md](theme-catppuccin.md) — palette attribution
+- [cyberspace.md](cyberspace.md) — #47 jack-in nodes
+- [ice-heists.md](ice-heists.md) — #56 Black Lattice Vault
+- [audio.md](audio.md) — #134 ice bed + pulse

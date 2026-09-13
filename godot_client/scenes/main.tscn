@@ -113,6 +113,15 @@ theme_override_font_sizes/font_size = 12
 autowrap_mode = 3
 text = "Objective: (jack in)"
 
+[node name="IceBanner" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.537255, 0.862745, 0.921569, 1)
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3
+text = "CYBERSPACE"
+
 [node name="ViewBar" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
@@ -448,4 +457,16 @@ text = "Controls appear after load"
 [node name="OnboardingBeat" type="CanvasLayer" parent="."]
 unique_name_in_owner = true
 script = ExtResource("4_onboard")
+
+[node name="IceFlash" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.537255, 0.862745, 0.921569, 0)
 

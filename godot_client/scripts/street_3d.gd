@@ -1,6 +1,7 @@
 extends Node3D
 class_name Street3D
-## Snapshot map → neon 3D street (#141). Python /ws remains authority.
+## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
+## Slice 3: jack-in visual language — grid/node lattice, neon ICE walls, layer plates.
 ## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
 ## Glyphs become PrimitiveMesh instances + Catppuccin emission materials.
 
@@ -65,6 +66,8 @@ enum CamMode { FIRST, THIRD }
 @onready var courier_mesh: MeshInstance3D = $Courier/Body
 @onready var eye_light: OmniLight3D = $Courier/EyeLight
 @onready var nameplate: Label3D = $Courier/Nameplate
+@onready var world_env: WorldEnvironment = $WorldEnvironment
+@onready var moon: DirectionalLight3D = $Moon
 
 var cam_mode: int = CamMode.THIRD
 var _mats: Dictionary = {}
@@ -80,9 +83,19 @@ var _uplink_light: OmniLight3D
 var _pulse: float = 0.0
 var _last_landmark_fp: String = ""
 var _courier_facing: MeshInstance3D
+var _ice_mode: bool = false
+var _trans_t: float = 0.0
+var _trans_dir: int = 0  # +1 jack-in, -1 jack-out
 ## Deck: reuse shared PrimitiveMesh + materials; entity nodes are pooled (no free/alloc per snap).
 const MAX_POOLED_ENTITIES := 48
 const LANDMARK_VENDOR_RADIUS := 22
+const ICE_WALL_H := 2.9
+const ICE_TRANS_SEC := 0.55
+const HEIST_LAYER_NAMES := ["", "Perimeter Scrub", "Honeycomb Lattice", "Core Sanctum"]
+## Street WorldEnvironment defaults (street.tscn Env_neon) — restored on jack-out.
+const STREET_BG := Color(0.0666667, 0.0666667, 0.105882, 1)
+const STREET_AMB := Color(0.180392, 0.188235, 0.278431, 1)
+const STREET_FOG := Color(0.117647, 0.117647, 0.180392, 1)
 
 
 func _ready() -> void:
@@ -102,16 +115,102 @@ func toggle_camera() -> String:
 	return camera_mode_name()
 
 
-func apply_snapshot(state: Dictionary) -> void:
+## Same trigger the web client uses (game.js renderCyberHint / overlay).
+static func ice_active(state: Dictionary) -> bool:
 	if state.is_empty():
-		return
+		return false
+	var mode := str(state.get("mode", "play"))
+	if mode == "cyberspace" or mode == "heist":
+		return true
+	var cyber = state.get("cyberspace", {})
+	if typeof(cyber) == TYPE_DICTIONARY and bool(cyber.get("active", false)):
+		return true
+	var heist = state.get("ice_heist", {})
+	if typeof(heist) == TYPE_DICTIONARY and bool(heist.get("active", false)):
+		return true
+	return false
+
+
+## Street body stays parked at J. Avatar lives in cyberspace.px/py or ice_heist.px/py
+## (web overlay + swapped snapshot map). Fallback: scan swapped map for @.
+static func ice_avatar_xy(state: Dictionary) -> Vector2i:
+	var heist = state.get("ice_heist", {})
+	if typeof(heist) == TYPE_DICTIONARY and bool(heist.get("active", false)) and heist.has("px"):
+		return Vector2i(int(heist.get("px", 0)), int(heist.get("py", 0)))
+	var cyber = state.get("cyberspace", {})
+	if typeof(cyber) == TYPE_DICTIONARY and bool(cyber.get("active", false)) and cyber.has("px"):
+		return Vector2i(int(cyber.get("px", 0)), int(cyber.get("py", 0)))
+	var rows = state.get("map", [])
+	if typeof(rows) == TYPE_ARRAY:
+		for y in range(rows.size()):
+			var idx := str(rows[y]).find("@")
+			if idx >= 0:
+				return Vector2i(idx, y)
 	var player: Dictionary = state.get("player", {})
 	if typeof(player) != TYPE_DICTIONARY:
 		player = {}
-	var px := int(player.get("x", 0))
-	var py := int(player.get("y", 0))
+	return Vector2i(int(player.get("x", 0)), int(player.get("y", 0)))
+
+
+static func ice_banner_text(state: Dictionary) -> String:
+	var heist = state.get("ice_heist", {})
+	if typeof(heist) == TYPE_DICTIONARY and bool(heist.get("active", false)):
+		var layer := int(heist.get("layer", 1))
+		var layers := int(heist.get("layers", 3))
+		var name := ""
+		if layer >= 1 and layer < HEIST_LAYER_NAMES.size():
+			name = str(HEIST_LAYER_NAMES[layer])
+		var ice_n = heist.get("ice_remaining", "?")
+		var bits: PackedStringArray = PackedStringArray()
+		bits.append("HEIST · L%d/%d" % [layer, layers])
+		if not name.is_empty():
+			bits.append(name)
+		bits.append("ICE %s" % str(ice_n))
+		var ai = heist.get("ai", null)
+		if typeof(ai) == TYPE_DICTIONARY and not ai.is_empty():
+			bits.append("%s %s/%s" % [str(ai.get("name", "AI")), str(ai.get("hp", "?")), str(ai.get("max_hp", "?"))])
+		if bool(heist.get("loot_taken", false)):
+			bits.append("CORE TAKEN")
+		return " · ".join(bits)
+	var cyber = state.get("cyberspace", {})
+	if typeof(cyber) == TYPE_DICTIONARY and bool(cyber.get("active", false)):
+		var nt := str(cyber.get("node_type", "node")).to_upper().replace("_", " ")
+		var ice_c = cyber.get("ice_remaining", 0)
+		var loot := "LOOT TAKEN" if bool(cyber.get("loot_taken", false)) else ""
+		var bits2: PackedStringArray = PackedStringArray()
+		bits2.append("CYBER · %s" % nt)
+		bits2.append("ICE %s" % str(ice_c))
+		if not loot.is_empty():
+			bits2.append(loot)
+		return " · ".join(bits2)
+	return "CYBERSPACE"
+
+
+func apply_snapshot(state: Dictionary) -> void:
+	if state.is_empty():
+		return
+	var ice_now := ice_active(state)
+	if ice_now != _ice_mode:
+		_ice_mode = ice_now
+		_begin_ice_transition(ice_now)
+		_have_pose = false
+		_last_map_fp = ""
+		_last_landmark_fp = ""
+		_apply_ice_environment(ice_now)
+	var player: Dictionary = state.get("player", {})
+	if typeof(player) != TYPE_DICTIONARY:
+		player = {}
+	var px: int
+	var py: int
+	if _ice_mode:
+		var xy := ice_avatar_xy(state)
+		px = xy.x
+		py = xy.y
+	else:
+		px = int(player.get("x", 0))
+		py = int(player.get("y", 0))
 	var facing := FpvAscii.facing_index(player)
-	_target_pos = Vector3(float(px) + 0.5, 0.0, float(py) + 0.5)
+	_target_pos = Vector3(float(px) + 0.5, 0.12 if _ice_mode else 0.0, float(py) + 0.5)
 	_target_yaw = FACING_YAW[facing]
 	if not _have_pose:
 		courier.position = _target_pos
@@ -126,6 +225,13 @@ func apply_snapshot(state: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
+	if _trans_t > 0.0 and camera:
+		_trans_t = maxf(0.0, _trans_t - delta)
+		var t := 1.0 - (_trans_t / ICE_TRANS_SEC)
+		var punch := sin(t * PI) * (18.0 if _trans_dir > 0 else -12.0)
+		camera.fov = 70.0 + punch
+		if _trans_t <= 0.0:
+			camera.fov = 70.0
 	if not _have_pose:
 		return
 	courier.position = courier.position.lerp(_target_pos, clampf(LERP_POS * delta, 0.0, 1.0))
@@ -136,6 +242,12 @@ func _process(delta: float) -> void:
 		_jack_light.light_energy = 2.4 * pulse
 	if _uplink_light:
 		_uplink_light.light_energy = 2.6 * pulse
+	if _ice_mode:
+		var ice_e := 1.2 + 0.55 * sin(_pulse * 4.2)
+		_pulse_mat("ice_barrier", ice_e)
+		_pulse_mat("ice_node", 1.4 + 0.5 * sin(_pulse * 3.6))
+		_pulse_mat("core", 1.5 + 0.7 * sin(_pulse * 5.0))
+		_pulse_mat("ice_frame", 1.1 + 0.35 * sin(_pulse * 2.4))
 
 
 func _apply_cam_rig() -> void:
@@ -207,6 +319,15 @@ func _ensure_resources() -> void:
 	_mats["npc_head"] = _mat(Catppuccin.LAVENDER.lightened(0.12), 0.7, 0.1)
 	_mats["infected_head"] = _mat(Catppuccin.GREEN.darkened(0.15), 0.85, 0.05)
 	_mats["thug_head"] = _mat(Catppuccin.PEACH.darkened(0.1), 0.9, 0.15)
+	# Slice 3 — cyberspace / ICE lattice (distinct from street brick).
+	_mats["ice_wall"] = _mat_alpha(Color(0.25, 0.55, 0.85, 0.38), 0.55, 0.45, 0.38)
+	_mats["ice_frame"] = _mat(Catppuccin.SKY, 1.35, 0.55)
+	_mats["ice_floor"] = _mat(Color(0.08, 0.12, 0.22, 1), 0.12, 0.35)
+	_mats["ice_grid"] = _mat(Catppuccin.SKY, 1.6, 0.2)
+	_mats["ice_barrier"] = _mat_alpha(Color(0.35, 0.62, 1.0, 0.5), 1.4, 0.2, 0.5)
+	_mats["ice_node"] = _mat(Catppuccin.MAUVE, 1.6, 0.15)
+	_mats["ice_void"] = _mat(Color(0.02, 0.03, 0.07, 1), 0.0, 0.0)
+	_mats["ice_exit_ring"] = _mat(Catppuccin.GREEN, 1.7, 0.15)
 	if _mats["water"] is StandardMaterial3D:
 		(_mats["water"] as StandardMaterial3D).transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 
@@ -276,6 +397,21 @@ func _mat(color: Color, emission_energy: float = 0.0, metallic: float = 0.15) ->
 	return m
 
 
+func _mat_alpha(color: Color, emission_energy: float, metallic: float, alpha: float) -> StandardMaterial3D:
+	var m := _mat(color, emission_energy, metallic)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color.a = alpha
+	return m
+
+
+func _pulse_mat(key: String, energy: float) -> void:
+	if not _mats.has(key):
+		return
+	var m = _mats[key]
+	if m is StandardMaterial3D:
+		(m as StandardMaterial3D).emission_energy_multiplier = energy
+
+
 func _rebuild_map_if_needed(state: Dictionary, px: int, py: int) -> void:
 	var origin := Vector2i(px, py)
 	var fp := _map_fingerprint(state, px, py)
@@ -303,6 +439,14 @@ func _map_fingerprint(state: Dictionary, px: int, py: int) -> String:
 	bits.append(str(state.get("jackpoint", [])))
 	bits.append(str(state.get("uplink", [])))
 	bits.append(str(state.get("plane", state.get("z", 0))))
+	bits.append("ice" if _ice_mode else "street")
+	if _ice_mode:
+		var cyber = state.get("cyberspace", {})
+		var heist = state.get("ice_heist", {})
+		if typeof(heist) == TYPE_DICTIONARY:
+			bits.append("h%s:%s" % [str(heist.get("layer", 0)), str(heist.get("ice_remaining", 0))])
+		if typeof(cyber) == TYPE_DICTIONARY:
+			bits.append("c%s:%s" % [str(cyber.get("node_type", "")), str(cyber.get("ice_remaining", 0))])
 	return "".join(bits)
 
 
@@ -316,7 +460,7 @@ func _rebuild_map(state: Dictionary, px: int, py: int) -> void:
 
 	var ground := MeshInstance3D.new()
 	ground.mesh = _meshes["ground"]
-	ground.material_override = _mats["void"]
+	ground.material_override = _mats["ice_void"] if _ice_mode else _mats["void"]
 	ground.position = Vector3(float(px) + 0.5, -0.05, float(py) + 0.5)
 	map_root.add_child(ground)
 
@@ -335,6 +479,9 @@ func _rebuild_map(state: Dictionary, px: int, py: int) -> void:
 
 func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 	var origin := Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
+	if _ice_mode:
+		_place_ice_tile(ch, origin, alt)
+		return
 	var role := str(TERRAIN_BUILD.get(ch, GLYPH_ROLE.get(ch, "prop")))
 	if role in ["jackpoint", "uplink", "self", "npc", "infected", "thug", "drone", "camera", "ice", "core", "exit", "pickup", "vendor", "boss"]:
 		_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
@@ -375,6 +522,9 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 
 
 func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
+	if _ice_mode:
+		_paint_ice_layer_plate(state, px, py)
+		return
 	var jack = state.get("jackpoint", [])
 	var uplink = state.get("uplink", [])
 	var marks = state.get("landmarks", [])
@@ -494,6 +644,11 @@ func _spawn_pickup_beacon(x: int, y: int, px: int, py: int, label: String) -> vo
 
 
 func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
+	# Street entities stay at parked-body coords — hide the pool while jacked.
+	if _ice_mode:
+		for node in _entity_pool:
+			(node as Node3D).visible = false
+		return
 	var needed: Array = []
 	var occupied: Dictionary = {}
 	var players = state.get("players", [])
@@ -753,3 +908,160 @@ func _add_mesh(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scale: V
 	mi.scale = scale
 	parent.add_child(mi)
 	return mi
+
+
+func _begin_ice_transition(entering: bool) -> void:
+	_trans_t = ICE_TRANS_SEC
+	_trans_dir = 1 if entering else -1
+	# Jack-in already emits snapshot sfx pulse (#47). Jack-out is click — extra pulse for 3D juice.
+	if (not entering) and AudioManager:
+		AudioManager.play_sfx("pulse")
+
+
+func _apply_ice_environment(on: bool) -> void:
+	var env: Environment = world_env.environment if world_env else null
+	if env:
+		if on:
+			env.background_color = Color(0.02, 0.035, 0.07)
+			env.ambient_light_color = Color(0.18, 0.42, 0.62)
+			env.ambient_light_energy = 0.62
+			env.fog_light_color = Color(0.18, 0.5, 0.72)
+			env.fog_density = 0.04
+			env.glow_intensity = 0.88
+			env.glow_bloom = 0.22
+		else:
+			env.background_color = STREET_BG
+			env.ambient_light_color = STREET_AMB
+			env.ambient_light_energy = 0.42
+			env.fog_light_color = STREET_FOG
+			env.fog_density = 0.018
+			env.glow_intensity = 0.55
+			env.glow_bloom = 0.12
+	if moon:
+		if on:
+			moon.light_color = Color(0.55, 0.82, 1.0)
+			moon.light_energy = 0.48
+		else:
+			moon.light_color = Color(0.705882, 0.745098, 0.964706, 1)
+			moon.light_energy = 0.28
+	if eye_light:
+		if on:
+			eye_light.light_color = Catppuccin.SKY
+			eye_light.light_energy = 2.15
+			eye_light.omni_range = 10.5
+		else:
+			eye_light.light_color = Catppuccin.TEAL
+			eye_light.light_energy = 1.6
+			eye_light.omni_range = 9.0
+
+
+func _place_ice_tile(ch: String, origin: Vector3, alt: bool) -> void:
+	# Abstract grid / node lattice — not street brick.
+	if ch == " ":
+		return
+	_place_ice_floor(origin, alt)
+	match ch:
+		"#":
+			_place_ice_lattice_wall(origin, alt)
+		"I":
+			_add_mesh(map_root, _meshes["box"], _mats["ice_barrier"], origin + Vector3(0, 1.25, 0), Vector3(0.82, 2.5, 0.82))
+			_add_mesh(map_root, _meshes["sphere"], _mats["ice_node"], origin + Vector3(0, 2.65, 0), Vector3(0.45, 0.45, 0.45))
+			_add_ice_label(origin + Vector3(0, 3.05, 0), "I  ICE", Catppuccin.BLUE)
+		"%":
+			_add_mesh(map_root, _meshes["sphere"], _mats["core"], origin + Vector3(0, 1.15, 0), Vector3(1.25, 1.25, 1.25))
+			_add_mesh(map_root, _meshes["ring"], _mats["core"], origin + Vector3(0, 1.15, 0), Vector3(1.2, 0.45, 1.2))
+			_add_ice_label(origin + Vector3(0, 2.15, 0), "%  CORE", Catppuccin.PINK)
+		"X":
+			_add_mesh(map_root, _meshes["box"], _mats["exit"], origin + Vector3(0, 1.25, 0), Vector3(0.22, 2.5, 0.22))
+			_add_mesh(map_root, _meshes["ring"], _mats["ice_exit_ring"], origin + Vector3(0, 1.35, 0), Vector3(1.35, 0.55, 1.35))
+			_add_ice_label(origin + Vector3(0, 2.85, 0), "X  EXIT", Catppuccin.GREEN)
+		"*":
+			_add_mesh(map_root, _meshes["sphere"], _mats["pickup"], origin + Vector3(0, 0.55, 0), Vector3(0.7, 0.7, 0.7))
+			_add_mesh(map_root, _meshes["disc"], _mats["loot"], origin + Vector3(0, 0.12, 0), Vector3(0.7, 0.7, 0.7))
+			_add_ice_label(origin + Vector3(0, 1.25, 0), "*  LOOT", Catppuccin.YELLOW)
+		"A":
+			_add_mesh(map_root, _meshes["capsule_tall"], _mats["boss"], origin + Vector3(0, 1.05, 0), Vector3(1.2, 1.15, 1.2))
+			_add_mesh(map_root, _meshes["ring"], _mats["boss"], origin + Vector3(0, 1.45, 0), Vector3(1.5, 0.45, 1.5))
+			_add_ice_label(origin + Vector3(0, 2.55, 0), "NULL CHOIR", Catppuccin.RED)
+		"@", ".":
+			pass
+		_:
+			pass
+
+
+func _place_ice_floor(origin: Vector3, alt: bool) -> void:
+	_add_mesh(map_root, _meshes["floor"], _mats["ice_floor"], origin + Vector3(0, 0.02, 0))
+	# Neon grid ticks (cross) — lattice language vs street lane tick.
+	_add_mesh(map_root, _meshes["box"], _mats["ice_grid"], origin + Vector3(0, 0.065, 0), Vector3(0.94, 0.012, 0.04))
+	_add_mesh(map_root, _meshes["box"], _mats["ice_grid"], origin + Vector3(0, 0.065, 0), Vector3(0.04, 0.012, 0.94))
+	if alt:
+		_add_mesh(map_root, _meshes["sphere"], _mats["ice_node"], origin + Vector3(0, 0.16, 0), Vector3(0.22, 0.22, 0.22))
+
+
+func _place_ice_lattice_wall(origin: Vector3, alt: bool) -> void:
+	# Thin neon frame + translucent fill — not a brick corridor.
+	var fill = _mats["ice_wall"]
+	_add_mesh(map_root, _meshes["box"], fill, origin + Vector3(0, ICE_WALL_H * 0.5, 0), Vector3(0.62, ICE_WALL_H, 0.62))
+	var s := 0.4
+	for ox in [-s, s]:
+		for oz in [-s, s]:
+			_add_mesh(map_root, _meshes["box"], _mats["ice_frame"], origin + Vector3(ox, ICE_WALL_H * 0.5, oz), Vector3(0.07, ICE_WALL_H + 0.08, 0.07))
+	_add_mesh(map_root, _meshes["box"], _mats["ice_frame"], origin + Vector3(0, ICE_WALL_H + 0.02, 0), Vector3(0.86, 0.055, 0.86))
+	if alt:
+		_add_mesh(map_root, _meshes["sphere"], _mats["ice_node"], origin + Vector3(0, ICE_WALL_H + 0.22, 0), Vector3(0.38, 0.38, 0.38))
+
+
+func _paint_ice_layer_plate(state: Dictionary, px: int, py: int) -> void:
+	var text := ice_banner_text(state)
+	var cyber = state.get("cyberspace", {})
+	var heist = state.get("ice_heist", {})
+	var ice_n := ""
+	var layer := 0
+	if typeof(heist) == TYPE_DICTIONARY:
+		ice_n = str(heist.get("ice_remaining", ""))
+		layer = int(heist.get("layer", 0))
+	if typeof(cyber) == TYPE_DICTIONARY and ice_n.is_empty():
+		ice_n = str(cyber.get("ice_remaining", ""))
+	var fp := "ice|%s|%s|%d" % [text, ice_n, layer]
+	if fp == _last_landmark_fp and landmark_root.get_child_count() > 0:
+		return
+	_last_landmark_fp = fp
+	for c in landmark_root.get_children():
+		c.free()
+	_jack_light = null
+	_uplink_light = null
+	var holder := Node3D.new()
+	holder.position = Vector3(float(px) + 0.5, 0.0, float(py) + 0.5)
+	landmark_root.add_child(holder)
+	var lab := Label3D.new()
+	lab.text = text
+	lab.position = Vector3(0, 3.85, 0)
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.font_size = 36
+	lab.outline_size = 12
+	lab.modulate = Catppuccin.SKY if layer == 0 else Catppuccin.MAUVE
+	lab.outline_modulate = Catppuccin.CRUST
+	lab.pixel_size = 0.01
+	holder.add_child(lab)
+	# Small floating layer pips for heist L1/L2/L3.
+	if layer >= 1:
+		var layers := 3
+		if typeof(heist) == TYPE_DICTIONARY:
+			layers = int(heist.get("layers", 3))
+		for i in range(layers):
+			var pip_mat = _mats["core"] if (i + 1) == layer else _mats["ice_frame"]
+			var ox := float(i - 1) * 0.42
+			_add_mesh(holder, _meshes["sphere"], pip_mat, Vector3(ox, 3.35, 0), Vector3(0.28, 0.28, 0.28))
+
+
+func _add_ice_label(pos: Vector3, text: String, color: Color) -> void:
+	var lab := Label3D.new()
+	lab.text = text
+	lab.position = pos
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.font_size = 22
+	lab.outline_size = 8
+	lab.modulate = color
+	lab.outline_modulate = Catppuccin.CRUST
+	lab.pixel_size = 0.008
+	map_root.add_child(lab)
