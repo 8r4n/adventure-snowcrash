@@ -7,22 +7,23 @@ A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev**
 
 ## Demo
 
-Feature tour of current **dev** gameplay (jack-in, FPV + Street GPS, StreetNet, docks, ICE, globe, Catppuccin, and more). Highlight GIF below; full ~2 min MP4 linked.
+Live desktop feature tour of current **dev** gameplay (2026-09-13): skip intro, FPV + Street GPS, inventory, StreetNet, docks (journal/shop/craft/ICE/globe/year panels), Catppuccin + Aa, combat. Highlight GIF below; full ~68s MP4 (with trailer bed) linked.
 
 <p align="center">
-  <img src="docs/screenshots/demo-2026-09.gif" alt="Snowcrash demo — jack-in, FPV, Street GPS, docks, ICE, globe" width="720" />
+  <img src="docs/screenshots/demo-2026-09-13.gif" alt="Snowcrash live demo — FPV, Street GPS, docks, ICE, globe, themes" width="720" />
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/demo-2026-09.mp4">Full demo (MP4)</a>
+  <a href="docs/screenshots/demo-2026-09-13.mp4">Full demo (MP4)</a>
   ·
   <a href="docs/demo-video.md">Re-capture recipe</a>
 </p>
 
 <details>
-<summary>Archived screenshots (pre–2026-09)</summary>
+<summary>Archived screenshots</summary>
 
 <p align="center">
+  <img src="docs/screenshots/archive/demo-2026-09-montage.gif" alt="Archived #111 puppeteer montage GIF" width="480" />
   <img src="docs/screenshots/archive/opening-credits.gif" alt="Archived opening credits GIF" width="480" />
   <img src="docs/screenshots/archive/gameplay.gif" alt="Archived gameplay GIF" width="480" />
 </p>
