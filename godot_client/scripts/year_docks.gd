@@ -1,6 +1,6 @@
 extends VBoxContainer
 class_name YearDocks
-## StreetNet + year docks parity for Godot thin client (#127 / Refs #118).
+## StreetNet + year docks parity for Godot thin client (#127 / Refs #118 / #132).
 ## Paints structured snapshot fields; actions match web YearUI / protocol.
 
 signal chat_focus_changed(focused: bool)
@@ -67,6 +67,31 @@ func set_secondary_gated(gated: bool) -> void:
 
 func is_secondary_gated() -> bool:
 	return _secondary_gated
+
+
+func cycle_dock() -> void:
+	"""Start / Menu on Deck: cycle year docks (accordion). Skips when gated (#133)."""
+	if _secondary_gated:
+		return
+	var ids: Array = []
+	for def in DOCK_DEFS:
+		ids.append(str(def["id"]))
+	for mid in _mod_panel_ids:
+		ids.append(str(mid))
+	if ids.is_empty():
+		return
+	if _open_id.is_empty():
+		_toggle_dock(str(ids[0]))
+		return
+	var idx := ids.find(_open_id)
+	if idx < 0 or idx >= ids.size() - 1:
+		# Close after last
+		_open_id = ""
+		_refresh_dock_btn_states()
+		_show_empty_dock()
+		return
+	_toggle_dock(str(ids[idx + 1]))
+
 
 
 func _apply_gate_visibility() -> void:

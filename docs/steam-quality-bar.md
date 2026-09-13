@@ -89,7 +89,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 | **Demo / trailer source** | README montage (#111 done); live re-capture still open (#126). |
 | **SFX / music** | Procedural WAVs under `snowcrash/static/sfx/` + Godot AudioBus (**#134**): street/ICE beds, mute + volume ConfigFile, trailer bed in [audio.md](audio.md). |
 | **Onboarding** | StreetNet Primer (#60) teaches systems *in the web client*. Godot/Steam first-10 beat: [godot-onboarding.md](godot-onboarding.md) (#133). |
-| **Mobile / Deck** | PWA research (#75); no Steam Deck Verified checklist or device QA plan yet. |
+| **Mobile / Deck** | PWA research (#75); **Deck Verified checklist** in [steam-deck.md](steam-deck.md) (#132) — **not yet run on hardware**. |
 
 ### Gaps vs the 10 themes
 
@@ -102,7 +102,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 | 5 Persistence fantasy | Shared world works on hosted `dev`; Steam SKU needs clear offline vs always-online messaging (#67 open questions) and visible reputation/consequence UX in-client. |
 | 6 Store page | Asset checklist exists in packaging doc; no final capsules/trailer; #126 is live demo source, not a finished Steam trailer. |
 | 7 Audio + juice | **Shipped #134:** Godot Master/SFX/Music buses, original street + ICE loops, juice (confirm/death/uplink/StreetNet), volume sliders, trailer bed — see [audio.md](audio.md). |
-| 8 Performance / Deck | No exported Godot build; no Deck Verified checklist; #67 notes Proton risk for webview path (another reason Godot export is preferred). |
+| 8 Performance / Deck | Checklist + Linux export stub + InputMap + suspend/reconnect in [steam-deck.md](steam-deck.md) (#132). Device QA **not yet run**; GodotSteam / OSK glyphs still open. #67 Proton risk for webview is another reason Godot export is preferred. |
 | 9 Workshop | Local JSON packs only; Steamworks Workshop not started (#72). |
 | 10 Review hygiene | QA harness (#112) exists; no “crash-free first hour” Steam checklist or crash reporting wired for a desktop SKU. |
 
@@ -124,7 +124,7 @@ Order of investment toward the north star:
 2. **Onboarding / juice** — first-10-minutes fantasy beat (**#133** / [godot-onboarding.md](godot-onboarding.md)) + audio/music pass (**#134** / [audio.md](audio.md)) ✅.
 3. **Store page / trailer** — capsules + live trailer source (#126) using the Godot client when ready; asset sizes remain in [steam-packaging.md](steam-packaging.md).
 4. **Workshop** — keep JSON mods shipping (#72); Workshop when Steamworks is real.
-5. **Deck** — Verified checklist + native Linux depot QA after a playable export exists.
+5. **Deck** — Verified checklist shipped ([steam-deck.md](steam-deck.md) / #132); native Linux depot QA on hardware still outstanding.
 
 Do **not** pay Steam Direct or upload builds without explicit approval (same gate as #67).
 
@@ -145,6 +145,7 @@ Still covered by existing opens: Godot SKU **#118** / **#127**, store/trailer so
 ## Related docs
 
 - [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / store asset sizes
+- [steam-deck.md](steam-deck.md) — #132 Steam Deck Verified checklist (Godot Linux export)
 - [godot-client.md](godot-client.md) — #109/#118 thin client + slices
 - [modding-workshop.md](modding-workshop.md) — #72 Workshop-style packs
 - [demo-video.md](demo-video.md) — #126 live re-capture

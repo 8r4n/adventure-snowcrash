@@ -1,0 +1,71 @@
+; Steam / Deck export presets stub for adventure-snowcrash Godot client (#132).
+; Open this project in Godot 4.3+ → Project → Export. The editor may rewrite
+; this file; keep the Linux preset as the primary Deck depot path.
+;
+; Templates: install matching export templates (4.4.1+ if using GodotSteam).
+; Do NOT upload to SteamPipe or claim Deck Verified without a device pass
+; (see docs/steam-deck.md). steam_appid.txt is for local SteamAPI init only.
+
+[preset.0]
+
+name="Linux/X11 (Steam Deck / desktop)"
+platform="Linux/X11"
+runnable=true
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="../build/linux/Snowcrash.x86_64"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+
+[preset.0.options]
+
+custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/embed_pck=false
+texture_format/bptc=true
+texture_format/s3tc=true
+texture_format/etc=false
+texture_format/etc2=false
+binary_format/architecture="x86_64"
+ssh_remote_deploy/enabled=false
+
+; Notes (not parsed by Godot — kept for humans / CI):
+; - Preferred Deck SKU = this native Linux x86_64 export (not Windows+Proton-only).
+; - Window: 1280x800, stretch canvas_items / keep (project.godot).
+; - Renderer: gl_compatibility (project.godot) for broader Deck GPU path.
+; - After GodotSteam: ship libsteam_api.so beside the binary; use vanilla templates.
+; - Optional later: preset.1 Windows Desktop for Win64 depot / Proton fallback.
+
+[preset.1]
+
+name="Windows Desktop (Proton fallback)"
+platform="Windows Desktop"
+runnable=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="../build/windows/Snowcrash.exe"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+
+[preset.1.options]
+
+custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/embed_pck=false
+texture_format/bptc=true
+texture_format/s3tc=true
+texture_format/etc=false
+texture_format/etc2=false
+binary_format/architecture="x86_64"

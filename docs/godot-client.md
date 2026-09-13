@@ -180,6 +180,8 @@ Godot is the **better mid-term native SKU** once the thin client reaches playabl
 
 Proton: Godot 4 Windows exports generally run on Deck; test input + fullscreen early.
 
+**Deck Verified checklist (#132):** [steam-deck.md](steam-deck.md) — native Linux depot, InputMap, 1280×800 UI scale, suspend/reconnect. Device QA not yet run.
+
 Do **not** pay Steam Direct or upload builds from this ticket (same gate as #67).
 
 ### Mobile (#75)
