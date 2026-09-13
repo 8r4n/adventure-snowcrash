@@ -27,7 +27,7 @@ The Godot **editor/binary is not required in this repo**. These files are a vali
 4. Press **F5** (Run Project). Main scene is `scenes/main.tscn`.
 5. Leave the URL as `ws://127.0.0.1:8766/ws`, enter a courier name, **Jack in**.
 6. Status should go `connecting…` → `ONLINE · <player id> · …ms · N online`.
-7. Click the view (or anywhere that is not a LineEdit), then play. Default view is the **3D street** (live snapshot meshes). **V** cycles 3D → FPV ASCII → overhead map. **C** toggles 1st/3rd camera. Use the **dock bar** for year panels; **StreetNet** chat is on the right.
+7. Click the view (or anywhere that is not a LineEdit), then play. Default view is the **3D street** (live snapshot meshes). **V** cycles 3D → FPV ASCII → overhead map. **C** toggles 1st/3rd camera. Open the **Globe** dock for the **3D Earth** overlay (hybrid with the region list). Use the **dock bar** for year panels; **StreetNet** chat is on the right.
 
 Production server default is port **8765** — change the URL if you point at that process.
 
@@ -78,7 +78,7 @@ Default viewport **1280×800** (`keep` aspect). Linux export preset: `export_pre
 | StreetNet chat | `chat`, `irc` (channel, channels, topics, nicks) | `type: chat` · `/join #chan` |
 | Journal | `journal` | `journal_track` |
 | ICE | `ice` (probes, nearby, focus) | `ice_probe` stun/reveal/scramble/list · Jack in/out |
-| Globe | `globe` (regions, cooldown, hop cost) | `globe`, `globe_zoom`, `globe_search`, `globe_filter`, `teleport`, `globe_recall` |
+| Globe | `globe` + **3D Earth overlay** (pins, cooldown, hop cost) | `globe`, `globe_zoom`, `globe_search`, `globe_filter`, `teleport`, `globe_recall`, `globe_close` |
 | Primer | `primer` | `primer`, `primer_start`, `primer_close` |
 | Jaunte | `jaunte` | `jaunte_*`, `jaunte_globe` |
 | Sleeves | `sleeves` | `sleeves`, `sleeve`, `sleeve_rent`, `house`, `sleeve_status` |
@@ -114,6 +114,7 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 | `export_presets.cfg.example` | Linux/X11 + Windows export stub (#132) |
 | `scenes/main.tscn` | Name gate, HUD, 3D SubViewport + FPV/map, inventory, log, docks, StreetNet |
 | `scenes/street.tscn` | Node3D street world + courier camera (#141) |
+| `scenes/globe.tscn` | Stylized 3D Earth + region pins (#141 slice 4) |
 | `scripts/street_3d.gd` | Snapshot glyphs → meshes / entities / landmarks |
 | `scripts/net_client.gd` | `WebSocketPeer` — join/rejoin by id, action, chat, ping, backoff reconnect |
 | `scripts/main.gd` | UI + hold-to-move + inventory digits + docks wiring |
@@ -146,9 +147,10 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 - Snapshot `sfx[]` + death / win / uplink / StreetNet ping juice.
 - Music: street bed on the Street; ICE bed while `cyberspace` / `heist`.
 - **ICE 3D (#141 slice 3):** jack-in swaps the 3D world to a neon lattice (not street brick). Trigger: `mode` / `cyberspace.active` / `ice_heist.active`. Avatar uses `px/py` on the node. Layer plate + flash juice. See [`docs/godot-3d.md`](../docs/godot-3d.md).
+- **Globe 3D (#141 slice 4):** opening the **Globe** dock overlays a Catppuccin neon Earth (pins from `globe.regions`). Click/dbl-click pin or Teleport → existing `teleport` intent; cost/cooldown on `GlobeBanner`. Street/ICE intact.
 - Regenerate: `python scripts/gen_sfx.py && python scripts/gen_music.py`
 - Attribution: [docs/audio.md](../docs/audio.md)
 
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street + ICE lattice (#141 slices 1–3, epic open)** are in-tree.
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street + ICE + globe (#141 slices 1–4, epic open)** are in-tree.
