@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + 3D street + ASCII overlay + docks + onboarding + audio + Deck pad + quality (#141 / #118 / #127 / #132 / #133 / #134).
+## Core play loop + 3D street + ASCII overlay + docks + onboarding + audio + Deck pad + quality + FPS meter (#141 / #148 / #118 / #127 / #132 / #133 / #134).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -104,7 +104,9 @@ func _ready() -> void:
 	log_box.clear()
 	log_box.append_text("[color=#a6adc8]Log idle — connect to Python /ws[/color]\n")
 	_apply_theme_hints()
-
+	if FpsMeter:
+		FpsMeter.bind_host(self)
+		_sync_fps_scene_mode()
 
 
 func _wire_onboarding() -> void:
@@ -198,7 +200,7 @@ func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD / stick move · Q/E / L1 R1 / R-stick turn · G / A get · F / X fire · "
 		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/3D+ASCII/FPV/map · C camera · Start docks · "
-		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · F8 quality · Audio "
+		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · F8 quality · F3 fps · Audio "
 		+ "(Deck: docs/steam-deck.md · 3D: docs/godot-3d.md)"
 	)
 
@@ -291,6 +293,7 @@ func _apply_view_visibility() -> void:
 		view_toggle_btn.text = "View: %s" % label
 	_sync_street_vp()
 	_sync_globe_vp()
+	_sync_fps_scene_mode()
 
 
 func _sync_street_vp() -> void:
@@ -497,6 +500,7 @@ func _paint(state: Dictionary) -> void:
 	_prev_mode = _mode
 
 	_paint_ice_hud(state)
+	_sync_fps_scene_mode()
 	_paint_view(state)
 	_paint_inventory(state)
 	_paint_log(state)
@@ -840,6 +844,30 @@ func _chord_move_action() -> String:
 	return ""
 
 
+## Scene label for FpsMeter overlay / JSONL (#148).
+func fps_scene_mode() -> String:
+	if _globe_overlay and (_view_mode == "3d" or _view_mode == "3d_ascii"):
+		return "globe"
+	if Street3D.ice_active(_last_state):
+		if _view_mode == "3d_ascii":
+			return "ice_ascii"
+		return "ice"
+	match _view_mode:
+		"3d_ascii":
+			return "street_ascii"
+		"fpv":
+			return "fpv"
+		"map":
+			return "map"
+		_:
+			return "street"
+
+
+func _sync_fps_scene_mode() -> void:
+	if FpsMeter:
+		FpsMeter.set_scene_mode(fps_scene_mode())
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
@@ -871,6 +899,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_on_quality_toggle()
 		get_viewport().set_input_as_handled()
 		return
+	# F3 / Shift+F3 FPS overlay + sample log — FpsMeter autoload (#148).
 	# Web parity: j jack_in at J / jack_out while jacked (#47 / #56 / #141).
 	if keycode == KEY_J:
 		_send_jack_intent()

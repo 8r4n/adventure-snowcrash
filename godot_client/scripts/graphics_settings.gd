@@ -51,15 +51,18 @@ func toggle_quality() -> String:
 # ---- Knobs consumed by Street3D / Globe3D / main SubViewports ----------------
 
 func build_radius() -> int:
-	return 14 if is_low() else 18
+	## Low tightened (#148) for Deck street-combat headroom vs prior 14.
+	return 12 if is_low() else 18
 
 
 func entity_radius() -> int:
-	return 12 if is_low() else 16
+	## Low tightened (#148) vs prior 12.
+	return 10 if is_low() else 16
 
 
 func max_pooled_entities() -> int:
-	return 28 if is_low() else 48
+	## Low tightened (#148) vs prior 28 — High stays 48.
+	return 24 if is_low() else 48
 
 
 func particles_enabled() -> bool:

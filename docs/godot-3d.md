@@ -170,8 +170,8 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 
 | Knob | Low (Deck floor) | High (desktop neon) |
 |------|------------------|---------------------|
-| AOI `build_radius` | 14 | 18 |
-| Entity radius / pool | 12 / ≤28 | 16 / ≤48 |
+| AOI `build_radius` | **12** (#148 Deck headroom; was 14) | 18 |
+| Entity radius / pool | **10 / ≤24** (#148; was 12 / ≤28) | 16 / ≤48 |
 | Particles (rain / dust / spark) | **off** | on |
 | Glow / bloom | off (or dim stub) | on |
 | MSAA 3D (SubViewport) | off | 2× |
@@ -188,7 +188,7 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 
 All particle systems respect the quality preset (disabled on Low).
 
-**Targets (still not device-QA’d on Deck hardware):**
+**Targets:**
 
 | Device | Goal | Budget knobs |
 |--------|------|----------------|
@@ -196,7 +196,83 @@ All particle systems respect the quality preset (disabled on Low).
 | Steam Deck (800p) | **30 fps** floor | Prefer **Low** preset; Mobile renderer; shadows off; ≤3 Omnis; `UPDATE_WHEN_VISIBLE` |
 | Low PC | 30 fps | Low preset |
 
-Honesty: **no Deck hardware pass yet** (same gate as [steam-deck.md](steam-deck.md)). Do not claim Verified from this slice.
+Honesty: **no Deck / mid-PC hardware pass yet** for measured frame times — see [FPS measurement (#148)](#fps-measurement-148). Do not claim Verified from budget alone.
+
+---
+
+## FPS measurement (#148)
+
+Replace budget-only notes with an **in-client harness** so device QA can record real numbers without rebuilding.
+
+### Overlay + logger
+
+| Control | Action |
+|---------|--------|
+| **F3** | Toggle FPS overlay (Catppuccin sky Label, `mouse_filter = IGNORE`) |
+| **Shift+F3** | Append one JSONL sample to `user://fps_samples.log` |
+| `--fps-log` | Continuous samples every ~2s (also shows overlay) |
+
+Overlay shows rolling avg fps / ms, quality (Low/High), scene mode (`street` / `street_ascii` / `ice` / `ice_ascii` / `globe` / `fpv` / `map`), MSAA, particles, glow, and AOI knobs (`build_radius` / `entity_radius` / `max_pooled`).
+
+Autoload: `godot_client/scripts/fps_meter.gd` (`FpsMeter`). Scene mode comes from `main.gd` (`fps_scene_mode()`).
+
+### Measurement protocol
+
+Run a built or editor client against a live `/ws` realm. For each **Device × Scene × Quality** cell:
+
+1. Set quality (**F8** / HUD Quality) to **Low** or **High**.
+2. Enter the scene (street idle: park; street combat: firefight / dense AOI; ICE: jack in; globe: open Globe dock).
+3. Press **F3** so the overlay is visible; wait ≥3s for the rolling window.
+4. Hold **Shift+F3** once at ~10s, again at ~30s (or use `--fps-log` for continuous lines).
+5. Record avg fps from overlay and p99-ish ms from samples (`ms` field). Note particle/Omni load.
+
+Minimum matrix: **street idle**, **street combat**, **ICE**, **globe** × **Low** + **High** × mid-PC + Deck (or Deck-like). Prefer 30s sustained samples.
+
+### Bottlenecks (code-derived)
+
+| Risk | Where | Notes |
+|------|-------|-------|
+| **Particles** | High only — rain / neon dust / uplink spark / globe orbit | Low disables all `GPUParticles3D` |
+| **Omni lights** | Street ceiling = **3** (courier `EyeLight` + J + U) | No vendor / pickup Omnis; globe Fill is a separate SubViewport |
+| **AOI entity count** | `GraphicsSettings` pool + radii | Low: build 12 / entity 10 / pool ≤24; High: 18 / 16 / ≤48 |
+| **Glow / MSAA** | High SubViewport + WorldEnvironment | Low: MSAA off, glow off/dim |
+
+### Low default tweak (#148)
+
+Without hardware numbers, street combat on Deck is the riskiest cell (particles off already on Low; Omnis fixed). Low AOI was tightened slightly so the floor has more headroom without gutting silhouettes:
+
+| Knob | Prior Low | Low now | High |
+|------|-----------|---------|------|
+| `build_radius` | 14 | **12** | 18 |
+| `entity_radius` | 12 | **10** | 16 |
+| `max_pooled_entities` | 28 | **24** | 48 |
+
+High preset unchanged. Revisit after a real Deck pass if Low still dips under 30 fps in street combat — or if 12/10 feels too tight for landmark readability.
+
+### Results table
+
+Fill on device; keep TBD until measured. Do not invent numbers.
+
+| Device | Scene | Quality | avg fps | p99 ms | notes |
+|--------|-------|---------|---------|--------|-------|
+| Mid-PC (TBD hardware) | street idle | Low | TBD | TBD | protocol ready |
+| Mid-PC (TBD hardware) | street idle | High | TBD | TBD | |
+| Mid-PC (TBD hardware) | street combat | Low | TBD | TBD | |
+| Mid-PC (TBD hardware) | street combat | High | TBD | TBD | particles + glow |
+| Mid-PC (TBD hardware) | ICE | Low | TBD | TBD | |
+| Mid-PC (TBD hardware) | ICE | High | TBD | TBD | |
+| Mid-PC (TBD hardware) | globe | Low | TBD | TBD | |
+| Mid-PC (TBD hardware) | globe | High | TBD | TBD | |
+| Steam Deck (TBD) | street idle | Low | TBD | TBD | Verified path needs device |
+| Steam Deck (TBD) | street idle | High | TBD | TBD | |
+| Steam Deck (TBD) | street combat | Low | TBD | TBD | **30 fps floor** |
+| Steam Deck (TBD) | street combat | High | TBD | TBD | expect heavier |
+| Steam Deck (TBD) | ICE | Low | TBD | TBD | |
+| Steam Deck (TBD) | ICE | High | TBD | TBD | |
+| Steam Deck (TBD) | globe | Low | TBD | TBD | |
+| Steam Deck (TBD) | globe | High | TBD | TBD | |
+
+CI / this agent: **no Godot binary / no Deck** — harness + protocol only. Paste real rows from `user://fps_samples.log` when hardware is available.
 
 ---
 
@@ -220,7 +296,7 @@ Honesty: **no Deck hardware pass yet** (same gate as [steam-deck.md](steam-deck.
 - [x] J / U landmark readability
 - [x] `docs/godot-3d.md` design + progress
 - [x] `docs/godot-client.md` + [steam-quality-bar.md](steam-quality-bar.md) state **3D is the Steam presentation goal**
-- [ ] 30 fps+ mid-PC / Deck **measured** (documented budget only)
+- [x] FPS harness + protocol (#148); hardware fps rows still **TBD** until device pass
 - [x] Landmark / vendor pass without any HUD soup — #150 (onboarding dock gate #133 kept)
 
 ### Slice 2 acceptance (shipped #143)
@@ -334,7 +410,7 @@ Overlay `AsciiOverlay` Label uses `mouse_filter = IGNORE` so year docks / Street
 
 Epic acceptance still unmet / not device-QA’d:
 
-- [ ] **30 fps+ measured** on mid PC and Steam Deck (budget documented only; no hardware pass)
+- [x] FPS overlay + logger + protocol (#148) — hardware result rows still TBD (no Deck/mid-PC pass yet)
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
@@ -358,7 +434,7 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 
 **HUD soup rule:** year docks stay gated by onboarding (#133). This slice does **not** open docks or add a landmark list UI — only world meshes + the existing thin Objective label.
 
-`Refs #141` — epic stays OPEN (fps / Deck hardware still unmet).
+`Refs #141` — epic stays OPEN (measured Deck/mid-PC fps rows still TBD; harness in #148).
 
 ---
 ## Files
