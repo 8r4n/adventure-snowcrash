@@ -113,7 +113,7 @@ in_ice =
 |--------|----------------|
 | Teal brick `#` boxes | Thin neon **frame + translucent fill** + crown node spheres |
 | Street slab + yellow lane tick | Dark **grid floor** (cross ticks) + mauve lattice nodes |
-| Night fog, Forward+ glow 0.55 | Cyan void, denser fog, glow 0.88 / bloom 0.22 |
+| Night fog + sky rim Directional, glow 0.55 (High) | Cyan void, mauve rim, denser fog, glow 0.88 / bloom 0.22 |
 | J / U Omni beacons | No extra lights — emissive ICE / core / exit only |
 
 `I` cells are tall cyan barriers (melt with **Z stun / X reveal**). `%` core and `X` exit are labeled portals. Heist L3 `A` is the Null Choir stub.
@@ -150,17 +150,53 @@ Right stick X is mapped to `look_left` / `look_right` and sent as **`turn_left` 
 | **Deck / Android** | **Mobile** (`rendering_method.mobile=mobile`) | Same scenes; cheaper clustered lights; glow still works |
 | Fallback | GL Compatibility | Glow ignored; meshes still playable if someone force-switches |
 
-**Targets (slice 1, not device-QA’d yet):**
+### Omni / light budget (hard limit)
+
+| Light | Type | Counts vs Omni budget? | Notes |
+|-------|------|------------------------|-------|
+| Moon / Key | `DirectionalLight3D` | **No** | Street fill / ICE cyan / globe key |
+| **Rim** (slice 5) | `DirectionalLight3D` | **No** | Neon sky/mauve rim — High only |
+| Courier `EyeLight` | `OmniLight3D` | **Yes (1)** | Always on while in street/ICE |
+| Jackpoint J | `OmniLight3D` | **Yes (1)** | Pulsed; street only |
+| Uplink U | `OmniLight3D` | **Yes (1)** | Pulsed; street only |
+| Globe `FillLight` | `OmniLight3D` | Globe viewport only | Separate SubViewport; street Omnis not active |
+| Vendors / pickups / ICE cells | emissive mats | **No Omni** | Never add per-prop lights |
+
+**Street Omni ceiling = 3** (courier + J + U). Rim/moon are Directional — neon without blowing the Deck clustered-Omni budget.
+
+### Quality preset (Low / High)
+
+Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `GraphicsSettings`. Toggle: HUD **Quality** button or **F8**.
+
+| Knob | Low (Deck floor) | High (desktop neon) |
+|------|------------------|---------------------|
+| AOI `build_radius` | 14 | 18 |
+| Entity radius / pool | 12 / ≤28 | 16 / ≤48 |
+| Particles (rain / dust / spark) | **off** | on |
+| Glow / bloom | off (or dim stub) | on |
+| MSAA 3D (SubViewport) | off | 2× |
+| Rim Directional | off | on |
+
+### Particles (slice 5)
+
+| FX | Where | Notes |
+|----|-------|-------|
+| Rain | Street, follows courier | Cheap `GPUParticles3D` (~64) |
+| Neon dust | Street + ICE | Sparse rising / lattice motes |
+| Uplink spark | At **U** when in AOI | Peach sparks; High only |
+| Orbit dust | Globe | Sphere emission around Earth |
+
+All particle systems respect the quality preset (disabled on Low).
+
+**Targets (still not device-QA’d on Deck hardware):**
 
 | Device | Goal | Budget knobs |
 |--------|------|----------------|
-| Mid PC (1080p) | **60 fps** comfortable, **30 fps** floor | MSAA 2x on the street SubViewport; Forward+ glow on |
-| Steam Deck (800p) | **30 fps** floor | Mobile renderer; `BUILD_RADIUS` 18; **shadows off**; max ~3 Omni (courier + J + U); entity pool ≤48; vendor emissive-only (no Omni); SubViewport `UPDATE_WHEN_VISIBLE`; no per-tile lights |
-| Low | 30 fps | Drop MSAA; shrink radius to 14; disable glow in a later quality setting |
+| Mid PC (1080p) | **60 fps** comfortable, **30 fps** floor | High preset; MSAA 2×; Forward+ glow |
+| Steam Deck (800p) | **30 fps** floor | Prefer **Low** preset; Mobile renderer; shadows off; ≤3 Omnis; `UPDATE_WHEN_VISIBLE` |
+| Low PC | 30 fps | Low preset |
 
 Honesty: **no Deck hardware pass yet** (same gate as [steam-deck.md](steam-deck.md)). Do not claim Verified from this slice.
-
-Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 
 ---
 
@@ -171,8 +207,8 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 | 1 | **3D street vertical slice** — glyphs → meshes, courier camera, WS intents, J/U, ASCII toggle | Done (#142) |
 | 2 | **Entities polish** — distinct silhouettes, facing chevrons, vendors `$`, pickups, landmark billboards | Done (#143) |
 | 3 | **Cyberspace / ICE** — distinct 3D visual language for jack-in layers | Done (#144) |
-| 4 | **Globe** — 3D Earth / region picker hybrid with year dock | **This PR** |
-| 5 | Polish — lighting, particles, materials, Deck device QA | Open |
+| 4 | **Globe** — 3D Earth / region picker hybrid with year dock | Done (#145) |
+| 5 | **Polish** — lighting, particles, materials, quality preset, Deck budget | **This PR** |
 | 6 | Optional ASCII overlay (hybrid look on top of 3D) | Open |
 
 **#141 stays OPEN** until the Steam-ready 3D loop (acceptance on the issue). This PR is `Refs #141` only (do not close the epic).
@@ -241,7 +277,7 @@ ICE / street modes are untouched — globe overlay only while the Globe dock is 
 
 Deck: simple sphere + emissive pin spheres (no Earth texture, no extra Omni beyond fill). Globe SubViewport uses `UPDATE_WHEN_VISIBLE` only while the dock is open.
 
-### Slice 4 acceptance (this PR)
+### Slice 4 acceptance (shipped #145)
 
 - [x] 3D Earth (stylized sphere + grid) with region pins from snapshot `globe` / `regions`
 - [x] Select pin → hop via existing `teleport` intent; cost / cooldown in HUD (`GlobeBanner`)
@@ -251,16 +287,38 @@ Deck: simple sphere + emissive pin spheres (no Earth texture, no extra Omni beyo
 - [x] `docs/godot-3d.md` slice 4 progress updated
 
 ---
+## Lighting / particles / quality (slice 5)
+
+Presentation polish only — Python `/ws` unchanged. No ASCII overlay (that is slice 6).
+
+### Visual
+- Street: warmer Catppuccin ambient + denser night fog; **sky rim** Directional opposite the moon
+- ICE: cyan ambient/fog; **mauve rim**; rain off, lattice dust on (High)
+- Globe: mauve rim + orbit dust; still **one** Fill Omni
+- Materials: slightly hotter wall / street emission for neon rim without extra Omnis
+
+### Slice 5 acceptance (this PR)
+
+- [x] Better street + ICE + globe lighting (rim Directional + fog/ambient) without exceeding Omni budget
+- [x] Light particles (rain / neon dust / uplink spark) — toggleable via quality
+- [x] Low disables particles + MSAA/glow; shrinks AOI; documented in this file + [steam-deck.md](steam-deck.md)
+- [x] Low/High quality preset persisted in ConfigFile (`GraphicsSettings`)
+- [x] Honest Deck QA: still **not measured on hardware**; checklist updated
+- [x] `Refs #141` only — epic stays OPEN (slice 6 ASCII overlay remains)
+
+---
+
 ## Files
 
 | Path | Role |
 |------|------|
-| `godot_client/scenes/street.tscn` | `Node3D` world, environment, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / pooled entities / landmarks / facing / camera / ICE lattice |
-| `godot_client/scenes/globe.tscn` | Stylized Earth SubViewport world + orbit camera |
-| `godot_client/scripts/globe_3d.gd` | Region pins from `globe.regions`, pick / teleport signals |
-| `godot_client/scenes/main.tscn` | Street + Globe SubViewports + HUD + IceBanner / GlobeBanner |
-| `godot_client/scripts/main.gd` | View cycle, globe overlay swap, cam toggle, jack-in flash |
+| `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / particles / quality |
+| `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
+| `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
+| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload |
+| `godot_client/scenes/main.tscn` | Street + Globe SubViewports + Quality button |
+| `godot_client/scripts/main.gd` | View cycle, globe overlay, cam/quality, jack-in flash |
 | `godot_client/scripts/year_docks.gd` | Globe dock hybrid list + open/close → overlay |
 | `godot_client/scripts/fpv_ascii.gd` | ASCII FPV / map (kept) |
 

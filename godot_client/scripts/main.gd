@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + 3D street + docks + onboarding + audio + Deck pad (#141 / #118 / #127 / #132 / #133 / #134).
+## Core play loop + 3D street + docks + onboarding + audio + Deck pad + quality (#141 / #118 / #127 / #132 / #133 / #134).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -28,6 +28,7 @@ extends Control
 @onready var street_vp: SubViewport = %StreetViewport
 @onready var view_scroll: ScrollContainer = %ViewScroll
 @onready var cam_btn: Button = %CamBtn
+@onready var quality_btn: Button = %QualityBtn
 @onready var ice_banner: Label = %IceBanner
 @onready var ice_flash: ColorRect = %IceFlash
 @onready var globe: Globe3D = %Globe3D
@@ -63,6 +64,12 @@ func _ready() -> void:
 	view_toggle_btn.pressed.connect(_on_view_toggle)
 	if cam_btn:
 		cam_btn.pressed.connect(_on_cam_toggle)
+	if quality_btn:
+		quality_btn.pressed.connect(_on_quality_toggle)
+		_sync_quality_btn()
+	if GraphicsSettings and not GraphicsSettings.quality_changed.is_connected(_on_graphics_quality):
+		GraphicsSettings.quality_changed.connect(_on_graphics_quality)
+	_apply_viewport_quality()
 	use_btn.pressed.connect(_on_use_pressed)
 	inv_list.item_selected.connect(_on_inv_selected)
 	inv_list.item_activated.connect(_on_inv_activated)
@@ -183,8 +190,8 @@ func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD / stick move · Q/E / L1 R1 / R-stick turn · G / A get · F / X fire · "
 		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/FPV/map · C camera · Start docks · "
-		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · Audio "
-		+ "(Deck: docs/steam-deck.md · 3D ICE: docs/godot-3d.md)"
+		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · F8 quality · Audio "
+		+ "(Deck: docs/steam-deck.md · 3D: docs/godot-3d.md)"
 	)
 
 
@@ -224,6 +231,37 @@ func _on_cam_toggle() -> void:
 	if cam_btn:
 		cam_btn.text = "Cam: %s" % cam_name
 	_append_log("Camera %s" % cam_name)
+
+
+func _on_quality_toggle() -> void:
+	if GraphicsSettings == null:
+		return
+	var name := GraphicsSettings.toggle_quality()
+	_sync_quality_btn()
+	_apply_viewport_quality()
+	_append_log("Quality %s (particles %s)" % [
+		name,
+		"on" if GraphicsSettings.particles_enabled() else "off",
+	])
+
+
+func _on_graphics_quality(_level: int) -> void:
+	_sync_quality_btn()
+	_apply_viewport_quality()
+
+
+func _sync_quality_btn() -> void:
+	if quality_btn == null or GraphicsSettings == null:
+		return
+	quality_btn.text = "Quality: %s" % GraphicsSettings.quality_name()
+
+
+func _apply_viewport_quality() -> void:
+	var msaa := GraphicsSettings.msaa_3d() if GraphicsSettings else 1
+	if street_vp:
+		street_vp.msaa_3d = msaa
+	if globe_vp:
+		globe_vp.msaa_3d = msaa
 
 
 func _apply_view_visibility() -> void:
@@ -707,6 +745,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if keycode == KEY_C:
 		_on_cam_toggle()
+		get_viewport().set_input_as_handled()
+		return
+	if keycode == KEY_F8:
+		_on_quality_toggle()
 		get_viewport().set_input_as_handled()
 		return
 	# Web parity: j jack_in at J / jack_out while jacked (#47 / #56 / #141).
