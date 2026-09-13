@@ -1,6 +1,7 @@
 extends Node3D
 class_name Street3D
 ## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
+## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
 ## Slice 3: jack-in visual language — grid/node lattice, neon ICE walls, layer plates.
 ## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
@@ -94,6 +95,18 @@ var _uplink_light: OmniLight3D
 var _pulse: float = 0.0
 var _last_landmark_fp: String = ""
 var _courier_facing: MeshInstance3D
+## #150 — objective cue (world marker + courier compass tick). Not a dock dump.
+var _objective_root: Node3D
+var _objective_beam: MeshInstance3D
+var _objective_ring: MeshInstance3D
+var _objective_lab: Label3D
+var _compass_tick: Node3D
+var _compass_wedge: MeshInstance3D
+var _compass_lab: Label3D
+var _obj_target: Vector2i = Vector2i(-99999, -99999)
+var _obj_active: bool = false
+var _obj_id: String = ""
+var _obj_glyph: String = ""
 var _ice_mode: bool = false
 var _trans_t: float = 0.0
 var _trans_dir: int = 0  # +1 jack-in, -1 jack-out
@@ -112,6 +125,7 @@ const STREET_FOG := Color(0.14, 0.12, 0.22, 1)
 func _ready() -> void:
 	_ensure_resources()
 	_ensure_courier_parts()
+	_ensure_objective_cue()
 	_ensure_fx()
 	_apply_cam_rig()
 	_apply_quality(true)
@@ -262,6 +276,7 @@ func apply_snapshot(state: Dictionary) -> void:
 		nameplate.text = nm
 	_rebuild_map_if_needed(state, px, py)
 	_paint_landmarks(state, px, py)
+	_update_objective_cue(state, px, py)
 	_paint_entities(state, px, py, str(state.get("you", player.get("id", ""))))
 
 
@@ -280,9 +295,11 @@ func _process(delta: float) -> void:
 	_pulse += delta
 	var pulse := 1.0 + 0.35 * sin(_pulse * 3.2)
 	if _jack_light:
-		_jack_light.light_energy = 2.4 * pulse
+		_jack_light.light_energy = 2.85 * pulse
 	if _uplink_light:
-		_uplink_light.light_energy = 2.6 * pulse
+		_uplink_light.light_energy = 3.05 * pulse
+	_pulse_objective_cue(pulse)
+	_orient_compass_tick()
 	_follow_fx()
 	if _ice_mode:
 		var ice_e := 1.2 + 0.55 * sin(_pulse * 4.2)
@@ -338,8 +355,8 @@ func _ensure_resources() -> void:
 	_mats["manhole"] = _mat(Catppuccin.OVERLAY0, 0.15, 0.6)
 	_mats["stairs"] = _mat(Catppuccin.LAVENDER.darkened(0.25), 0.25, 0.15)
 	_mats["loot"] = _mat(Catppuccin.YELLOW, 1.1, 0.1)
-	_mats["jack"] = _mat(Catppuccin.SKY, 1.8, 0.15)
-	_mats["uplink"] = _mat(Catppuccin.PEACH, 1.9, 0.2)
+	_mats["jack"] = _mat(Catppuccin.SKY, 2.55, 0.12)
+	_mats["uplink"] = _mat(Catppuccin.PEACH, 2.65, 0.15)
 	_mats["self"] = _mat(Catppuccin.TEAL, 0.7, 0.2)
 	_mats["npc"] = _mat(Catppuccin.LAVENDER, 0.55, 0.1)
 	_mats["infected"] = _mat(Catppuccin.GREEN, 0.7, 0.05)
@@ -351,12 +368,18 @@ func _ensure_resources() -> void:
 	_mats["exit"] = _mat(Catppuccin.GREEN, 1.0, 0.1)
 	_mats["other"] = _mat(Catppuccin.BLUE, 0.65, 0.15)
 	_mats["other_hi"] = _mat(Catppuccin.SKY, 0.95, 0.2)
-	_mats["vendor"] = _mat(Catppuccin.YELLOW, 1.7, 0.25)
-	_mats["vendor_trim"] = _mat(Catppuccin.PEACH, 1.2, 0.3)
+	_mats["vendor"] = _mat(Catppuccin.YELLOW, 2.4, 0.2)
+	_mats["vendor_trim"] = _mat(Catppuccin.PEACH, 1.85, 0.25)
 	_mats["pickup"] = _mat(Catppuccin.YELLOW, 1.35, 0.1)
 	_mats["boss"] = _mat(Catppuccin.RED, 1.15, 0.2)
 	_mats["facing"] = _mat(Catppuccin.TEAL, 1.4, 0.15)
 	_mats["facing_other"] = _mat(Catppuccin.SKY, 1.3, 0.15)
+	_mats["obj_beam"] = _mat(Catppuccin.TEAL, 2.1, 0.1)
+	_mats["obj_ring"] = _mat(Catppuccin.YELLOW, 2.0, 0.15)
+	_mats["compass"] = _mat(Catppuccin.TEAL, 1.8, 0.1)
+	_mats["jack_shaft"] = _mat(Catppuccin.SKY, 2.8, 0.08)
+	_mats["uplink_shaft"] = _mat(Catppuccin.PEACH, 2.9, 0.08)
+	_mats["vendor_shaft"] = _mat(Catppuccin.YELLOW, 2.6, 0.1)
 	_mats["prop"] = _mat(Catppuccin.SURFACE1, 0.2, 0.2)
 	_mats["npc_head"] = _mat(Catppuccin.LAVENDER.lightened(0.12), 0.7, 0.1)
 	_mats["infected_head"] = _mat(Catppuccin.GREEN.darkened(0.15), 0.85, 0.05)
@@ -418,6 +441,17 @@ func _ensure_resources() -> void:
 	var canopy := BoxMesh.new()
 	canopy.size = Vector3(0.95, 0.12, 0.7)
 	_meshes["canopy"] = canopy
+	var shaft := BoxMesh.new()
+	shaft.size = Vector3(0.14, 1.0, 0.14)
+	_meshes["shaft"] = shaft
+	var glyph_disc := CylinderMesh.new()
+	glyph_disc.top_radius = 0.55
+	glyph_disc.bottom_radius = 0.55
+	glyph_disc.height = 0.08
+	_meshes["glyph_disc"] = glyph_disc
+	var obj_beam := BoxMesh.new()
+	obj_beam.size = Vector3(0.1, 1.0, 0.1)
+	_meshes["obj_beam"] = obj_beam
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.22
 	ring.outer_radius = 0.38
@@ -607,6 +641,7 @@ func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
 
 
 func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
+	## #150 — taller silhouette + emissive shaft + big glyph disc readable at street AOI.
 	if maxi(absi(x - px), absi(y - py)) > _build_radius + 8:
 		return
 	var origin := Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
@@ -614,30 +649,45 @@ func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void
 	holder.position = origin
 	landmark_root.add_child(holder)
 	var mat: Material = _mats["jack"] if is_jack else _mats["uplink"]
-	# Tall silhouette: base plinth + pillar + crown sphere (readable at distance).
-	_add_mesh(holder, _meshes["box"], mat, Vector3(0, 0.18, 0), Vector3(0.85, 0.36, 0.85))
-	_add_mesh(holder, _meshes["pillar"], mat, Vector3(0, 1.45, 0), Vector3(1.05, 1.2, 1.05) if is_jack else Vector3(0.95, 1.35, 0.95))
-	_add_mesh(holder, _meshes["sphere"], mat, Vector3(0, 2.95, 0), Vector3(0.95, 0.95, 0.95) if is_jack else Vector3(1.25, 1.25, 1.25))
+	var shaft_mat: Material = _mats["jack_shaft"] if is_jack else _mats["uplink_shaft"]
+	# Tall readable silhouette: wide plinth + pillar + crown + vertical emissive shaft.
+	_add_mesh(holder, _meshes["box"], mat, Vector3(0, 0.2, 0), Vector3(0.95, 0.4, 0.95))
+	_add_mesh(holder, _meshes["pillar"], mat, Vector3(0, 1.55, 0), Vector3(1.15, 1.35, 1.15) if is_jack else Vector3(1.0, 1.55, 1.0))
+	_add_mesh(holder, _meshes["shaft"], shaft_mat, Vector3(0, 2.35, 0), Vector3(0.85, 3.6, 0.85) if is_jack else Vector3(0.75, 4.1, 0.75))
+	_add_mesh(holder, _meshes["sphere"], mat, Vector3(0, 3.35, 0), Vector3(1.1, 1.1, 1.1) if is_jack else Vector3(1.35, 1.35, 1.35))
+	_add_mesh(holder, _meshes["glyph_disc"], mat, Vector3(0, 3.85, 0), Vector3(1.15, 1.0, 1.15) if is_jack else Vector3(1.25, 1.0, 1.25))
 	if not is_jack:
-		_add_mesh(holder, _meshes["ring"], mat, Vector3(0, 2.55, 0), Vector3(1.0, 1.0, 1.0))
+		_add_mesh(holder, _meshes["ring"], mat, Vector3(0, 2.85, 0), Vector3(1.15, 1.0, 1.15))
+		_add_mesh(holder, _meshes["ring"], mat, Vector3(0, 3.55, 0), Vector3(0.85, 0.85, 0.85))
 	var light := OmniLight3D.new()
 	light.light_color = Catppuccin.SKY if is_jack else Catppuccin.PEACH
-	light.light_energy = 2.4
-	light.omni_range = 11.0
-	light.omni_attenuation = 1.25
+	light.light_energy = 2.85 if is_jack else 3.05
+	light.omni_range = 13.5
+	light.omni_attenuation = 1.15
 	light.shadow_enabled = false
-	light.position = Vector3(0, 2.7, 0)
+	light.position = Vector3(0, 3.1, 0)
 	holder.add_child(light)
 	if is_jack:
 		_jack_light = light
 	else:
 		_uplink_light = light
+	# Big single-glyph billboard (street distance) + quiet subtitle — not HUD soup.
+	var glyph := Label3D.new()
+	glyph.text = "J" if is_jack else "U"
+	glyph.position = Vector3(0, 4.55, 0)
+	glyph.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	glyph.font_size = 96
+	glyph.outline_size = 22
+	glyph.modulate = Catppuccin.SKY if is_jack else Catppuccin.PEACH
+	glyph.outline_modulate = Catppuccin.CRUST
+	glyph.pixel_size = 0.01
+	holder.add_child(glyph)
 	var lab := Label3D.new()
-	lab.text = "J  JACKPOINT" if is_jack else "U  UPLINK"
-	lab.position = Vector3(0, 3.55, 0)
+	lab.text = "JACKPOINT" if is_jack else "UPLINK"
+	lab.position = Vector3(0, 5.15, 0)
 	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lab.font_size = 38
-	lab.outline_size = 12
+	lab.font_size = 28
+	lab.outline_size = 10
 	lab.modulate = Catppuccin.SKY if is_jack else Catppuccin.PEACH
 	lab.outline_modulate = Catppuccin.CRUST
 	lab.pixel_size = 0.008
@@ -645,22 +695,34 @@ func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void
 
 
 func _spawn_vendor(x: int, y: int, px: int, py: int, label: String) -> void:
+	## #150 — taller $ silhouette + emissive mast (no Omni — Deck budget stays courier + J + U).
 	if maxi(absi(x - px), absi(y - py)) > LANDMARK_VENDOR_RADIUS:
 		return
 	var holder := Node3D.new()
 	holder.position = Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
 	landmark_root.add_child(holder)
-	# Emissive kiosk (no Omni — Deck light budget stays courier + J + U).
-	_add_mesh(holder, _meshes["kiosk"], _mats["vendor"], Vector3(0, 0.85, 0))
-	_add_mesh(holder, _meshes["canopy"], _mats["vendor_trim"], Vector3(0, 1.55, 0))
-	_add_mesh(holder, _meshes["sphere"], _mats["vendor"], Vector3(0, 1.95, 0), Vector3(0.55, 0.55, 0.55))
-	_add_mesh(holder, _meshes["box"], _mats["vendor_trim"], Vector3(0, 0.08, 0), Vector3(0.9, 0.1, 0.7))
+	_add_mesh(holder, _meshes["box"], _mats["vendor_trim"], Vector3(0, 0.1, 0), Vector3(1.0, 0.14, 0.8))
+	_add_mesh(holder, _meshes["kiosk"], _mats["vendor"], Vector3(0, 0.95, 0), Vector3(1.1, 1.15, 1.05))
+	_add_mesh(holder, _meshes["canopy"], _mats["vendor_trim"], Vector3(0, 1.75, 0), Vector3(1.15, 1.0, 1.1))
+	_add_mesh(holder, _meshes["shaft"], _mats["vendor_shaft"], Vector3(0, 2.55, 0), Vector3(0.7, 2.4, 0.7))
+	_add_mesh(holder, _meshes["sphere"], _mats["vendor"], Vector3(0, 3.35, 0), Vector3(0.7, 0.7, 0.7))
+	_add_mesh(holder, _meshes["glyph_disc"], _mats["vendor"], Vector3(0, 3.75, 0), Vector3(1.05, 1.0, 1.05))
+	var glyph := Label3D.new()
+	glyph.text = "$"
+	glyph.position = Vector3(0, 4.35, 0)
+	glyph.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	glyph.font_size = 88
+	glyph.outline_size = 20
+	glyph.modulate = Catppuccin.YELLOW
+	glyph.outline_modulate = Catppuccin.CRUST
+	glyph.pixel_size = 0.01
+	holder.add_child(glyph)
 	var lab := Label3D.new()
-	lab.text = "$  %s" % (label if label else "VENDOR")
-	lab.position = Vector3(0, 2.45, 0)
+	lab.text = label if label else "VENDOR"
+	lab.position = Vector3(0, 4.95, 0)
 	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lab.font_size = 32
-	lab.outline_size = 10
+	lab.font_size = 26
+	lab.outline_size = 9
 	lab.modulate = Catppuccin.YELLOW
 	lab.outline_modulate = Catppuccin.CRUST
 	lab.pixel_size = 0.008
@@ -685,6 +747,174 @@ func _spawn_pickup_beacon(x: int, y: int, px: int, py: int, label: String) -> vo
 	lab.outline_modulate = Catppuccin.CRUST
 	lab.pixel_size = 0.008
 	holder.add_child(lab)
+
+
+func _ensure_objective_cue() -> void:
+	## Subtle world marker + courier compass tick (#150). No dock chrome.
+	if _objective_root == null:
+		_objective_root = Node3D.new()
+		_objective_root.name = "ObjectiveCue"
+		add_child(_objective_root)
+		_objective_beam = _add_mesh(_objective_root, _meshes["obj_beam"], _mats["obj_beam"], Vector3(0, 2.8, 0), Vector3(1.0, 5.5, 1.0))
+		_objective_ring = _add_mesh(_objective_root, _meshes["ring"], _mats["obj_ring"], Vector3(0, 4.6, 0), Vector3(1.35, 0.55, 1.35))
+		_objective_lab = Label3D.new()
+		_objective_lab.name = "ObjectiveLab"
+		_objective_lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_objective_lab.font_size = 42
+		_objective_lab.outline_size = 14
+		_objective_lab.pixel_size = 0.009
+		_objective_lab.outline_modulate = Catppuccin.CRUST
+		_objective_lab.position = Vector3(0, 5.55, 0)
+		_objective_root.add_child(_objective_lab)
+		_objective_root.visible = false
+	if _compass_tick == null and courier != null:
+		_compass_tick = Node3D.new()
+		_compass_tick.name = "CompassTick"
+		courier.add_child(_compass_tick)
+		_compass_tick.position = Vector3(0.0, 2.15, 0.0)
+		_compass_wedge = MeshInstance3D.new()
+		_compass_wedge.name = "Wedge"
+		_compass_wedge.mesh = _meshes["facing"]
+		_compass_wedge.material_override = _mats["compass"]
+		_compass_wedge.position = Vector3(0.0, 0.0, -0.55)
+		_compass_wedge.rotation_degrees = Vector3(90, 0, 0)
+		_compass_wedge.scale = Vector3(1.35, 1.0, 1.55)
+		_compass_tick.add_child(_compass_wedge)
+		_compass_lab = Label3D.new()
+		_compass_lab.name = "TickLab"
+		_compass_lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_compass_lab.font_size = 22
+		_compass_lab.outline_size = 8
+		_compass_lab.pixel_size = 0.007
+		_compass_lab.modulate = Catppuccin.TEAL
+		_compass_lab.outline_modulate = Catppuccin.CRUST
+		_compass_lab.position = Vector3(0.0, 0.35, 0.0)
+		_compass_tick.add_child(_compass_lab)
+		_compass_tick.visible = false
+
+
+func _parse_objective_target(state: Dictionary) -> Dictionary:
+	## Snapshot objective from Payload-Zero / Signal Keys / pilgrimage / globe.
+	var out := {"active": false, "id": "", "glyph": "", "x": 0, "y": 0, "compass": "", "dist": null, "text": ""}
+	var obj = state.get("objective", null)
+	if typeof(obj) != TYPE_DICTIONARY:
+		return out
+	var target = obj.get("target", null)
+	var tx := -99999
+	var ty := -99999
+	if typeof(target) == TYPE_ARRAY and target.size() >= 2:
+		tx = int(target[0])
+		ty = int(target[1])
+	elif typeof(target) == TYPE_DICTIONARY:
+		tx = int(target.get("x", -99999))
+		ty = int(target.get("y", -99999))
+	var oid := str(obj.get("id", ""))
+	if tx <= -99990:
+		# Fallback: resolve Payload-Zero landmark ids from jackpoint / uplink arrays.
+		if oid == "jackpoint":
+			var jack = state.get("jackpoint", [])
+			if typeof(jack) == TYPE_ARRAY and jack.size() >= 2:
+				tx = int(jack[0])
+				ty = int(jack[1])
+		elif oid == "uplink":
+			var uplink = state.get("uplink", [])
+			if typeof(uplink) == TYPE_ARRAY and uplink.size() >= 2:
+				tx = int(uplink[0])
+				ty = int(uplink[1])
+	if tx <= -99990:
+		return out
+	var glyph := "★"
+	if oid == "jackpoint" or oid == "J":
+		glyph = "J"
+	elif oid == "uplink" or oid == "U":
+		glyph = "U"
+	elif oid.begins_with("vendor") or oid == "$":
+		glyph = "$"
+	elif "signal" in oid or oid == "loot":
+		glyph = "*"
+	out["active"] = true
+	out["id"] = oid
+	out["glyph"] = glyph
+	out["x"] = tx
+	out["y"] = ty
+	out["compass"] = str(obj.get("compass", ""))
+	out["dist"] = obj.get("dist", null)
+	out["text"] = str(obj.get("text", ""))
+	return out
+
+
+func _update_objective_cue(state: Dictionary, px: int, py: int) -> void:
+	_ensure_resources()
+	_ensure_objective_cue()
+	if _ice_mode:
+		_obj_active = false
+		if _objective_root:
+			_objective_root.visible = false
+		if _compass_tick:
+			_compass_tick.visible = false
+		return
+	var info := _parse_objective_target(state)
+	_obj_active = bool(info.get("active", false))
+	_obj_id = str(info.get("id", ""))
+	_obj_glyph = str(info.get("glyph", "★"))
+	if not _obj_active:
+		if _objective_root:
+			_objective_root.visible = false
+		if _compass_tick:
+			_compass_tick.visible = false
+		return
+	_obj_target = Vector2i(int(info["x"]), int(info["y"]))
+	# World marker at objective landmark (hidden when already on the tile).
+	var here := (_obj_target.x == px and _obj_target.y == py)
+	var far := maxi(absi(_obj_target.x - px), absi(_obj_target.y - py)) > _build_radius + 10
+	if _objective_root:
+		_objective_root.position = Vector3(float(_obj_target.x) + 0.5, 0.0, float(_obj_target.y) + 0.5)
+		_objective_root.visible = (not here) and (not far)
+		if _objective_lab:
+			var bits: PackedStringArray = PackedStringArray()
+			bits.append(_obj_glyph if not _obj_glyph.is_empty() else "★")
+			var compass := str(info.get("compass", ""))
+			if not compass.is_empty() and compass != "·":
+				bits.append(compass)
+			var dist = info.get("dist", null)
+			if dist != null:
+				bits.append("%sm" % str(dist))
+			_objective_lab.text = " ".join(bits)
+			_objective_lab.modulate = Catppuccin.SKY if _obj_glyph == "J" else (Catppuccin.PEACH if _obj_glyph == "U" else Catppuccin.YELLOW)
+	if _compass_tick:
+		_compass_tick.visible = not here
+		if _compass_lab:
+			var c := str(info.get("compass", "·"))
+			var d = info.get("dist", null)
+			if d != null:
+				_compass_lab.text = "%s %s · %sm" % [_obj_glyph, c, str(d)]
+			else:
+				_compass_lab.text = "%s %s" % [_obj_glyph, c]
+		_orient_compass_tick()
+
+
+func _pulse_objective_cue(pulse: float) -> void:
+	if not _obj_active or _objective_root == null or not _objective_root.visible:
+		return
+	if _objective_beam and _objective_beam.material_override is StandardMaterial3D:
+		(_objective_beam.material_override as StandardMaterial3D).emission_energy_multiplier = 1.6 + 0.7 * sin(_pulse * 3.6)
+	if _objective_ring:
+		_objective_ring.rotation.y = _pulse * 1.4
+		_objective_ring.position.y = 4.4 + 0.12 * sin(_pulse * 2.8)
+
+
+func _orient_compass_tick() -> void:
+	if _compass_tick == null or not _obj_active or not _compass_tick.visible:
+		return
+	# Point toward objective in XZ; keep tick upright relative to world yaw vs courier.
+	var to := Vector3(float(_obj_target.x) + 0.5, 0.0, float(_obj_target.y) + 0.5)
+	var from := courier.global_position if courier else Vector3.ZERO
+	var flat := Vector3(to.x - from.x, 0.0, to.z - from.z)
+	if flat.length_squared() < 0.0001:
+		return
+	var world_yaw := atan2(-flat.x, -flat.z)
+	# CompassTick is a child of courier — compensate courier yaw so wedge faces target.
+	_compass_tick.rotation.y = world_yaw - courier.rotation.y
 
 
 func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:

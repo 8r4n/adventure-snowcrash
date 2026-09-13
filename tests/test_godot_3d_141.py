@@ -244,3 +244,33 @@ def test_docs_slice6_progress_and_steam_gaps():
     assert "slice 6" in d3d.lower() or "Slice 6" in d3d
     client = (DOCS / "godot-client.md").read_text(encoding="utf-8")
     assert "3D+ASCII" in client or "ASCII overlay" in client
+
+
+def test_landmark_readability_150():
+    """#150: clearer J/U/$ silhouettes + objective world marker / compass tick — no HUD soup."""
+    src = (GODOT / "scripts" / "street_3d.gd").read_text(encoding="utf-8")
+    assert "#150" in src
+    assert "_ensure_objective_cue" in src
+    assert "_update_objective_cue" in src
+    assert "_parse_objective_target" in src
+    assert "_orient_compass_tick" in src
+    assert "CompassTick" in src
+    assert "ObjectiveCue" in src
+    assert "jack_shaft" in src and "uplink_shaft" in src and "vendor_shaft" in src
+    assert "glyph_disc" in src
+    assert 'glyph.text = "J"' in src or 'glyph.text = "J" if is_jack' in src
+    assert 'glyph.text = "$"' in src
+    # Still no per-vendor Omni; Deck budget language retained
+    assert "no Omni" in src.lower() or "Deck light budget" in src or "Deck budget" in src
+    assert "Closes #141" not in src
+    # Onboarding dock gate must remain (#133) — landmarks must not unlock docks
+    onboard = (GODOT / "scripts" / "onboarding.gd").read_text(encoding="utf-8")
+    assert "docks_gate_changed" in onboard
+    assert "set_secondary_gated" in (GODOT / "scripts" / "main.gd").read_text(encoding="utf-8")
+    d3d = (DOCS / "godot-3d.md").read_text(encoding="utf-8")
+    assert "Landmark readability (#150)" in d3d
+    assert "compass tick" in d3d.lower() or "Compass tick" in d3d
+    assert "HUD soup" in d3d
+    assert "#133" in d3d
+    assert "Closes #141" not in d3d
+    assert "Refs #141" in d3d and "stays OPEN" in d3d
