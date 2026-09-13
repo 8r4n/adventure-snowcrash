@@ -38,7 +38,7 @@ ssh_remote_deploy/enabled=false
 ; Notes (not parsed by Godot — kept for humans / CI):
 ; - Preferred Deck SKU = this native Linux x86_64 export (not Windows+Proton-only).
 ; - Window: 1280x800, stretch canvas_items / keep (project.godot).
-; - Renderer: gl_compatibility (project.godot) for broader Deck GPU path.
+; - Renderer: Forward+ desktop / Mobile on Deck (project.godot). See docs/godot-3d.md.
 ; - After GodotSteam: ship libsteam_api.so beside the binary; use vanilla templates.
 ; - Optional later: preset.1 Windows Desktop for Win64 depot / Proton fallback.
 
