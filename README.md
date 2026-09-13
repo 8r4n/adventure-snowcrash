@@ -141,7 +141,8 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
 - **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; hooks for items, street events, journal, StreetNet broadcasts + slash cmds, ICE/cyber nodes, globe pins, CSP-safe UI panels (API 1.3). Example Hello Courier. See [docs/modding.md](docs/modding.md) and [docs/modding-workshop.md](docs/modding-workshop.md).
 - **QA automation (#112)** — env-gated bot/CI playtest harness (`ADVENTURE_QA=1` → `/qa/*` + WS `qa_snapshot`); off by default. See [docs/qa-automation.md](docs/qa-automation.md).
-- **Godot thin client (#109)** — research recommends Godot **4.x** as an additive native UI talking to the same `/ws` server (not a rewrite). Spike: [godot_client/](godot_client/). See [docs/godot-client.md](docs/godot-client.md).
+- **Godot thin client (#109 / #118)** — research recommends Godot **4.x** as an additive native UI talking to the same `/ws` server (not a rewrite). Spike + slice 1: [godot_client/](godot_client/). See [docs/godot-client.md](docs/godot-client.md).
+- **Steam quality bar (#130)** — north star: Steam-marketable, best-in-class Godot product; comps + gap analysis + ship priority. See [docs/steam-quality-bar.md](docs/steam-quality-bar.md).
 - **Scarce resource ecology (#57)** — bandwidth / condensate water / uplink spectrum wars on globe regions; claim or raid nodes; weather shifts with control. See [docs/ecology.md](docs/ecology.md).
 - **Empathy audit + synth bounties (#63)** — optional StreetNet empathy dialogue test + rogue-synth Retire/Reclaim contracts with heat/reputation swings. See [docs/empathy-bounties.md](docs/empathy-bounties.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
@@ -295,9 +296,10 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Modder plugin framework (JSON packs) | [docs/modding.md](docs/modding.md) · [docs/modding-workshop.md](docs/modding-workshop.md) | #72 · related #67 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |
-| Steam packaging research | [docs/steam-packaging.md](docs/steam-packaging.md) | #67 · parent #42 · related #72 |
+| Steam packaging research | [docs/steam-packaging.md](docs/steam-packaging.md) | #67 · parent #42 · related #72/#130 |
 | QA automation (bot playtest harness) | [docs/qa-automation.md](docs/qa-automation.md) | #112 |
 | Godot thin client (research + spike) | [docs/godot-client.md](docs/godot-client.md) · [godot_client/](godot_client/) | #109 · related #67/#75/#72 |
+| Steam quality bar (comps + gaps) | [docs/steam-quality-bar.md](docs/steam-quality-bar.md) | #130 · related #67/#118/#126/#72 |
 
 ## Package layout
 
@@ -329,7 +331,8 @@ adventure/
   docs/modding-workshop.md  # #72 Workshop-style pack notes (pair #67)
   docs/steam-packaging.md  # #67 Steam Direct / packaging research
   docs/godot-client.md      # #109 Godot 4 thin-client research
-  godot_client/             # #109 Godot 4 WebSocket spike (open in editor)
+  docs/steam-quality-bar.md # #130 Steam comps + quality bar + gaps
+  godot_client/             # #109/#118 Godot 4 client (open in editor)
   examples/plugins/hello_courier/   # #72 example mod
   mods/                             # user plugin drop folder
 ```

@@ -11,7 +11,7 @@ Sources checked 2026-09-13:
 - [Godot 4 WebSocket tutorial](https://docs.godotengine.org/en/stable/tutorials/networking/websocket.html) — `WebSocketPeer` (Godot 3 `WebSocketClient` is gone)
 - [WebSocketPeer class](https://docs.godotengine.org/en/stable/classes/class_websocketpeer.html)
 - [GodotSteam GDExtension](https://godotsteam.com/) — Steamworks for Godot 4.4+
-- In-repo: `snowcrash/web/app.py`, `snowcrash/static/game.js` (`Net`), `snowcrash/mmorpg.py` (`snapshot` / `handle_action`), [steam-packaging.md](steam-packaging.md), [mobile.md](mobile.md), [modding.md](modding.md), [fpv.md](fpv.md), [tui-fpv.md](tui-fpv.md), [theme-catppuccin.md](theme-catppuccin.md), [year_backend_actions.md](year_backend_actions.md)
+- In-repo: `snowcrash/web/app.py`, `snowcrash/static/game.js` (`Net`), `snowcrash/mmorpg.py` (`snapshot` / `handle_action`), [steam-packaging.md](steam-packaging.md), [steam-quality-bar.md](steam-quality-bar.md), [mobile.md](mobile.md), [modding.md](modding.md), [fpv.md](fpv.md), [tui-fpv.md](tui-fpv.md), [theme-catppuccin.md](theme-catppuccin.md), [year_backend_actions.md](year_backend_actions.md)
 
 ---
 
@@ -157,7 +157,7 @@ Spike wires WASD/QE after a successful join so a courier can walk without the br
 
 ### Steam (#67)
 
-[#67](https://github.com/8r4n/adventure-snowcrash/issues/67) recommended **Tauri 2 + PyInstaller sidecar** as the **fastest v1** because the **web client is already complete**. That still stands if the goal is “ship the current game on Steam this quarter.”
+[#67](https://github.com/8r4n/adventure-snowcrash/issues/67) recommended **Tauri 2 + PyInstaller sidecar** as the **fastest v1** because the **web client is already complete**. That still stands if the goal is “ship the current game on Steam this quarter.” Per **#130** / [steam-quality-bar.md](steam-quality-bar.md), the **preferred marketable SKU** is still this Godot client — Tauri is the calendar fallback, not the north star.
 
 Godot is the **better mid-term native SKU** once the thin client reaches playable FPV + docks:
 
@@ -401,7 +401,8 @@ Suggested next slice: **docks + StreetNet parity**.
 ---
 ## Related
 
-- [steam-packaging.md](steam-packaging.md) — #67 Tauri v1 SKU; Godot is the mid-term native SKU
+- [steam-quality-bar.md](steam-quality-bar.md) — #130 Steam comps + quality bar; Godot is the **preferred** Steam SKU
+- [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / assets; Tauri = calendar fallback wrap of web
 - [mobile.md](mobile.md) — #75 PWA; Godot is store-native later
 - [modding.md](modding.md) — #72 JSON plugins; Godot only renders
 - [fpv.md](fpv.md) / [tui-fpv.md](tui-fpv.md) — FPV pipelines to port
