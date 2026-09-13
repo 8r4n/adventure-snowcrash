@@ -111,6 +111,15 @@ func msaa_3d() -> int:
 	return 0 if is_low() else 1
 
 
+func materials_use_orm() -> bool:
+	## #156: Low drops ORM / normal maps (cheaper albedo + procedural trim).
+	return is_high()
+
+
+func materials_use_normal() -> bool:
+	return is_high()
+
+
 func fog_density_street() -> float:
 	return 0.012 if is_low() else 0.022
 

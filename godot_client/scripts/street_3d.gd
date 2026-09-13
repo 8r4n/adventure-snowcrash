@@ -1,11 +1,12 @@
 extends Node3D
 class_name Street3D
 ## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
+## #156: shared trim / PBR + Catppuccin recolor (MaterialLibrary) — Omni budget unchanged.
 ## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
 ## Slice 3: jack-in visual language — grid/node lattice, neon ICE walls, layer plates.
 ## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
-## Glyphs become PrimitiveMesh instances + Catppuccin emission materials.
+## Glyphs become PrimitiveMesh instances + Catppuccin trim materials (not solid color only).
 
 const TILE := 1.0
 const WALL_H := 2.55
@@ -151,6 +152,7 @@ func _apply_quality(force_rebuild: bool = false) -> void:
 		_max_pooled = MAX_POOLED_ENTITIES
 	_apply_environment_quality()
 	_sync_particles()
+	_apply_material_quality()
 	if rim:
 		rim.visible = GraphicsSettings.rim_enabled() if GraphicsSettings else true
 		rim.light_energy = GraphicsSettings.rim_energy() if GraphicsSettings else 0.42
@@ -344,57 +346,56 @@ func _apply_cam_rig() -> void:
 func _ensure_resources() -> void:
 	if not _mats.is_empty():
 		return
-	_mats["wall"] = _mat(Catppuccin.TEAL.darkened(0.32), 0.72, 0.22)
-	_mats["wall_hi"] = _mat(Catppuccin.SKY.darkened(0.15), 1.05, 0.28)
-	_mats["floor"] = _mat(Catppuccin.SURFACE0, 0.04, 0.08)
-	_mats["street"] = _mat(Catppuccin.MANTLE.lightened(0.1), 0.14, 0.32)
-	_mats["grass"] = _mat(Catppuccin.GREEN.darkened(0.55), 0.05, 0.0)
-	_mats["water"] = _mat(Color(0.29, 0.56, 0.85, 0.72), 0.35, 0.4)
-	_mats["door"] = _mat(Catppuccin.YELLOW, 0.7, 0.2)
-	_mats["void"] = _mat(Catppuccin.CRUST, 0.0, 0.0)
-	_mats["manhole"] = _mat(Catppuccin.OVERLAY0, 0.15, 0.6)
-	_mats["stairs"] = _mat(Catppuccin.LAVENDER.darkened(0.25), 0.25, 0.15)
-	_mats["loot"] = _mat(Catppuccin.YELLOW, 1.1, 0.1)
-	_mats["jack"] = _mat(Catppuccin.SKY, 2.55, 0.12)
-	_mats["uplink"] = _mat(Catppuccin.PEACH, 2.65, 0.15)
-	_mats["self"] = _mat(Catppuccin.TEAL, 0.7, 0.2)
-	_mats["npc"] = _mat(Catppuccin.LAVENDER, 0.55, 0.1)
-	_mats["infected"] = _mat(Catppuccin.GREEN, 0.7, 0.05)
-	_mats["thug"] = _mat(Catppuccin.PEACH, 0.75, 0.1)
-	_mats["drone"] = _mat(Catppuccin.MAUVE, 1.0, 0.35)
-	_mats["camera"] = _mat(Catppuccin.RED, 1.2, 0.2)
-	_mats["ice"] = _mat(Catppuccin.BLUE, 1.1, 0.25)
-	_mats["core"] = _mat(Catppuccin.PINK, 1.4, 0.15)
-	_mats["exit"] = _mat(Catppuccin.GREEN, 1.0, 0.1)
-	_mats["other"] = _mat(Catppuccin.BLUE, 0.65, 0.15)
-	_mats["other_hi"] = _mat(Catppuccin.SKY, 0.95, 0.2)
-	_mats["vendor"] = _mat(Catppuccin.YELLOW, 2.4, 0.2)
-	_mats["vendor_trim"] = _mat(Catppuccin.PEACH, 1.85, 0.25)
-	_mats["pickup"] = _mat(Catppuccin.YELLOW, 1.35, 0.1)
-	_mats["boss"] = _mat(Catppuccin.RED, 1.15, 0.2)
-	_mats["facing"] = _mat(Catppuccin.TEAL, 1.4, 0.15)
-	_mats["facing_other"] = _mat(Catppuccin.SKY, 1.3, 0.15)
-	_mats["obj_beam"] = _mat(Catppuccin.TEAL, 2.1, 0.1)
-	_mats["obj_ring"] = _mat(Catppuccin.YELLOW, 2.0, 0.15)
-	_mats["compass"] = _mat(Catppuccin.TEAL, 1.8, 0.1)
-	_mats["jack_shaft"] = _mat(Catppuccin.SKY, 2.8, 0.08)
-	_mats["uplink_shaft"] = _mat(Catppuccin.PEACH, 2.9, 0.08)
-	_mats["vendor_shaft"] = _mat(Catppuccin.YELLOW, 2.6, 0.1)
-	_mats["prop"] = _mat(Catppuccin.SURFACE1, 0.2, 0.2)
-	_mats["npc_head"] = _mat(Catppuccin.LAVENDER.lightened(0.12), 0.7, 0.1)
-	_mats["infected_head"] = _mat(Catppuccin.GREEN.darkened(0.15), 0.85, 0.05)
-	_mats["thug_head"] = _mat(Catppuccin.PEACH.darkened(0.1), 0.9, 0.15)
+	# #156 — shared trim / PBR library (Catppuccin roles). Not solid-color-only.
+	_mats["wall"] = MaterialLibrary.make("wall", Catppuccin.TEAL.darkened(0.32), 0.72, 0.22)
+	_mats["wall_hi"] = MaterialLibrary.make("wall_hi", Catppuccin.SKY.darkened(0.15), 1.05, 0.28)
+	_mats["floor"] = MaterialLibrary.make("floor", Catppuccin.SURFACE0, 0.04, 0.08)
+	_mats["street"] = MaterialLibrary.make("street", Catppuccin.MANTLE.lightened(0.1), 0.14, 0.32)
+	_mats["grass"] = MaterialLibrary.make("grass", Catppuccin.GREEN.darkened(0.55), 0.05, 0.0)
+	_mats["water"] = MaterialLibrary.make_alpha("water", Color(0.29, 0.56, 0.85, 0.72), 0.35, 0.4, 0.72)
+	_mats["door"] = MaterialLibrary.make("door", Catppuccin.YELLOW, 0.7, 0.2)
+	_mats["void"] = MaterialLibrary.make("void", Catppuccin.CRUST, 0.0, 0.0)
+	_mats["manhole"] = MaterialLibrary.make("manhole", Catppuccin.OVERLAY0, 0.15, 0.6)
+	_mats["stairs"] = MaterialLibrary.make("stairs", Catppuccin.LAVENDER.darkened(0.25), 0.25, 0.15)
+	_mats["loot"] = MaterialLibrary.make("loot", Catppuccin.YELLOW, 1.1, 0.1)
+	_mats["jack"] = MaterialLibrary.make("jack", Catppuccin.SKY, 2.55, 0.12)
+	_mats["uplink"] = MaterialLibrary.make("uplink", Catppuccin.PEACH, 2.65, 0.15)
+	_mats["self"] = MaterialLibrary.make("self", Catppuccin.TEAL, 0.7, 0.2)
+	_mats["npc"] = MaterialLibrary.make("npc", Catppuccin.LAVENDER, 0.55, 0.1)
+	_mats["infected"] = MaterialLibrary.make("infected", Catppuccin.GREEN, 0.7, 0.05)
+	_mats["thug"] = MaterialLibrary.make("thug", Catppuccin.PEACH, 0.75, 0.1)
+	_mats["drone"] = MaterialLibrary.make("drone", Catppuccin.MAUVE, 1.0, 0.35)
+	_mats["camera"] = MaterialLibrary.make("camera", Catppuccin.RED, 1.2, 0.2)
+	_mats["ice"] = MaterialLibrary.make("ice", Catppuccin.BLUE, 1.1, 0.25)
+	_mats["core"] = MaterialLibrary.make("core", Catppuccin.PINK, 1.4, 0.15)
+	_mats["exit"] = MaterialLibrary.make("exit", Catppuccin.GREEN, 1.0, 0.1)
+	_mats["other"] = MaterialLibrary.make("other", Catppuccin.BLUE, 0.65, 0.15)
+	_mats["other_hi"] = MaterialLibrary.make("other_hi", Catppuccin.SKY, 0.95, 0.2)
+	_mats["vendor"] = MaterialLibrary.make("vendor", Catppuccin.YELLOW, 2.4, 0.2)
+	_mats["vendor_trim"] = MaterialLibrary.make("vendor_trim", Catppuccin.PEACH, 1.85, 0.25)
+	_mats["pickup"] = MaterialLibrary.make("pickup", Catppuccin.YELLOW, 1.35, 0.1)
+	_mats["boss"] = MaterialLibrary.make("boss", Catppuccin.RED, 1.15, 0.2)
+	_mats["facing"] = MaterialLibrary.make("facing", Catppuccin.TEAL, 1.4, 0.15)
+	_mats["facing_other"] = MaterialLibrary.make("facing_other", Catppuccin.SKY, 1.3, 0.15)
+	_mats["obj_beam"] = MaterialLibrary.make("obj_beam", Catppuccin.TEAL, 2.1, 0.1)
+	_mats["obj_ring"] = MaterialLibrary.make("obj_ring", Catppuccin.YELLOW, 2.0, 0.15)
+	_mats["compass"] = MaterialLibrary.make("compass", Catppuccin.TEAL, 1.8, 0.1)
+	_mats["jack_shaft"] = MaterialLibrary.make("jack_shaft", Catppuccin.SKY, 2.8, 0.08)
+	_mats["uplink_shaft"] = MaterialLibrary.make("uplink_shaft", Catppuccin.PEACH, 2.9, 0.08)
+	_mats["vendor_shaft"] = MaterialLibrary.make("vendor_shaft", Catppuccin.YELLOW, 2.6, 0.1)
+	_mats["prop"] = MaterialLibrary.make("prop", Catppuccin.SURFACE1, 0.2, 0.2)
+	_mats["npc_head"] = MaterialLibrary.make("npc_head", Catppuccin.LAVENDER.lightened(0.12), 0.7, 0.1)
+	_mats["infected_head"] = MaterialLibrary.make("infected_head", Catppuccin.GREEN.darkened(0.15), 0.85, 0.05)
+	_mats["thug_head"] = MaterialLibrary.make("thug_head", Catppuccin.PEACH.darkened(0.1), 0.9, 0.15)
 	# Slice 3 — cyberspace / ICE lattice (distinct from street brick).
-	_mats["ice_wall"] = _mat_alpha(Color(0.25, 0.55, 0.85, 0.38), 0.55, 0.45, 0.38)
-	_mats["ice_frame"] = _mat(Catppuccin.SKY, 1.35, 0.55)
-	_mats["ice_floor"] = _mat(Color(0.08, 0.12, 0.22, 1), 0.12, 0.35)
-	_mats["ice_grid"] = _mat(Catppuccin.SKY, 1.6, 0.2)
-	_mats["ice_barrier"] = _mat_alpha(Color(0.35, 0.62, 1.0, 0.5), 1.4, 0.2, 0.5)
-	_mats["ice_node"] = _mat(Catppuccin.MAUVE, 1.6, 0.15)
-	_mats["ice_void"] = _mat(Color(0.02, 0.03, 0.07, 1), 0.0, 0.0)
-	_mats["ice_exit_ring"] = _mat(Catppuccin.GREEN, 1.7, 0.15)
-	if _mats["water"] is StandardMaterial3D:
-		(_mats["water"] as StandardMaterial3D).transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_mats["ice_wall"] = MaterialLibrary.make_alpha("ice_wall", Color(0.25, 0.55, 0.85, 0.38), 0.55, 0.45, 0.38)
+	_mats["ice_frame"] = MaterialLibrary.make("ice_frame", Catppuccin.SKY, 1.35, 0.55)
+	_mats["ice_floor"] = MaterialLibrary.make("ice_floor", Color(0.08, 0.12, 0.22, 1), 0.12, 0.35)
+	_mats["ice_grid"] = MaterialLibrary.make("ice_grid", Catppuccin.SKY, 1.6, 0.2)
+	_mats["ice_barrier"] = MaterialLibrary.make_alpha("ice_barrier", Color(0.35, 0.62, 1.0, 0.5), 1.4, 0.2, 0.5)
+	_mats["ice_node"] = MaterialLibrary.make("ice_node", Catppuccin.MAUVE, 1.6, 0.15)
+	_mats["ice_void"] = MaterialLibrary.make("ice_void", Color(0.02, 0.03, 0.07, 1), 0.0, 0.0)
+	_mats["ice_exit_ring"] = MaterialLibrary.make("ice_exit_ring", Catppuccin.GREEN, 1.7, 0.15)
 
 	var box := BoxMesh.new()
 	box.size = Vector3(1, 1, 1)
@@ -461,31 +462,24 @@ func _ensure_resources() -> void:
 	_meshes["ground"] = plane
 
 
-func _mat(color: Color, emission_energy: float = 0.0, metallic: float = 0.15) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.42
-	m.metallic = metallic
-	if emission_energy > 0.0:
-		m.emission_enabled = true
-		m.emission = color
-		m.emission_energy_multiplier = emission_energy
-	return m
+func _mat(color: Color, emission_energy: float = 0.0, metallic: float = 0.15) -> Material:
+	return MaterialLibrary.make_tint(color, emission_energy, metallic)
 
 
-func _mat_alpha(color: Color, emission_energy: float, metallic: float, alpha: float) -> StandardMaterial3D:
-	var m := _mat(color, emission_energy, metallic)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color.a = alpha
-	return m
+func _mat_alpha(color: Color, emission_energy: float, metallic: float, alpha: float) -> Material:
+	return MaterialLibrary.make_alpha("generic", color, emission_energy, metallic, alpha)
+
+
+func _apply_material_quality() -> void:
+	## Low drops normal / ORM (GraphicsSettings.materials_use_orm). High keeps PBR maps.
+	for k in _mats.keys():
+		MaterialLibrary.apply_quality(_mats[k])
 
 
 func _pulse_mat(key: String, energy: float) -> void:
 	if not _mats.has(key):
 		return
-	var m = _mats[key]
-	if m is StandardMaterial3D:
-		(m as StandardMaterial3D).emission_energy_multiplier = energy
+	MaterialLibrary.set_emission(_mats[key], energy)
 
 
 func _rebuild_map_if_needed(state: Dictionary, px: int, py: int) -> void:
@@ -896,8 +890,8 @@ func _update_objective_cue(state: Dictionary, px: int, py: int) -> void:
 func _pulse_objective_cue(pulse: float) -> void:
 	if not _obj_active or _objective_root == null or not _objective_root.visible:
 		return
-	if _objective_beam and _objective_beam.material_override is StandardMaterial3D:
-		(_objective_beam.material_override as StandardMaterial3D).emission_energy_multiplier = 1.6 + 0.7 * sin(_pulse * 3.6)
+	if _objective_beam and _objective_beam.material_override:
+		MaterialLibrary.set_emission(_objective_beam.material_override, 1.6 + 0.7 * sin(_pulse * 3.6))
 	if _objective_ring:
 		_objective_ring.rotation.y = _pulse * 1.4
 		_objective_ring.position.y = 4.4 + 0.12 * sin(_pulse * 2.8)

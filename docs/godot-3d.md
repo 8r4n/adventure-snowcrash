@@ -52,7 +52,7 @@ The demo is a **tech-art showcase** (authored hangar, baked lightmaps, trim-shee
 
 Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs #141`.
 
-- [ ] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
+- [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
 - [ ] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [ ] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
 - [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
@@ -211,6 +211,7 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | Glow / bloom | off (or dim stub) | on |
 | MSAA 3D (SubViewport) | off | 2× |
 | Rim Directional | off | on |
+| Materials (#156) | albedo + procedural trim (no normal/ORM) | trim albedo + normal + ORM |
 
 ### Particles (slice 5)
 
@@ -271,6 +272,7 @@ Minimum matrix: **street idle**, **street combat**, **ICE**, **globe** × **Low*
 | **Omni lights** | Street ceiling = **3** (courier `EyeLight` + J + U) | No vendor / pickup Omnis; globe Fill is a separate SubViewport |
 | **AOI entity count** | `GraphicsSettings` pool + radii | Low: build 12 / entity 10 / pool ≤24; High: 18 / 16 / ≤48 |
 | **Glow / MSAA** | High SubViewport + WorldEnvironment | Low: MSAA off, glow off/dim |
+| **PBR maps (#156)** | High: normal + ORM on shared trim shader | Low: `materials_use_orm()` false — albedo / procedural only |
 
 ### Low default tweak (#148)
 
@@ -449,7 +451,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 this PR; materials #156; lighting #157; kit #158; ground #159; diegesis #160; camera #161)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; lighting #157; kit #158; ground #159; diegesis #160; camera #161)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -457,7 +459,33 @@ Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
 ---
 
 
+## Materials library (#156)
+
+Shared **trim / PBR** under `godot_client/materials/` so street stills read as a 3D game, not untextured boxes. Python `/ws` unchanged. Omni ceiling still **courier + J + U**.
+
+| Piece | Role |
+|-------|------|
+| `recolor_trim.gdshader` | Spatial: albedo tint + emission (Catppuccin) × trim/procedural pattern; optional normal + ORM |
+| `library.gd` (`MaterialLibrary`) | Factory used by `street_3d.gd` rebuild — one ShaderMaterial per role, pooled |
+| `*.tres` | Editor-visible presets (`wall_teal`, `street_mantle`, `door_yellow`, `ice_glass`) |
+| `textures/trim_*.png` | Original 128² panel sheet + normal + packed ORM (AO/rough/metal) |
+| `textures/concrete_albedo.png` | Floor / street noise |
+| `textures/ice_grid.png` | Lattice grid for ICE glass |
+
+**Roles:** walls / floors / street / doors / J U $ landmarks / ICE use textured or trim-based mats (not solid color only). Recolor + emission map to Catppuccin (Teal / Sky / Peach / Yellow / …).
+
+**High vs Low:** `GraphicsSettings.materials_use_orm()` / `materials_use_normal()` — High samples normal + ORM; Low drops those maps and keeps cheaper albedo + procedural panels (Deck headroom, #148).
+
+**Not shipped:** Abandoned Spaceship meshes, textures, or third-party demo shaders. Textures are generated originals.
+
+J / U / $ silhouettes from #150 stay (taller shafts + glyph billboards).
+
+`Refs #163` · `Refs #141` — epics stay open.
+
+---
+
 ## Landmark readability (#150)
+
 
 Street-distance **J** / **U** / **$** language without dumping year docks:
 
@@ -478,7 +506,8 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats |
+| `godot_client/materials/` | Shared trim / PBR library (#156): `recolor_trim.gdshader`, `library.gd`, `.tres`, generated textures |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
 | `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload |
