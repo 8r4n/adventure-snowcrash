@@ -337,7 +337,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [ ] **30 fps+ measured** on mid PC and Steam Deck (budget documented only; no hardware pass)
 - [ ] Landmark / vendor readability **without HUD soup** (onboarding + docks still Control chrome)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
-- [ ] Desktop export builds (Linux / Windows / macOS) toward Steam (#130 / #67)
+- [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -372,6 +372,7 @@ Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
 - [godot-client.md](godot-client.md) — thin-client program + #118 slices
 - [steam-quality-bar.md](steam-quality-bar.md) — #130; 3D is the Steam presentation goal
 - [steam-deck.md](steam-deck.md) — #132 Deck checklist
+- [godot-desktop-export.md](godot-desktop-export.md) — #149 Linux/Windows export + Steam depot layout
 - [theme-catppuccin.md](theme-catppuccin.md) — palette attribution
 - [cyberspace.md](cyberspace.md) — #47 jack-in nodes
 - [ice-heists.md](ice-heists.md) — #56 Black Lattice Vault

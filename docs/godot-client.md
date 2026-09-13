@@ -392,7 +392,7 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
-Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps / Deck QA / exports / HUD soup) — see [godot-3d.md](godot-3d.md). Slices 1–6 shipped: Street #142 · Entities #143 · ICE #144 · Globe #145 · Polish #146 · ASCII overlay **this PR**.
+Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps / Deck QA / HUD soup) — see [godot-3d.md](godot-3d.md). Desktop export presets landed in **#149**. Slices 1–6 shipped: Street #142 · Entities #143 · ICE #144 · Globe #145 · Polish #146 · ASCII overlay **this PR**.
 
 ### Remaining epic items (later slices)
 
@@ -427,17 +427,18 @@ Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps
 - [x] SFX + mute + music beds / volume sliders (**#134** / [audio.md](audio.md))
 - [x] Settings: audio volumes + mute persist (ConfigFile; **#134**); name remember via onboarding
 - [ ] Settings remaining (theme, GPS hide, large type)
-- [ ] Export: Linux/Windows/macOS desktop builds
+- [x] Export: Linux/Windows desktop builds (**#149** / [godot-desktop-export.md](godot-desktop-export.md); macOS later)
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
-- [ ] Optional: Steam packaging path (#67 / #130) using Godot export
+- [x] Optional: Steam packaging path notes (#67 / #130) via Godot export + depot layout ([godot-desktop-export.md](godot-desktop-export.md); upload still gated)
 
-Suggested next: GPS minimap + death UX, Deck hardware fps pass, or desktop export toward Steam (#130). #141 ASCII overlay (slice 6) shipped.
+Suggested next: GPS minimap + death UX, Deck hardware fps pass (#132). Desktop export presets + script shipped (**#149**). #141 ASCII overlay (slice 6) shipped.
 
 ---
 ## Related
 
 - [audio.md](audio.md) — #134 SFX/music buses + trailer bed
 - [godot-3d.md](godot-3d.md) — #141 3D Metaverse street (Steam presentation goal)
+- [godot-desktop-export.md](godot-desktop-export.md) — #149 Linux/Windows headless export + `/ws` env
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 Steam comps + quality bar; **3D Godot** is the Steam presentation goal
 - [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / assets; Tauri = calendar fallback wrap of web
 - [mobile.md](mobile.md) — #75 PWA; Godot is store-native later
