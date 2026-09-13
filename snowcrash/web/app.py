@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from ..mmorpg import TICK_HZ, GameWorld
 from ..systems.aoi import interested_player_ids
+from ..systems import qa as qa_mod
 from ..theme import resolve_theme_name
 
 PKG = Path(__file__).resolve().parent.parent
@@ -38,6 +39,23 @@ class NewBody(BaseModel):
     name: Optional[str] = None
 
 
+class QaJoinBody(BaseModel):
+    name: str = "QaCourier"
+    soft_hardcore: bool = False
+
+
+class QaActionBody(BaseModel):
+    action: str = "noop"
+    arg: Optional[str] = None
+    name: Optional[str] = None
+    id: Optional[str] = None
+
+
+class QaLeaveBody(BaseModel):
+    name: Optional[str] = None
+    id: Optional[str] = None
+
+
 def create_app(default_seed: Optional[int] = None, deploy_env: str = "production") -> FastAPI:
     env = (deploy_env or "production").lower()
     if env not in ("production", "dev"):
@@ -56,6 +74,9 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
         app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
     world = GameWorld(default_seed if default_seed is not None else 42)
+    qa_on = qa_mod.qa_enabled()
+    if qa_on:
+        qa_mod.ensure_event_log(world)
     # websocket_id -> player_id
     sockets: Dict[WebSocket, str] = {}
     # player_id -> set of websockets (usually 1)
@@ -118,6 +139,7 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                 "title": title,
                 "deploy_env": env,
                 "is_dev": env == "dev",
+                "qa_enabled": qa_on,
                 "default_theme": resolve_theme_name(os.environ.get("SNOWCRASH_THEME")),
             },
         )
@@ -140,7 +162,13 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
 
     @app.get("/api/env")
     async def api_env() -> Dict[str, Any]:
-        return {"env": env, "mmorpg": True, "seed": world.seed}
+        return {
+            "env": env,
+            "mmorpg": True,
+            "seed": world.seed,
+            "qa": qa_on,
+            "qa_env": qa_mod.QA_ENV_VAR if qa_on else None,
+        }
 
     @app.get("/api/state")
     async def api_state(name: str = "Courier") -> JSONResponse:
@@ -215,7 +243,100 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
             "year_backend": True,
             "weather": getattr(world, "weather_state", {}),
             "aoi": True,
+            "qa": qa_on,
         }
+
+    # ---- QA automation surface (#112) — only when ADVENTURE_QA is truthy ----
+    def _qa_off() -> JSONResponse:
+        return JSONResponse(
+            {"ok": False, "error": "QA automation disabled", "hint": "export ADVENTURE_QA=1"},
+            status_code=404,
+        )
+
+    @app.get("/qa/status")
+    async def qa_status() -> Any:
+        if not qa_on:
+            return _qa_off()
+        return {
+            "ok": True,
+            "qa": True,
+            "seed": world.seed,
+            "tick": world.tick,
+            "online": sum(1 for p in world.players.values() if p.connected),
+            "events": len(getattr(world, "qa_events", []) or []),
+            "env": env,
+        }
+
+    @app.post("/qa/join")
+    async def qa_join(body: QaJoinBody) -> Any:
+        if not qa_on:
+            return _qa_off()
+        async with lock:
+            agent = world.join(body.name, soft_hardcore=bool(body.soft_hardcore))
+            world.reconnect_parked(agent)
+            agent.connected = True
+            qa_mod.record_event(world, "join", agent)
+            snap = qa_mod.structured_snapshot(world, agent)
+        return JSONResponse({"ok": True, "you": agent.id, "state": snap})
+
+    @app.post("/qa/action")
+    async def qa_action(body: QaActionBody) -> Any:
+        if not qa_on:
+            return _qa_off()
+        async with lock:
+            agent = qa_mod.find_agent(world, name=body.name, player_id=body.id)
+            if not agent:
+                name = body.name or "QaCourier"
+                agent = world.join(name)
+                world.reconnect_parked(agent)
+                agent.connected = True
+                qa_mod.record_event(world, "join", agent, via="action")
+            world.handle_action(agent, str(body.action or "noop"), body.arg)
+            qa_mod.record_event(
+                world, "action", agent, action=str(body.action or "noop"), arg=body.arg
+            )
+            snap = qa_mod.structured_snapshot(world, agent)
+        return JSONResponse({"ok": True, "you": agent.id, "state": snap})
+
+    @app.get("/qa/snapshot")
+    async def qa_snapshot(name: str = "QaCourier", id: Optional[str] = None) -> Any:
+        if not qa_on:
+            return _qa_off()
+        async with lock:
+            agent = qa_mod.find_agent(world, name=name, player_id=id)
+            if not agent:
+                return JSONResponse(
+                    {"ok": False, "error": "courier not found — POST /qa/join first"},
+                    status_code=404,
+                )
+            snap = qa_mod.structured_snapshot(world, agent)
+        return JSONResponse({"ok": True, "you": agent.id, "state": snap})
+
+    @app.get("/qa/events")
+    async def qa_events(limit: int = 50) -> Any:
+        if not qa_on:
+            return _qa_off()
+        lim = max(1, min(200, int(limit)))
+        events = list(getattr(world, "qa_events", []) or [])[-lim:]
+        return JSONResponse({"ok": True, "events": events, "seed": world.seed})
+
+    @app.post("/qa/leave")
+    async def qa_leave(body: QaLeaveBody) -> Any:
+        if not qa_on:
+            return _qa_off()
+        async with lock:
+            agent = qa_mod.find_agent(world, name=body.name, player_id=body.id)
+            if not agent:
+                return JSONResponse({"ok": False, "error": "courier not found"}, status_code=404)
+            pid = agent.id
+            qa_mod.record_event(world, "leave", agent)
+            # Drop any live sockets for this player, then park the body
+            for ws, sid in list(sockets.items()):
+                if sid == pid:
+                    await _detach(ws)
+            if pid in world.players and world.players[pid].connected:
+                world.leave(pid)
+        return JSONResponse({"ok": True, "left": pid})
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
@@ -239,7 +360,12 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                 sockets[ws] = player_id
                 player_sockets.setdefault(player_id, set()).add(ws)
                 snap = world.snapshot(agent)
-            await ws.send_json({"type": "welcome", "you": player_id, "state": snap})
+                if qa_on:
+                    qa_mod.record_event(world, "join", agent, via="ws")
+            welcome: Dict[str, Any] = {"type": "welcome", "you": player_id, "state": snap}
+            if qa_on:
+                welcome["qa"] = True
+            await ws.send_json(welcome)
             await broadcast_snapshots()
 
             while True:
@@ -267,10 +393,26 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
                         agent = world.players.get(player_id) if player_id else None
                         if not agent:
                             continue
-                        world.handle_action(agent, str(msg.get("action") or "noop"), msg.get("arg"))
+                        act = str(msg.get("action") or "noop")
+                        world.handle_action(agent, act, msg.get("arg"))
+                        if qa_on:
+                            qa_mod.record_event(world, "action", agent, action=act, arg=msg.get("arg"), via="ws")
                         # AOI interest management (#18) — nearby + social, not full O(n²)
                         interested = interested_player_ids(world, player_id)
                         await broadcast_snapshots(only=interested)
+                    continue
+                if qa_on and mtype == "qa_snapshot":
+                    async with lock:
+                        agent = world.players.get(player_id) if player_id else None
+                        if not agent:
+                            continue
+                        qsnap = qa_mod.structured_snapshot(world, agent)
+                    await ws.send_json({"type": "qa_snapshot", "state": qsnap})
+                    continue
+                if qa_on and mtype == "qa_events":
+                    lim = max(1, min(200, int(msg.get("limit") or 50)))
+                    events = list(getattr(world, "qa_events", []) or [])[-lim:]
+                    await ws.send_json({"type": "qa_events", "events": events, "seed": world.seed})
                     continue
                 if mtype == "respawn":
                     async with lock:

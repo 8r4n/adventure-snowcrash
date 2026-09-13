@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#11111b" />
   <meta name="snowcrash-theme" content="{{ default_theme|default('mocha') }}" />
+  <meta name="snowcrash-qa" content="{% if qa_enabled %}1{% else %}0{% endif %}" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,7 +17,7 @@
   <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
-<body class="{% if is_dev %}env-dev{% else %}env-production{% endif %}">
+<body class="{% if is_dev %}env-dev{% else %}env-production{% endif %}" data-qa="{% if qa_enabled %}1{% else %}0{% endif %}">
   <div id="name-gate" class="name-gate" aria-modal="true" role="dialog">
     <div class="name-gate-card">
       <p class="intro-kicker">METAVERSE LAYER · MMORPG{% if is_dev %} · DEV{% endif %}</p>
