@@ -3,6 +3,7 @@ class_name Street3D
 ## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
 ## #158: modular corridor / prop kit (MeshKit) — snapshot-placed, original meshes.
 ## #156: shared trim / PBR + Catppuccin recolor (MaterialLibrary) — Omni budget unchanged.
+## #159: ground blend (floor/street/grass/water/rubble) — world-space shared mats; Low cheaper.
 ## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
 ## #161: camera juice (look smooth, bob, landing FOV, entity mesh lerp) — cosmetic only; /ws authority.
@@ -374,10 +375,12 @@ func _ensure_resources() -> void:
 	# #156 — shared trim / PBR library (Catppuccin roles). Not solid-color-only.
 	_mats["wall"] = MaterialLibrary.make("wall", Catppuccin.TEAL.darkened(0.32), 0.72, 0.22)
 	_mats["wall_hi"] = MaterialLibrary.make("wall_hi", Catppuccin.SKY.darkened(0.15), 1.05, 0.28)
-	_mats["floor"] = MaterialLibrary.make("floor", Catppuccin.SURFACE0, 0.04, 0.08)
-	_mats["street"] = MaterialLibrary.make("street", Catppuccin.MANTLE.lightened(0.1), 0.14, 0.32)
-	_mats["grass"] = MaterialLibrary.make("grass", Catppuccin.GREEN.darkened(0.55), 0.05, 0.0)
-	_mats["water"] = MaterialLibrary.make_alpha("water", Color(0.29, 0.56, 0.85, 0.72), 0.35, 0.4, 0.72)
+	# #159 — ground blend roles (shared world-space shader; AOI-friendly).
+	_mats["floor"] = MaterialLibrary.make_ground("floor", Catppuccin.SURFACE0, 0.04, 0.08)
+	_mats["street"] = MaterialLibrary.make_ground("street", Catppuccin.MANTLE.lightened(0.1), 0.14, 0.28)
+	_mats["grass"] = MaterialLibrary.make_ground("grass", Catppuccin.GREEN.darkened(0.55), 0.05, 0.0)
+	_mats["water"] = MaterialLibrary.make_ground_alpha("water", Color(0.29, 0.56, 0.85, 0.72), 0.35, 0.4, 0.72)
+	_mats["rubble"] = MaterialLibrary.make_ground("rubble", Catppuccin.OVERLAY0.darkened(0.25), 0.06, 0.12)
 	_mats["door"] = MaterialLibrary.make("door", Catppuccin.YELLOW, 0.7, 0.2)
 	_mats["void"] = MaterialLibrary.make("void", Catppuccin.CRUST, 0.0, 0.0)
 	_mats["manhole"] = MaterialLibrary.make("manhole", Catppuccin.OVERLAY0, 0.15, 0.6)
@@ -600,12 +603,14 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 			_add_mesh(map_root, wall_mesh, mat, origin + Vector3(0, WALL_H * 0.5, 0), Vector3(1.0, WALL_H, 1.0))
 		"floor":
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
+			_maybe_rubble_overlay(origin, x, y)
 			_maybe_scatter_prop(origin, x, y, "floor")
 		"street":
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["street"], origin + Vector3(0, 0.04, 0))
 			# Neon lane tick — kit strip when available
 			var strip: Mesh = _kit("neon_strip", _meshes["box"])
 			_add_mesh(map_root, strip, _mats["door"], origin + Vector3(0, 0.08, 0), Vector3(1.0, 1.0, 1.0) if strip != _meshes["box"] else Vector3(0.12, 0.02, 0.55))
+			_maybe_rubble_overlay(origin, x, y)
 			_maybe_scatter_prop(origin, x, y, "street")
 		"grass":
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["grass"], origin + Vector3(0, 0.04, 0))

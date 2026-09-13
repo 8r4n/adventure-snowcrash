@@ -55,7 +55,7 @@ Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs
 - [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
 - [x] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
-- [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
+- [x] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
 - [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: this section + [steam-quality-bar.md](steam-quality-bar.md) cite (this PR)
@@ -231,6 +231,7 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | Rim Directional | off | on |
 | Materials (#156) | albedo + procedural trim (no normal/ORM) | trim albedo + normal + ORM |
 | Kit scatter (#158) | off (AOI mesh headroom) | crates / pipes / foliage / vents |
+| Ground blend (#159) | single tinted albedo | world-space multi-tex + rubble chips |
 | Head bob (#161) | **forced off** | optional (F7; default off) |
 | Look smooth (#161) | on (cosmetic yaw/pos rates) | on (default) |
 | SSAO (#157) | **off** | on |
@@ -479,7 +480,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; ground #159; diegesis #160)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; diegesis #160)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -550,6 +551,28 @@ J / U / $ silhouettes from #150 stay (taller shafts + glyph billboards).
 
 ---
 
+
+## Ground blend (#159)
+
+Floor glyphs (`.` `=` `,` `~`) plus a **rubble** overlay role use a shared **world-space** blend shader so streets don’t read as flat colored slabs. Python `/ws` unchanged. Omni ceiling still **courier + J + U**.
+
+| Piece | Role |
+|-------|------|
+| `ground_blend.gdshader` | Spatial: primary + secondary + rubble mix driven by **world XZ noise** (continuous across AOI tiles) |
+| `MaterialLibrary.make_ground` / `make_ground_alpha` | One shared ShaderMaterial per ground role — **no per-tile bake** |
+| `textures/ground_*.png` | Original 128² sheets: floor / street / grass / water / rubble |
+| Sparse rubble chips | High only — small boxes with `rubble` mat on some `.` / `=` tiles |
+
+**AOI rebuild:** mats are pooled by role; noise uses world position so rebuild/move doesn’t need unique materials. Neighbor seams soften via continuous noise rather than vertex-color baking.
+
+**High vs Low:** `GraphicsSettings.ground_blend_full()` — High samples secondary + rubble + cheap normals; Low keeps a single tinted albedo (Deck / #148). `ground_rubble_overlay()` is High-only.
+
+**Not shipped:** Abandoned Spaceship `GroundBase` shader / textures. Original Catppuccin-tinted blend.
+
+`Refs #163` · `Refs #141` — epics stay open.
+
+---
+
 ## Modular corridor + prop kit (#158)
 
 Keep **glyph → instance** from live `/ws` snapshots. Swap many `BoxMesh` terrain roles for an **original** modular kit under `godot_client/models/` (parsed by `MeshKit` — no Godot import step required).
@@ -606,13 +629,13 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats / #161 camera juice / #157 GI+probes |
-| `godot_client/materials/` | Shared trim / PBR library (#156): `recolor_trim.gdshader`, `library.gd`, `.tres`, generated textures |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats / #159 ground / #161 camera juice / #157 GI+probes |
+| `godot_client/materials/` | Shared trim / PBR (#156) + ground blend (#159): `recolor_trim.gdshader`, `ground_blend.gdshader`, `library.gd`, `.tres`, generated textures |
 | `godot_client/models/` | #158 original OBJ kit (wall panel, floor tile, door frame, crate, pipe, neon, foliage, vent) |
 | `godot_client/scripts/mesh_kit.gd` | OBJ → ArrayMesh loader + role catalog (`MeshKit`) |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
-| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload (+ #161 bob / look smooth · #157 SSAO/SSIL/TAA/vol/probes) |
+| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload (+ #161 bob / look smooth · #157 SSAO/SSIL/TAA/vol/probes · #159 ground blend) |
 | `godot_client/scenes/main.tscn` | Street + Globe SubViewports + AsciiOverlay + Quality |
 | `godot_client/scripts/main.gd` | View cycle (3D/3D+ASCII/FPV/map), overlay, globe, cam/quality |
 | `godot_client/scripts/year_docks.gd` | Globe dock hybrid list + open/close → overlay |
