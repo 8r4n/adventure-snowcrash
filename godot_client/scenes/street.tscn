@@ -59,6 +59,8 @@ shadow_enabled = false
 
 [node name="LandmarkRoot" type="Node3D" parent="."]
 
+[node name="ScreenRoot" type="Node3D" parent="."]
+
 [node name="FxRoot" type="Node3D" parent="."]
 
 [node name="Courier" type="Node3D" parent="."]

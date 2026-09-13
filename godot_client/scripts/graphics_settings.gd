@@ -4,6 +4,7 @@ extends Node
 ## #161 camera juice (look smooth / head bob) is cosmetic only — no client position authority.
 ## #157 High SSAO/SSIL/TAA/volumetric + probes — Low keeps these off (Deck / #148).
 ## #159 ground blend full path is High-only; Low keeps cheaper single-albedo ground.
+## #160 diegetic screens: Low simplifies / hides in ICE.
 
 const CONFIG_PATH := "user://snowcrash_client.cfg"
 const CONFIG_SECTION := "graphics"
@@ -138,6 +139,11 @@ func ground_blend_full() -> bool:
 
 func ground_rubble_overlay() -> bool:
 	## Sparse rubble chips on floor/street — High only (AOI mesh headroom).
+	return is_high()
+
+
+func diegetic_screens_detailed() -> bool:
+	## #160: High full StreetNet/objective lines; Low short labels (and hide in ICE).
 	return is_high()
 
 
