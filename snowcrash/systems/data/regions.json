@@ -146,7 +146,9 @@
       "lon": -74.01,
       "label": "Atlantic uplink towers",
       "home": false,
-      "shard_seed": 54101
+      "shard_seed": 54101,
+      "chunk_path": "shards/neo_nyc.json",
+      "shard_source": "osm_ascii_v1"
     },
     {
       "id": "vancouver_grid",
@@ -201,7 +203,9 @@
       "lon": -0.13,
       "label": "Fog-bank courier alleys",
       "home": false,
-      "shard_seed": 54106
+      "shard_seed": 54106,
+      "chunk_path": "shards/london_fog.json",
+      "shard_source": "osm_ascii_v1"
     },
     {
       "id": "berlin_circuit",
@@ -324,7 +328,9 @@
       "lon": 103.82,
       "label": "Sterile uplink core",
       "home": false,
-      "shard_seed": 54117
+      "shard_seed": 54117,
+      "chunk_path": "shards/singapore_core.json",
+      "shard_source": "osm_ascii_v1"
     },
     {
       "id": "jakarta_arch",
@@ -392,7 +398,9 @@
       "lon": 151.21,
       "label": "Harbor reef uplinks",
       "home": false,
-      "shard_seed": 54123
+      "shard_seed": 54123,
+      "chunk_path": "shards/sydney_reef.json",
+      "shard_source": "osm_ascii_v1"
     },
     {
       "id": "auckland_edge",
@@ -433,8 +441,12 @@
     "format": "snowcrash_ascii_shard_v1",
     "loader": "snowcrash.systems.ascii_shard",
     "pilots": [
+      "berlin_circuit",
+      "london_fog",
+      "neo_nyc",
       "neo_tokyo",
-      "berlin_circuit"
+      "singapore_core",
+      "sydney_reef"
     ],
     "research": "docs/osm-procedural-globe.md"
   }

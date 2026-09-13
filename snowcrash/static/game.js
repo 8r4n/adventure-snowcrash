@@ -2159,11 +2159,25 @@
       return [x, y];
     }
 
+    // Globe UI local search state (survives snapshot re-renders)
+    const _globeUiState = { q: "", ascii: false, focus: false, selStart: 0, selEnd: 0 };
+
     function renderGlobe(s) {
       if (!els.globeBody) return;
       const g = defObj(s.globe);
-      const regions = defArr(g.regions);
-      if (!regions.length) {
+      const regionsAll = defArr(g.regions);
+      // Prefer live UI state; seed from server when empty
+      if (!_globeUiState.q && defStr(g.search, "")) _globeUiState.q = defStr(g.search, "");
+      if (!_globeUiState.ascii && defBool(g.filter_ascii, false)) _globeUiState.ascii = true;
+      const q = String(_globeUiState.q || "").trim().toLowerCase();
+      const asciiOnly = !!_globeUiState.ascii;
+      const regions = regionsAll.filter((r) => {
+        if (asciiOnly && !defBool(r.has_ascii_shard, false)) return false;
+        if (!q) return true;
+        const hay = [r.id, r.name, r.continent, r.label, r.kind].map((x) => String(x || "").toLowerCase()).join(" ");
+        return q.split(/\s+/).every((t) => t && hay.includes(t));
+      });
+      if (!regionsAll.length) {
         els.globeBody.innerHTML = '<div class="panel-empty">Globe layer offline</div>';
         els.globeBody.classList.remove("globe-body");
         return;
@@ -2189,6 +2203,31 @@
         `<button type="button" data-globe-zoom="region"${zoom === "region" ? ' class="active"' : ""}>Regions</button>` +
         `<button type="button" data-globe-zoom="globe"${zoom === "globe" ? ' class="active"' : ""}>Globe</button>` +
         `</div>`;
+      const searchVal = escapeHtml(String(_globeUiState.q || ""));
+      const asciiCount = defNum(g.ascii_shard_count, regionsAll.filter((r) => defBool(r.has_ascii_shard, false)).length);
+      const searchBar =
+        `<div class="globe-search-bar">` +
+        `<input id="globe-search" type="search" maxlength="64" autocomplete="off" inputmode="search" ` +
+        `placeholder="Search region / city / continent" value="${searchVal}" aria-label="Search globe regions" />` +
+        `<button type="button" data-globe-filter="ascii"${asciiOnly ? ' class="active"' : ""} title="ASCII shard pilots">ASCII (${asciiCount})</button>` +
+        `<button type="button" data-globe-filter="all"${!asciiOnly ? ' class="active"' : ""}>All</button>` +
+        `</div>` +
+        `<div class="row dim globe-search-meta">${regions.length}/${regionsAll.length} shown` +
+        (q ? ` · query "${escapeHtml(q)}"` : "") +
+        `</div>`;
+      const geoObjs = defArr(g.geo_objectives);
+      const geoStrip = geoObjs.length
+        ? `<div class="globe-geo-strip"><strong>StreetNet geo</strong> ` +
+          geoObjs.slice(0, 4).map((o) => {
+            const rid = defStr(o.region_id, "");
+            const tracked = defStr(g.tracked_geo_region, "") === rid ? " · TRACKED" : "";
+            return `<button type="button" class="chip" data-globe-track="${escapeHtml(rid)}" title="${escapeHtml(defStr(o.headline, ""))}">${escapeHtml(defStr(o.region_name, rid))}${tracked}</button>`;
+          }).join(" ") +
+          (defStr(g.tracked_geo_region, "")
+            ? ` <button type="button" class="chip" data-globe-track="clear">Clear track</button>`
+            : "") +
+          `</div>`
+        : "";
       const shardNote = (() => {
         const src = defStr(g.shard_source, "");
         if (src === "osm_ascii") return ` · ASCII shard${g.chunk_path ? " (" + escapeHtml(defStr(g.chunk_path, "")) + ")" : ""}`;
@@ -2199,14 +2238,26 @@
       const meta =
         `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}${shardNote}<br/>Hop cost ${cost} cr · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"} · <button type="button" data-globe="recall">Recall home</button></div>`;
 
+      const restoreGlobeSearch = () => {
+        const inp = document.getElementById("globe-search");
+        if (!inp) return;
+        if (_globeUiState.focus) {
+          inp.focus();
+          try { inp.setSelectionRange(_globeUiState.selStart || 0, _globeUiState.selEnd || 0); } catch (e) {}
+        }
+      };
+
       if (zoom === "street") {
         els.globeBody.innerHTML =
           zoomBar +
+          searchBar +
+          geoStrip +
           meta +
           `<div class="globe-street-card"><strong>Street GPS</strong><p class="dim">You are sleeved in ${escapeHtml(defStr(reg.name, cur))} (${escapeHtml(cur)}). Zoom to <em>Regions</em> or <em>Globe</em> to uplink-hop.</p>` +
           `<button type="button" data-globe-zoom="region">Open region list</button> ` +
           `<button type="button" data-globe-zoom="globe">Zoom to Earth</button></div>` +
           `<div class="row dim">${escapeHtml(defStr(g.hint, "Street GPS."))}</div>`;
+        restoreGlobeSearch();
         return;
       }
 
@@ -2238,10 +2289,13 @@
           : "";
         els.globeBody.innerHTML =
           zoomBar +
+          searchBar +
+          geoStrip +
           meta +
           filterNote +
           `<div class="globe-region-list">${list}</div>` +
           `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a region to hop."))}</div>`;
+        restoreGlobeSearch();
         return;
       }
 
@@ -2283,11 +2337,14 @@
       }).join("");
       els.globeBody.innerHTML =
         zoomBar +
+        searchBar +
+        geoStrip +
         meta +
         `<svg class="globe-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Schematic Earth region picker"><rect class="ocean" width="${w}" height="${h}"/>${land}${pins}</svg>` +
         (ecoStrip ? `<div class="globe-ecology-strip"><strong>Scarce nodes</strong> ${ecoStrip}</div>` : "") +
         `<div class="globe-region-list globe-region-list-compact">${list}</div>` +
         `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a pin to uplink-hop."))}</div>`;
+      restoreGlobeSearch();
     }
 
 
@@ -3061,7 +3118,7 @@
         renderSeason(s);
         renderRaid(s);
         renderIce(s);
-        renderGlobe(s);
+        window.__lastSnap = s; renderGlobe(s);
         renderSleeves(s);
         renderPrimer(s);
         renderJaunte(s);
@@ -3215,6 +3272,11 @@
       bindPanel(els.globeBody, [
         ["data-tp", (v) => send("teleport", v)],
         ["data-globe-zoom", (v) => send("globe_zoom", v)],
+        ["data-globe-filter", (v) => {
+          _globeUiState.ascii = (v === "ascii");
+          send("globe_filter", _globeUiState.ascii ? "ascii" : "all");
+        }],
+        ["data-globe-track", (v) => send("globe_track", v)],
         ["data-globe", (v) => {
           if (v === "recall") send("globe_recall");
           else if (v === "open") send("globe");
@@ -3224,6 +3286,33 @@
           else send("globe_" + v);
         }],
       ]);
+      if (els.globeBody && !els.globeBody.dataset.searchBound) {
+        els.globeBody.dataset.searchBound = "1";
+        let searchTimer = null;
+        els.globeBody.addEventListener("input", (ev) => {
+          const t = ev.target;
+          if (!t || t.id !== "globe-search") return;
+          _globeUiState.q = t.value || "";
+          _globeUiState.focus = true;
+          _globeUiState.selStart = t.selectionStart || 0;
+          _globeUiState.selEnd = t.selectionEnd || 0;
+          // Local re-filter immediately via latest snapshot if available
+          if (typeof lastSnap !== "undefined" && lastSnap) renderGlobe(lastSnap);
+          else if (window.__lastSnap) renderGlobe(window.__lastSnap);
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(() => send("globe_search", _globeUiState.q), 220);
+        });
+        els.globeBody.addEventListener("focusin", (ev) => {
+          if (ev.target && ev.target.id === "globe-search") _globeUiState.focus = true;
+        });
+        els.globeBody.addEventListener("focusout", (ev) => {
+          if (ev.target && ev.target.id === "globe-search") {
+            _globeUiState.focus = false;
+            _globeUiState.selStart = ev.target.selectionStart || 0;
+            _globeUiState.selEnd = ev.target.selectionEnd || 0;
+          }
+        });
+      }
       bindPanel(els.sleevesBody, [
         ["data-sleeve-hop", (v) => send("sleeve", v)],
         ["data-sleeve-rent", (v) => send("sleeve_rent", v)],

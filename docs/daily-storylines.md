@@ -32,7 +32,7 @@ Issue **#51** (related **#54** geo, **#58** forecasts). Each morning an agent re
 }
 ```
 
-On world init (and `reload_daily_storylines()`), today's entry fires each beat once: geo stamp, news-arc intensity bump, event ticker line, hottest beat → `system_chat`.
+On world init (and `reload_daily_storylines()`), today's entry fires each beat once: **region resolve** (explicit `region_id` → lat/lon nearest → stable city hash), geo stamp via `attach_news_arc` / `attach_news_geo`, news-arc intensity bump, event ticker line, hottest beat → `system_chat` (includes region name). Live beats keep `region_id` + `geo` for journal / globe compass (`globe_track`).
 
 ## Snapshot
 

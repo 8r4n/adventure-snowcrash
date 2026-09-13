@@ -858,6 +858,26 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                 self._analytics("payload", agent)
         if hasattr(self, "_modding_update_journal"):
             self._modding_update_journal(agent)
+        # Daily geo side quests (#51 → #54 compass / journal)
+        if hasattr(self, "_globe_geo_objectives"):
+            sides = list(j.get("side") or [])
+            sides = [s for s in sides if not (isinstance(s, dict) and str(s.get("id") or "").startswith("geo_daily_"))]
+            for o in self._globe_geo_objectives():
+                rid = o.get("region_id")
+                if not rid:
+                    continue
+                sides.append(
+                    {
+                        "id": "geo_daily_%s" % rid,
+                        "title": "StreetNet @ %s" % (o.get("region_name") or rid),
+                        "objective": "teleport %s — %s"
+                        % (rid, str(o.get("headline") or "daily allegory")[:80]),
+                        "region_id": rid,
+                        "status": "active",
+                        "geo": True,
+                    }
+                )
+            j["side"] = sides[:8]
 
     # ----- analytics -----
     def _analytics(self, kind: str, agent=None, **extra: Any) -> None:
@@ -1136,6 +1156,9 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             "globe_recall", "recall", "home_hop",
             "globe_failsafe", "globe_rescue",
             "globe_zoom", "zoom_globe",
+            "globe_search", "search_globe", "region_search",
+            "globe_filter", "filter_globe",
+            "globe_track", "track_geo", "geo_track",
         ):
             return self._globe_action(agent, a, arg or "")
 

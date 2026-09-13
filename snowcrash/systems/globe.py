@@ -5,6 +5,7 @@ snowcrash_ascii_shard_v1 pack (regions.json chunk_path / OSM→ASCII) when
 present, else mapgen(region shard_seed). Home region keeps the live shared
 street world. News pipeline (#51) can stamp region_id via attach_news_geo().
 Zoom ladder: street → region list → schematic globe.
+Region search / ASCII filter + cross-region geo compass for daily beats.
 """
 
 from __future__ import annotations
@@ -55,8 +56,12 @@ class GlobeMixin:
             "StreetNet globe layer online — zoom out and uplink-hop regions (#54 stub).",
         )
 
-    def reload_region_defs(self) -> None:
-        """Hot-reload regions.json (keeps loaded shards until next teleport)."""
+    def reload_region_defs(self, *, drop_stale_shards: bool = True) -> None:
+        """Hot-reload regions.json; optionally drop shards whose chunk_path changed."""
+        old_paths = {
+            rid: (reg or {}).get("chunk_path")
+            for rid, reg in getattr(self, "globe_regions", {}).items()
+        }
         doc = _load_regions_doc()
         self.globe_defs = doc
         self.globe_home_id = str(doc.get("home_region_id") or self.globe_home_id)
@@ -67,6 +72,37 @@ class GlobeMixin:
         self.globe_regions = {
             str(r["id"]): dict(r) for r in doc.get("regions", []) if r.get("id")
         }
+        if drop_stale_shards:
+            self.reload_shard_packs(force=False, old_paths=old_paths)
+
+    def reload_shard_packs(
+        self,
+        *,
+        force: bool = False,
+        old_paths: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """Invalidate cached shards so next hop reloads JSON/mapgen packs.
+
+        When force=False, only drop shards whose chunk_path changed or whose
+        region disappeared. Returns dropped region ids.
+        """
+        dropped: List[str] = []
+        shards = getattr(self, "globe_shards", None)
+        if not isinstance(shards, dict):
+            return dropped
+        for rid in list(shards.keys()):
+            reg = self._globe_region(rid)
+            if force or reg is None:
+                shards.pop(rid, None)
+                dropped.append(rid)
+                continue
+            if old_paths is not None:
+                prev = old_paths.get(rid)
+                cur = reg.get("chunk_path")
+                if prev != cur:
+                    shards.pop(rid, None)
+                    dropped.append(rid)
+        return dropped
 
     def _globe_bootstrap_agent(self, agent) -> None:
         g = getattr(agent, "globe", None)
@@ -82,6 +118,10 @@ class GlobeMixin:
                 "last_safe_z": int(getattr(agent, "last_good_z", 0) or 0),
                 "teleports": 0,
                 "fog_by_region": {},
+                "search": "",
+                "filter_ascii": False,
+                "tracked_geo_region": None,
+                "tracked_geo_beat": None,
             }
             return
         g.setdefault("region_id", self.globe_home_id)
@@ -94,6 +134,10 @@ class GlobeMixin:
         g.setdefault("last_safe_z", int(getattr(agent, "last_good_z", 0) or 0))
         g.setdefault("teleports", 0)
         g.setdefault("fog_by_region", {})
+        g.setdefault("search", "")
+        g.setdefault("filter_ascii", False)
+        g.setdefault("tracked_geo_region", None)
+        g.setdefault("tracked_geo_beat", None)
         if g["region_id"] not in self.globe_regions:
             g["region_id"] = self.globe_home_id
 
@@ -292,6 +336,171 @@ class GlobeMixin:
                 continue
             if self._globe_agent_region(p) == rid:
                 yield p
+
+    def _globe_match_region(self, query: str, reg: Dict[str, Any]) -> bool:
+        """Case-insensitive match against id/name/continent/label/kind."""
+        q = (query or "").strip().lower()
+        if not q:
+            return True
+        hay = " ".join(
+            str(reg.get(k) or "")
+            for k in ("id", "name", "continent", "label", "kind")
+        ).lower()
+        tokens = [t for t in q.replace(",", " ").split() if t]
+        if not tokens:
+            return True
+        return all(t in hay for t in tokens)
+
+    def _globe_search_regions(
+        self,
+        query: str = "",
+        *,
+        ascii_only: bool = False,
+    ) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for r in self.globe_defs.get("regions", []):
+            if not isinstance(r, dict) or not r.get("id"):
+                continue
+            if ascii_only and not r.get("chunk_path"):
+                continue
+            if not self._globe_match_region(query, r):
+                continue
+            out.append(dict(r))
+        return out
+
+    def _globe_geo_objectives(self) -> List[Dict[str, Any]]:
+        """Active daily (#51) beats that carry a region_id for cross-region tracking."""
+        active = getattr(self, "daily_storylines_active", None) or {}
+        objs: List[Dict[str, Any]] = []
+        for b in active.get("beats") or []:
+            if not isinstance(b, dict):
+                continue
+            rid = b.get("region_id") or (b.get("geo") or {}).get("region_id")
+            if not rid:
+                continue
+            reg = self._globe_region(str(rid)) or {}
+            objs.append(
+                {
+                    "beat_id": b.get("id"),
+                    "headline": b.get("headline") or b.get("summary") or b.get("text"),
+                    "region_id": str(rid),
+                    "region_name": reg.get("name") or rid,
+                    "lat": reg.get("lat"),
+                    "lon": reg.get("lon"),
+                    "continent": reg.get("continent"),
+                }
+            )
+        return objs
+
+    def _globe_objective(self, agent) -> Optional[Dict[str, Any]]:
+        """Compass override: point at a geo-tagged cross-region daily objective."""
+        self._globe_bootstrap_agent(agent)
+        # Skip when payload is mid-delivery (core loop owns compass)
+        if agent.has_payload() and not agent.won:
+            return None
+        tracked = agent.globe.get("tracked_geo_region")
+        objs = self._globe_geo_objectives()
+        target = None
+        if tracked:
+            for o in objs:
+                if o.get("region_id") == tracked:
+                    target = o
+                    break
+            if target is None:
+                reg = self._globe_region(str(tracked))
+                if reg:
+                    target = {
+                        "beat_id": agent.globe.get("tracked_geo_beat"),
+                        "headline": "Tracked region",
+                        "region_id": str(tracked),
+                        "region_name": reg.get("name") or tracked,
+                        "lat": reg.get("lat"),
+                        "lon": reg.get("lon"),
+                        "continent": reg.get("continent"),
+                    }
+        if target is None and objs:
+            # Prefer a beat not on the courier's current region
+            cur = self._globe_agent_region(agent)
+            remote = [o for o in objs if o.get("region_id") != cur]
+            target = (remote or objs)[0]
+        if not target:
+            return None
+        rid = str(target["region_id"])
+        cur = self._globe_agent_region(agent)
+        name = target.get("region_name") or rid
+        headline = str(target.get("headline") or "StreetNet geo beat")[:72]
+        if rid == cur:
+            # Same shard — nudge toward jackpoint so the beat "lands"
+            jx, jy = self.jackpoint_pos
+            px, py = agent.actor.x, agent.actor.y
+            dx, dy = jx - px, jy - py
+            dist = abs(dx) + abs(dy)
+            if dx == 0 and dy == 0:
+                bearing, compass = "here", "★"
+            else:
+                sx = 0 if abs(dx) * 2 < abs(dy) else (1 if dx > 0 else -1)
+                sy = 0 if abs(dy) * 2 < abs(dx) else (1 if dy > 0 else -1)
+                table = {
+                    (0, -1): ("N", "↑"),
+                    (0, 1): ("S", "↓"),
+                    (1, 0): ("E", "→"),
+                    (-1, 0): ("W", "←"),
+                    (1, -1): ("NE", "↗"),
+                    (-1, -1): ("NW", "↖"),
+                    (1, 1): ("SE", "↘"),
+                    (-1, 1): ("SW", "↙"),
+                }
+                bearing, compass = table.get((sx, sy), ("?", "·"))
+            return {
+                "id": "geo_%s" % rid,
+                "text": "StreetNet @ %s — %s (local jackpoint)" % (name, headline),
+                "target": [jx, jy],
+                "dist": dist,
+                "bearing": bearing,
+                "compass": compass,
+                "region_id": rid,
+                "geo": True,
+            }
+        # Cross-region: bearing from current region lat/lon → target
+        cur_reg = self._globe_region(cur) or {}
+        try:
+            clat = float(cur_reg.get("lat", 0))
+            clon = float(cur_reg.get("lon", 0))
+            tlat = float(target.get("lat") or 0)
+            tlon = float(target.get("lon") or 0)
+        except (TypeError, ValueError):
+            clat = clon = tlat = tlon = 0.0
+        dlat = tlat - clat
+        dlon = tlon - clon
+        # Rough km for UI only
+        dist_km = int(abs(dlat) * 111 + abs(dlon) * 85)
+        if abs(dlat) < 0.05 and abs(dlon) < 0.05:
+            bearing, compass = "here", "★"
+        else:
+            sx = 0 if abs(dlon) * 2 < abs(dlat) else (1 if dlon > 0 else -1)
+            sy = 0 if abs(dlat) * 2 < abs(dlon) else (-1 if dlat > 0 else 1)  # N = +lat → "up"
+            table = {
+                (0, -1): ("N", "↑"),
+                (0, 1): ("S", "↓"),
+                (1, 0): ("E", "→"),
+                (-1, 0): ("W", "←"),
+                (1, -1): ("NE", "↗"),
+                (-1, -1): ("NW", "↖"),
+                (1, 1): ("SE", "↘"),
+                (-1, 1): ("SW", "↙"),
+            }
+            bearing, compass = table.get((sx, sy), ("?", "·"))
+        return {
+            "id": "geo_%s" % rid,
+            "text": "Uplink-hop to %s — %s (teleport %s)" % (name, headline, rid),
+            "target": None,
+            "dist": dist_km,
+            "bearing": bearing,
+            "compass": compass,
+            "region_id": rid,
+            "geo": True,
+            "cross_region": True,
+        }
 
     def attach_news_geo(
         self,
@@ -594,6 +803,68 @@ class GlobeMixin:
         if a in ("globe_failsafe", "globe_rescue"):
             return self._globe_failsafe(agent)
 
+        if a in ("globe_search", "search_globe", "region_search"):
+            q = (arg or "").strip()
+            agent.globe["search"] = q[:64]
+            agent.globe["panel_open"] = True
+            if str(agent.globe.get("zoom") or "street") == "street":
+                agent.globe["zoom"] = "region"
+            hits = self._globe_search_regions(
+                q, ascii_only=bool(agent.globe.get("filter_ascii"))
+            )
+            if not q:
+                agent.log("Globe search cleared — showing all regions.")
+            else:
+                agent.log(
+                    "Globe search %r → %d region(s). Tip: filter ascii with globe_filter ascii."
+                    % (q, len(hits))
+                )
+            return True
+
+        if a in ("globe_filter", "filter_globe"):
+            mode = (arg or "").strip().lower()
+            if mode in ("ascii", "shard", "shards", "osm", "on", "1", "true"):
+                agent.globe["filter_ascii"] = True
+                agent.log("Globe filter → ASCII shard pilots only.")
+            elif mode in ("all", "clear", "off", "0", "false", "any", ""):
+                agent.globe["filter_ascii"] = False
+                agent.log("Globe filter cleared — all regions.")
+            else:
+                agent.log("Usage: globe_filter ascii|all")
+                return True
+            agent.globe["panel_open"] = True
+            if str(agent.globe.get("zoom") or "street") == "street":
+                agent.globe["zoom"] = "region"
+            return True
+
+        if a in ("globe_track", "track_geo", "geo_track"):
+            rid = (arg or "").strip().lower()
+            if not rid or rid in ("clear", "none", "off"):
+                agent.globe["tracked_geo_region"] = None
+                agent.globe["tracked_geo_beat"] = None
+                agent.log("Cleared geo track — compass returns to payload loop.")
+                return True
+            if rid not in self.globe_regions:
+                agent.log("Unknown region to track. Example: globe_track neo_tokyo")
+                return True
+            agent.globe["tracked_geo_region"] = rid
+            # Prefer matching daily beat if any
+            beat_id = None
+            for o in self._globe_geo_objectives():
+                if o.get("region_id") == rid:
+                    beat_id = o.get("beat_id")
+                    break
+            agent.globe["tracked_geo_beat"] = beat_id
+            name = (self._globe_region(rid) or {}).get("name") or rid
+            agent.log("Tracking geo objective → %s (%s). Compass retargets." % (name, rid))
+            # Journal side note
+            j = getattr(agent, "journal", None)
+            if isinstance(j, dict):
+                notes = list(j.get("notes") or [])
+                notes.append("Geo track: %s (%s)" % (name, rid))
+                j["notes"] = notes[-8:]
+            return True
+
         return False
 
     def _globe_snapshot(self, agent) -> Dict[str, Any]:
@@ -631,6 +902,11 @@ class GlobeMixin:
                     "chunk_path": r.get("chunk_path"),
                 }
             )
+
+        search_q = str(agent.globe.get("search") or "")
+        ascii_only = bool(agent.globe.get("filter_ascii"))
+        # Snapshot always ships the full catalog; UI / TUI filter via search fields.
+
         shard_seed = None
         if cur == self.globe_home_id:
             shard_seed = getattr(self, "seed", None)
@@ -655,9 +931,11 @@ class GlobeMixin:
             shard_source = "mapgen"
         hints = {
             "street": "Street GPS — open Globe or zoom region/globe to uplink-hop.",
-            "region": "Region list — hop a locale, or zoom globe for the schematic Earth.",
-            "globe": "Schematic Earth — pick a pin / region id, then teleport (credits + cooldown).",
+            "region": "Region list — search / hop a locale, or zoom globe for Earth.",
+            "globe": "Schematic Earth — search, pick a pin / region id, then teleport.",
         }
+        ascii_count = sum(1 for r in self.globe_defs.get("regions", []) if r.get("chunk_path"))
+        geo_objs = self._globe_geo_objectives()
         return {
             "panel_open": bool(agent.globe.get("panel_open")),
             "region_id": cur,
@@ -685,6 +963,11 @@ class GlobeMixin:
             "zoom": zoom,
             "zoom_levels": ["street", "region", "globe"],
             "news_geo_hook": True,
+            "search": search_q,
+            "filter_ascii": ascii_only,
+            "ascii_shard_count": ascii_count,
+            "geo_objectives": geo_objs,
+            "tracked_geo_region": agent.globe.get("tracked_geo_region"),
             "ecology_nodes": (
                 self._ecology_globe_overlay()
                 if hasattr(self, "_ecology_globe_overlay")
