@@ -1,7 +1,7 @@
 extends RefCounted
 class_name MaterialLibrary
-## Shared Catppuccin trim / PBR factory (#156). Cheap enough for AOI pooling.
-## Original shader + generated textures — no Abandoned Spaceship assets.
+## Shared Catppuccin trim / PBR factory (#156) + ground blend (#159).
+## Original shaders + generated textures — no Abandoned Spaceship assets.
 ## Omni budget is unchanged (this class never creates lights).
 
 const SHADER_PATH := "res://materials/recolor_trim.gdshader"
@@ -10,6 +10,15 @@ const TEX_NORMAL := "res://materials/textures/trim_normal.png"
 const TEX_ORM := "res://materials/textures/trim_orm.png"
 const TEX_CONCRETE := "res://materials/textures/concrete_albedo.png"
 const TEX_ICE := "res://materials/textures/ice_grid.png"
+const GROUND_SHADER_PATH := "res://materials/ground_blend.gdshader"
+const TEX_GROUND_FLOOR := "res://materials/textures/ground_floor.png"
+const TEX_GROUND_STREET := "res://materials/textures/ground_street.png"
+const TEX_GROUND_GRASS := "res://materials/textures/ground_grass.png"
+const TEX_GROUND_WATER := "res://materials/textures/ground_water.png"
+const TEX_GROUND_RUBBLE := "res://materials/textures/ground_rubble.png"
+
+## Ground roles (#159) — world-space blend, shared mats (AOI rebuild friendly).
+const GROUND_ROLES := ["floor", "street", "grass", "water", "rubble"]
 
 ## Role → UV / trim / texture. Recolor + emission come from Catppuccin at make().
 const ROLE_UV := {
@@ -90,6 +99,12 @@ static var _tex_normal: Texture2D
 static var _tex_orm: Texture2D
 static var _tex_concrete: Texture2D
 static var _tex_ice: Texture2D
+static var _ground_shader: Shader
+static var _tex_g_floor: Texture2D
+static var _tex_g_street: Texture2D
+static var _tex_g_grass: Texture2D
+static var _tex_g_water: Texture2D
+static var _tex_g_rubble: Texture2D
 static var _ready: bool = false
 
 
@@ -112,6 +127,22 @@ static func _ensure() -> void:
 		_tex_normal = _make_flat_normal()
 	if _tex_orm == null:
 		_tex_orm = _make_default_orm()
+	_ground_shader = load(GROUND_SHADER_PATH) as Shader
+	_tex_g_floor = _load_tex(TEX_GROUND_FLOOR)
+	_tex_g_street = _load_tex(TEX_GROUND_STREET)
+	_tex_g_grass = _load_tex(TEX_GROUND_GRASS)
+	_tex_g_water = _load_tex(TEX_GROUND_WATER)
+	_tex_g_rubble = _load_tex(TEX_GROUND_RUBBLE)
+	if _tex_g_floor == null:
+		_tex_g_floor = _tex_concrete if _tex_concrete else _make_noise_tex()
+	if _tex_g_street == null:
+		_tex_g_street = _tex_g_floor
+	if _tex_g_grass == null:
+		_tex_g_grass = _tex_g_floor
+	if _tex_g_water == null:
+		_tex_g_water = _tex_g_floor
+	if _tex_g_rubble == null:
+		_tex_g_rubble = _tex_g_floor
 	_ready = true
 
 
@@ -173,15 +204,125 @@ static func _tex_for_role(role: String) -> Texture2D:
 	return _tex_trim
 
 
+
+static func is_ground_role(role: String) -> bool:
+	return role in GROUND_ROLES
+
+
+static func make_ground(role: String, color: Color, emission_energy: float = 0.0, metallic: float = 0.08) -> ShaderMaterial:
+	## #159 — shared ground blend mat (world-space noise). Cheap: one mat per role.
+	return _build_ground(role, color, emission_energy, metallic, false, color.a)
+
+
+static func make_ground_alpha(role: String, color: Color, emission_energy: float, metallic: float, alpha: float) -> ShaderMaterial:
+	var c: Color = color
+	c.a = alpha
+	return _build_ground(role, c, emission_energy, metallic, true, alpha)
+
+
+static func _build_ground(role: String, color: Color, emission_energy: float, metallic: float, use_alpha: bool, _alpha: float) -> ShaderMaterial:
+	_ensure()
+	var m: ShaderMaterial = ShaderMaterial.new()
+	m.resource_name = "ground_%s" % role
+	if _ground_shader:
+		m.shader = _ground_shader
+	m.set_shader_parameter("albedo_tint", color)
+	var blend_c: Color = color.darkened(0.18)
+	var rubble_c: Color = Color(0.32, 0.28, 0.24, 1.0)
+	var rub: float = 0.12
+	var blend_str: float = 0.55
+	var wear_v: float = 0.35
+	var rough: float = 0.72
+	var met: float = metallic
+	var primary: Texture2D = _tex_g_floor
+	var secondary: Texture2D = _tex_g_street
+	match role:
+		"floor":
+			primary = _tex_g_floor
+			secondary = _tex_g_street
+			blend_c = color.lightened(0.08)
+			rub = 0.1
+			blend_str = 0.48
+		"street":
+			primary = _tex_g_street
+			secondary = _tex_g_rubble
+			blend_c = color.darkened(0.12)
+			rub = 0.22
+			blend_str = 0.62
+			wear_v = 0.42
+			rough = 0.68
+		"grass":
+			primary = _tex_g_grass
+			secondary = _tex_g_floor
+			blend_c = color.darkened(0.25)
+			rubble_c = Color(0.28, 0.22, 0.14, 1.0)
+			rub = 0.16
+			blend_str = 0.58
+			rough = 0.85
+		"water":
+			primary = _tex_g_water
+			secondary = _tex_g_street
+			blend_c = color.lightened(0.12)
+			rub = 0.05
+			blend_str = 0.4
+			wear_v = 0.2
+			rough = 0.22
+			met = maxf(metallic, 0.35)
+		"rubble":
+			primary = _tex_g_rubble
+			secondary = _tex_g_street
+			blend_c = color.darkened(0.1)
+			rub = 0.55
+			blend_str = 0.7
+			wear_v = 0.55
+			rough = 0.9
+		_:
+			pass
+	m.set_shader_parameter("blend_tint", blend_c)
+	m.set_shader_parameter("rubble_tint", rubble_c)
+	m.set_shader_parameter("emission_color", color)
+	m.set_shader_parameter("emission_energy", emission_energy)
+	m.set_shader_parameter("metallic", met)
+	m.set_shader_parameter("roughness", rough)
+	m.set_shader_parameter("world_uv_scale", Vector2(0.38, 0.38) if role != "water" else Vector2(0.28, 0.28))
+	m.set_shader_parameter("blend_strength", blend_str)
+	m.set_shader_parameter("rubble_mix", rub)
+	m.set_shader_parameter("wear", wear_v)
+	m.set_shader_parameter("use_alpha", use_alpha)
+	m.set_shader_parameter("albedo_tex", primary)
+	m.set_shader_parameter("blend_tex", secondary)
+	m.set_shader_parameter("rubble_tex", _tex_g_rubble)
+	m.set_shader_parameter("normal_tex", _tex_normal)
+	apply_ground_quality(m)
+	return m
+
+
 static func apply_quality(mat: Material) -> void:
 	if not (mat is ShaderMaterial):
+		return
+	var sm: ShaderMaterial = mat as ShaderMaterial
+	if sm.shader == _ground_shader:
+		apply_ground_quality(sm)
 		return
 	var use_maps: bool = true
 	if GraphicsSettings:
 		use_maps = GraphicsSettings.materials_use_orm()
-	var sm: ShaderMaterial = mat as ShaderMaterial
 	sm.set_shader_parameter("use_normal", use_maps)
 	sm.set_shader_parameter("use_orm", use_maps)
+
+
+static func apply_ground_quality(mat: Material) -> void:
+	## #159 Low: single tinted albedo (no secondary blend / normal). High: full blend.
+	if not (mat is ShaderMaterial):
+		return
+	var full: bool = true
+	if GraphicsSettings and GraphicsSettings.has_method("ground_blend_full"):
+		full = GraphicsSettings.ground_blend_full()
+	elif GraphicsSettings:
+		full = GraphicsSettings.is_high()
+	var sm: ShaderMaterial = mat as ShaderMaterial
+	sm.set_shader_parameter("use_blend", full)
+	sm.set_shader_parameter("use_normal", full)
 
 
 static func set_emission(mat: Material, energy: float) -> void:

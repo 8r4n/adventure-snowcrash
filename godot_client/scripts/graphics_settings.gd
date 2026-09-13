@@ -3,6 +3,7 @@ extends Node
 ## Omni budget is documented in docs/godot-3d.md — this autoload never adds lights.
 ## #161 camera juice (look smooth / head bob) is cosmetic only — no client position authority.
 ## #157 High SSAO/SSIL/TAA/volumetric + probes — Low keeps these off (Deck / #148).
+## #159 ground blend full path is High-only; Low keeps cheaper single-albedo ground.
 
 const CONFIG_PATH := "user://snowcrash_client.cfg"
 const CONFIG_SECTION := "graphics"
@@ -127,6 +128,16 @@ func materials_use_normal() -> bool:
 
 func kit_scatter() -> bool:
 	## #158: Low skips debris / foliage / extra neon (AOI mesh count).
+	return is_high()
+
+
+func ground_blend_full() -> bool:
+	## #159: High world-space multi-tex blend + normal; Low single tinted albedo.
+	return is_high()
+
+
+func ground_rubble_overlay() -> bool:
+	## Sparse rubble chips on floor/street — High only (AOI mesh headroom).
 	return is_high()
 
 

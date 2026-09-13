@@ -62,14 +62,14 @@ Issue **[#163](https://github.com/8r4n/adventure-snowcrash/issues/163)** (parent
 | **[Abandoned Spaceship Godot Demo](https://github.com/perfoon/Abandoned-Spaceship-Godot-Demo)** (Perfoon) | Godot 4 tech-art showcase: trim-sheet recolor shaders, PBR ORM, baked lightmaps, volumetric fog / SSIL / SSAO / TAA, reflection probes, diegetic arcade video. **Look** bar for store screenshots. We cite it; we do **not** copy meshes, textures, or shaders. |
 | **[BLASTRONAUT](https://store.steampowered.com/app/1392650/BLASTRONAUT/)** (same author, shipped) | Commercial proof this craft bar sells on Steam — “finished Godot product,” not prototype primitives. |
 
-Biggest remaining Steam-screenshot gaps vs that bar: lighting / kit / ground / diegesis / camera (#157–#161). **Materials (#156)** now ship a shared trim/PBR library (no longer flat untextured-only). Authority / loop stays ours (live Python `/ws` + thin Godot). Assessment table + will/won’t-copy lives in [godot-3d.md — Visual bar](godot-3d.md#visual-bar-163).
+Biggest remaining Steam-screenshot gaps vs that bar: diegesis (#160). **Materials (#156)**, **kit (#158)**, **camera (#161)**, **lighting (#157)**, and **ground blend (#159)** shipped. Authority / loop stays ours (live Python `/ws` + thin Godot). Assessment table + will/won’t-copy lives in [godot-3d.md — Visual bar](godot-3d.md#visual-bar-163).
 
 **Visual-fidelity checklist** (children of #163 — keep parent epics #163 / #141 open; use `Refs` only):
 
 - [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
 - [x] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (snapshot-placed)
-- [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend materials
+- [x] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend materials
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens
 - [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (cosmetic only; `/ws` grid stays authority)
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: cite this bar here + in [godot-3d.md](godot-3d.md) (this PR)

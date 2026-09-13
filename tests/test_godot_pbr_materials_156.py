@@ -67,13 +67,14 @@ def test_street_rebuild_uses_material_library():
     src = (GODOT / "scripts" / "street_3d.gd").read_text(encoding="utf-8")
     assert "MaterialLibrary.make" in src
     assert 'MaterialLibrary.make("wall"' in src
-    assert 'MaterialLibrary.make("floor"' in src
-    assert 'MaterialLibrary.make("street"' in src
+    # #159 routes floor/street/grass/water through make_ground (still MaterialLibrary).
+    assert 'MaterialLibrary.make_ground("floor"' in src or 'MaterialLibrary.make("floor"' in src
+    assert 'MaterialLibrary.make_ground("street"' in src or 'MaterialLibrary.make("street"' in src
     assert 'MaterialLibrary.make("door"' in src
     assert 'MaterialLibrary.make("jack"' in src
     assert 'MaterialLibrary.make("uplink"' in src
     assert 'MaterialLibrary.make("vendor"' in src
-    assert "MaterialLibrary.make_alpha" in src
+    assert "MaterialLibrary.make_alpha" in src or "MaterialLibrary.make_ground_alpha" in src
     assert "ice_wall" in src and "ice_barrier" in src
     assert "_apply_material_quality" in src
     assert "MaterialLibrary.set_emission" in src
