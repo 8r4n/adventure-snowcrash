@@ -166,12 +166,16 @@ Issue comment suggests [SteamworksPy](https://github.com/philippj/SteamworksPy).
 
 ### Depot layout (proposed)
 
+**Preferred SKU (#130 / #149):** Godot native exports — see [godot-desktop-export.md](godot-desktop-export.md). Tauri rows remain the calendar fallback.
+
 | Depot | Content | Platforms |
 |-------|---------|-----------|
-| Depot 1 | Windows Tauri app + sidecar | Windows |
-| Depot 2 | Linux native build | Linux |
-| Depot 3 (optional) | macOS .app | macOS |
-| Depot 4 (optional) | Shared content (mods examples, docs) if not duplicated | All |
+| **Linux64 Godot** | `Snowcrash.x86_64` + `.pck` from `./scripts/export_godot_client.sh linux` | Linux (primary Deck) |
+| **Win64 Godot** | `Snowcrash.exe` + `.pck` | Windows (+ Proton fallback) |
+| Depot Tauri Win (fallback) | Windows Tauri app + sidecar | Windows |
+| Depot Tauri Linux (fallback) | Linux Tauri build | Linux |
+| macOS (optional) | Godot or Tauri `.app` | macOS |
+| Shared (optional) | Mods examples, licenses (no `steam_appid.txt` in ship) | All |
 
 SteamPipe: SDK `tools/ContentBuilder` + VDF `app_build_*.vdf` / `depot_build_*.vdf`; upload via `steamcmd +login … +run_app_build …`.
 
@@ -364,6 +368,7 @@ PWA service worker already caches shell only — same philosophy: shell offline,
 
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 north star, comps, gaps; **Godot preferred Steam SKU** (Tauri = calendar fallback)
 - [steam-deck.md](steam-deck.md) — #132 Steam Deck Verified checklist + Linux depot plan
+- [godot-desktop-export.md](godot-desktop-export.md) — #149 Godot Linux/Windows export + SteamPipe staging paths
 - [godot-client.md](godot-client.md) — #109/#118 Godot 4 thin client (preferred native SKU per #130; Tauri remains fastest wrap of current web)
 - [modding.md](modding.md) — Workshop precursor (#72)
 - [mobile.md](mobile.md) — PWA shell; not a Steam substitute

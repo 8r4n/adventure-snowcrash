@@ -58,6 +58,8 @@ var _flash_in: bool = true
 const ICE_FLASH_SEC := 0.5
 const VIEW_CONFIG_PATH := "user://snowcrash_client.cfg"
 const VIEW_CONFIG_SECTION := "view"
+const NET_CONFIG_SECTION := "net"
+const DEFAULT_WS_URL := "ws://127.0.0.1:8766/ws"
 const VIEW_MODES := ["3d", "3d_ascii", "fpv", "map"]
 
 
@@ -92,6 +94,7 @@ func _ready() -> void:
 		globe.pin_activated.connect(_on_globe_pin_activated)
 	_wire_onboarding()
 	_wire_audio()
+	_apply_ws_url_defaults()
 	_on_status("disconnected — start dev server on :8766", "warn")
 	hud_label.text = "HP —  · Focus —  · XP —  · $—"
 	objective_label.text = "Objective: (jack in)"
@@ -208,6 +211,7 @@ func _on_join_pressed() -> void:
 	if onboarding:
 		onboarding.remember_name(n)
 	AudioManager.play_confirm()
+	_save_ws_url(url_edit.text.strip_edges())
 	net.connect_to_server(url_edit.text, n)
 
 
@@ -343,6 +347,48 @@ func _save_view_mode() -> void:
 	var err := cfg.save(VIEW_CONFIG_PATH)
 	if err != OK:
 		push_warning("view mode: save failed %s" % err)
+
+
+## Resolve WS URL for exported / Steam builds (#149).
+## Precedence: SNOWCRASH_WS_URL | SNOWCRASH_WS env → CLI --ws-url= → ConfigFile [net] ws_url → scene default.
+func _apply_ws_url_defaults() -> void:
+	if url_edit == null:
+		return
+	var resolved := ""
+	var env_url := OS.get_environment("SNOWCRASH_WS_URL").strip_edges()
+	if env_url.is_empty():
+		env_url = OS.get_environment("SNOWCRASH_WS").strip_edges()
+	if not env_url.is_empty():
+		resolved = env_url
+	else:
+		for arg in OS.get_cmdline_user_args():
+			var a := str(arg)
+			if a.begins_with("--ws-url="):
+				resolved = a.substr("--ws-url=".length()).strip_edges()
+				break
+			elif a.begins_with("--snowcrash-ws="):
+				resolved = a.substr("--snowcrash-ws=".length()).strip_edges()
+				break
+	if resolved.is_empty():
+		var cfg := ConfigFile.new()
+		var err := cfg.load(VIEW_CONFIG_PATH)
+		if err == OK:
+			resolved = str(cfg.get_value(NET_CONFIG_SECTION, "ws_url", "")).strip_edges()
+	if not resolved.is_empty():
+		url_edit.text = resolved
+	elif url_edit.text.strip_edges().is_empty():
+		url_edit.text = DEFAULT_WS_URL
+
+
+func _save_ws_url(url: String) -> void:
+	if url.is_empty():
+		return
+	var cfg := ConfigFile.new()
+	cfg.load(VIEW_CONFIG_PATH)  # merge other sections when present
+	cfg.set_value(NET_CONFIG_SECTION, "ws_url", url)
+	var err := cfg.save(VIEW_CONFIG_PATH)
+	if err != OK:
+		push_warning("ws_url: save failed %s" % err)
 
 
 ## While jacked, FPV/overlay should raycast from lattice avatar — not street body at J.

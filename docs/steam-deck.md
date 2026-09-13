@@ -112,8 +112,8 @@ Snowcrash (Desktop)     → Snowcrash.exe      # Windows depot
 **Build steps (local / CI sketch — no live upload):**
 
 1. Install Godot **4.3+** export templates (4.4.1+ if GodotSteam).
-2. Open `godot_client/project.godot` → Export → **Linux/X11** preset (see `export_presets.cfg.example` stub).
-3. Export to `build/linux/Snowcrash.x86_64` (executable + `.pck`).
+2. Open `godot_client/project.godot` → Export → **Linux/X11** preset (tracked `export_presets.cfg` — #149).
+3. Export to `build/linux/Snowcrash.x86_64` (executable + `.pck`), or run `./scripts/export_godot_client.sh linux` — see [godot-desktop-export.md](godot-desktop-export.md).
 4. Smoke: run under Steam Linux Runtime or plain SteamOS desktop mode; jack in to hosted `wss://…/ws` or local sidecar.
 5. Stage into SteamPipe content root; upload only after explicit approval (#67 gate).
 
@@ -231,7 +231,7 @@ Tracked honestly so Verified is not claimed early:
 | Blocker | Impact | Mitigation |
 |---------|--------|------------|
 | **No Deck hardware in CI / this agent** | Cannot complete on-device checklist | Borrow / buy Deck; or SteamOS VM is **not** a substitute for Verified |
-| **No exported release build in CI yet** | Nothing to install on Deck | Add export job later; local export templates required |
+| **No exported release build in CI yet** | Nothing to install on Deck | Local: `./scripts/export_godot_client.sh linux` (#149); add CI export job later |
 | **GodotSteam not integrated** | Overlay, Steam Input glyphs, floating keyboard gaps → risk **Playable** not Verified | Integrate on Godot 4.4+ before review request |
 | **Name / chat text entry** | OSK auto-invoke required for Verified text-input rule | Soft on-screen keys or Steamworks keyboard API |
 | **Hosted WS only (Mode A)** | Sleep + flaky Wi-Fi needs solid reconnect (code path exists) | Device pass must include sleep test |
@@ -244,6 +244,7 @@ Tracked honestly so Verified is not claimed early:
 
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 theme 8 / child #132
 - [steam-packaging.md](steam-packaging.md) — Direct fee, depots, store assets; Deck section points here
+- [godot-desktop-export.md](godot-desktop-export.md) — #149 Linux/Windows export + depot layout
 - [godot-client.md](godot-client.md) — thin client architecture + packaging
 - [godot-3d.md](godot-3d.md) — #141 3D street / Omni budget / quality preset
 - [godot-onboarding.md](godot-onboarding.md) — first 10 minutes (#133)
