@@ -1353,6 +1353,12 @@
     function defArr(v) { return Array.isArray(v) ? v : []; }
     function defObj(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
     function defStr(v, d) { return (v == null || v === "") ? d : String(v); }
+    function defBool(v, d) {
+      if (typeof v === "boolean") return v;
+      if (v === 0 || v === "0" || v === "false" || v === false) return false;
+      if (v === 1 || v === "1" || v === "true" || v === true) return true;
+      return d;
+    }
     function defNum(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
 
     function toast(text, cls, ms) {
@@ -2059,6 +2065,7 @@
       const cost = defNum(g.cost_credits, 15);
       const cd = defNum(g.cooldown_remaining, 0);
       const reg = defObj(g.region);
+      const zoom = defStr(g.zoom, g.panel_open ? "globe" : "street");
       const w = 200, h = 100;
       const ecoNodes = defArr(g.ecology_nodes);
       const ecoByRegion = {};
@@ -2067,12 +2074,76 @@
         if (!ecoByRegion[rid]) ecoByRegion[rid] = [];
         ecoByRegion[rid].push(n);
       });
+      const zoomBar =
+        `<div class="globe-zoom-bar" role="toolbar" aria-label="Globe zoom ladder">` +
+        `<button type="button" data-globe-zoom="street"${zoom === "street" ? ' class="active"' : ""}>Street</button>` +
+        `<button type="button" data-globe-zoom="region"${zoom === "region" ? ' class="active"' : ""}>Regions</button>` +
+        `<button type="button" data-globe-zoom="globe"${zoom === "globe" ? ' class="active"' : ""}>Globe</button>` +
+        `</div>`;
+      const shardNote = (() => {
+        const src = defStr(g.shard_source, "");
+        if (src === "osm_ascii") return ` · ASCII shard${g.chunk_path ? " (" + escapeHtml(defStr(g.chunk_path, "")) + ")" : ""}`;
+        if (src === "home") return " · home street world";
+        if (defBool(reg.has_ascii_shard, false)) return " · ASCII pack on hop";
+        return src === "mapgen" ? " · mapgen shard" : "";
+      })();
+      const meta =
+        `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}${shardNote}<br/>Hop cost ${cost} cr · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"} · <button type="button" data-globe="recall">Recall home</button></div>`;
+
+      if (zoom === "street") {
+        els.globeBody.innerHTML =
+          zoomBar +
+          meta +
+          `<div class="globe-street-card"><strong>Street GPS</strong><p class="dim">You are sleeved in ${escapeHtml(defStr(reg.name, cur))} (${escapeHtml(cur)}). Zoom to <em>Regions</em> or <em>Globe</em> to uplink-hop.</p>` +
+          `<button type="button" data-globe-zoom="region">Open region list</button> ` +
+          `<button type="button" data-globe-zoom="globe">Zoom to Earth</button></div>` +
+          `<div class="row dim">${escapeHtml(defStr(g.hint, "Street GPS."))}</div>`;
+        return;
+      }
+
+      const curCont = defStr(reg.continent, "");
+      let listRegions = regions.slice();
+      if (zoom === "region" && curCont) {
+        // Prefer same-continent cities, then the rest
+        listRegions = listRegions.slice().sort((a, b) => {
+          const ac = defStr(a.continent, "") === curCont ? 0 : 1;
+          const bc = defStr(b.continent, "") === curCont ? 0 : 1;
+          if (ac !== bc) return ac - bc;
+          return String(a.name).localeCompare(String(b.name));
+        });
+      } else {
+        listRegions = listRegions.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      }
+      const list = listRegions.map((r) => {
+        const id = defStr(r.id, "");
+        const name = defStr(r.name, id);
+        const here = id === cur ? " · HERE" : "";
+        const ascii = defBool(r.has_ascii_shard, false) ? " · ASCII" : "";
+        const disabled = (cd > 0.5 && id !== cur) ? " disabled" : "";
+        return `<div class="row"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}${ascii}</span></span><button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></div>`;
+      }).join("");
+
+      if (zoom === "region") {
+        const filterNote = curCont
+          ? `<div class="row dim">Sorted for continent <strong>${escapeHtml(curCont)}</strong> first.</div>`
+          : "";
+        els.globeBody.innerHTML =
+          zoomBar +
+          meta +
+          filterNote +
+          `<div class="globe-region-list">${list}</div>` +
+          `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a region to hop."))}</div>`;
+        return;
+      }
+
+      // zoom === globe (schematic Earth)
       const pins = regions.map((r) => {
         const id = defStr(r.id, "");
         const [x, y] = latLonToSvg(r.lat, r.lon, w, h);
         const cls = ["pin"];
         if (id === home || r.home) cls.push("home");
         if (id === cur) cls.push("here");
+        if (defBool(r.has_ascii_shard, false)) cls.push("ascii");
         const ecos = ecoByRegion[id] || defArr(r.ecology);
         if (ecos.length) {
           cls.push("ecology");
@@ -2082,11 +2153,11 @@
         const ecoTitle = ecos.length
           ? " · " + ecos.map((e) => defStr(e.resource_short || e.resource, "?") + "@" + defStr((e.controller || {}).name, "?")).join(", ")
           : "";
-        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")" + escapeHtml(ecoTitle);
-        const rad = ecos.length ? 2.8 : 2.2;
+        const asciiTitle = defBool(r.has_ascii_shard, false) ? " · ASCII shard" : "";
+        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")" + escapeHtml(ecoTitle + asciiTitle);
+        const rad = ecos.length ? 2.8 : (defBool(r.has_ascii_shard, false) ? 2.5 : 2.2);
         return `<circle class="${cls.join(" ")}" data-tp="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>`;
       }).join("");
-      // Schematic continents (not GIS-accurate) — original Metaverse art only
       const land = `
         <ellipse class="land" cx="42" cy="42" rx="28" ry="22"/>
         <ellipse class="land" cx="55" cy="68" rx="14" ry="18"/>
@@ -2097,22 +2168,16 @@
         <ellipse class="land" cx="100" cy="18" rx="40" ry="8"/>
         <ellipse class="land" cx="100" cy="90" rx="30" ry="6"/>
       `;
-      const list = regions.slice().sort((a, b) => String(a.name).localeCompare(String(b.name))).map((r) => {
-        const id = defStr(r.id, "");
-        const name = defStr(r.name, id);
-        const here = id === cur ? " · HERE" : "";
-        const disabled = (cd > 0.5 && id !== cur) ? " disabled" : "";
-        return `<div class="row"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}</span></span><button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></div>`;
-      }).join("");
       const ecoStrip = ecoNodes.slice(0, 8).map((n) => {
         const ctrl = defObj(n.controller);
         return `<span class="eco-chip" title="${escapeHtml(defStr(n.name, n.id))}">${escapeHtml(defStr(n.glyph, "•"))} ${escapeHtml(defStr(n.resource_short || n.resource, "?"))} @ ${escapeHtml(defStr(n.region_id, "?"))} · ${escapeHtml(defStr(ctrl.name, "?"))} (${defNum(n.pressure_pct, 0)}%)</span>`;
       }).join("");
       els.globeBody.innerHTML =
-        `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}<br/>Hop cost ${cost} cr · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"} · <button type="button" data-globe="recall">Recall home</button></div>` +
+        zoomBar +
+        meta +
         `<svg class="globe-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Schematic Earth region picker"><rect class="ocean" width="${w}" height="${h}"/>${land}${pins}</svg>` +
         (ecoStrip ? `<div class="globe-ecology-strip"><strong>Scarce nodes</strong> ${ecoStrip}</div>` : "") +
-        `<div class="globe-region-list">${list}</div>` +
+        `<div class="globe-region-list globe-region-list-compact">${list}</div>` +
         `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a pin to uplink-hop."))}</div>`;
     }
 
@@ -2864,9 +2929,13 @@
       bindPanel(els.raidBody, [["data-raid", (v) => send("raid_" + v)]]);
       bindPanel(els.globeBody, [
         ["data-tp", (v) => send("teleport", v)],
+        ["data-globe-zoom", (v) => send("globe_zoom", v)],
         ["data-globe", (v) => {
           if (v === "recall") send("globe_recall");
           else if (v === "open") send("globe");
+          else if (v === "zoom_street") send("globe_zoom", "street");
+          else if (v === "zoom_region") send("globe_zoom", "region");
+          else if (v === "zoom_globe") send("globe_zoom", "globe");
           else send("globe_" + v);
         }],
       ]);

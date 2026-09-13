@@ -1,8 +1,10 @@
 """Globe map zoom-out + region teleport (#54).
 
-Data-driven Earth regions (JSON). Teleport lands on a playable shard generated
-with mapgen(region shard_seed). Home region keeps the live shared street world.
-News pipeline (#51) can stamp region_id via attach_news_geo().
+Data-driven Earth regions (JSON). Teleport prefers a prebuilt
+snowcrash_ascii_shard_v1 pack (regions.json chunk_path / OSM→ASCII) when
+present, else mapgen(region shard_seed). Home region keeps the live shared
+street world. News pipeline (#51) can stamp region_id via attach_news_geo().
+Zoom ladder: street → region list → schematic globe.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from .. import constants as C
 from ..mapgen import FloorItem, generate_world
+from .ascii_shard import try_load_region_shard
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -71,6 +74,7 @@ class GlobeMixin:
             agent.globe = {
                 "region_id": self.globe_home_id,
                 "panel_open": False,
+                "zoom": "globe",
                 "cooldown_until": 0.0,
                 "last_safe_region_id": self.globe_home_id,
                 "last_safe_x": int(getattr(agent, "last_good_x", 0) or 0),
@@ -82,6 +86,7 @@ class GlobeMixin:
             return
         g.setdefault("region_id", self.globe_home_id)
         g.setdefault("panel_open", False)
+        g.setdefault("zoom", "globe")
         g.setdefault("cooldown_until", 0.0)
         g.setdefault("last_safe_region_id", self.globe_home_id)
         g.setdefault("last_safe_x", int(getattr(agent, "last_good_x", 0) or 0))
@@ -103,6 +108,12 @@ class GlobeMixin:
         return self.globe_regions.get(str(region_id or ""))
 
     def _globe_pack_world(self) -> Dict[str, Any]:
+        cur = getattr(self, "_globe_ctx_region", self.globe_home_id)
+        prev = {}
+        if cur == self.globe_home_id and isinstance(self._globe_home_pack, dict):
+            prev = self._globe_home_pack
+        elif cur in self.globe_shards:
+            prev = self.globe_shards[cur]
         return {
             "seed": getattr(self, "seed", 0),
             "gmap": self.gmap,
@@ -115,6 +126,9 @@ class GlobeMixin:
             "spawn_xy": tuple(self.spawn_xy),
             "shafts": set(getattr(self, "shafts", set()) or set()),
             "club_rects": list(getattr(self, "club_rects", []) or []),
+            "region_id": cur,
+            "shard_source": prev.get("shard_source"),
+            "chunk_path": prev.get("chunk_path"),
         }
 
     def _globe_apply_pack(self, pack: Dict[str, Any]) -> None:
@@ -148,7 +162,15 @@ class GlobeMixin:
         if seed is None:
             seed = (hash(rid) & 0x7FFFFFFF) ^ 0x54C10BE
         seed = int(seed)
-        world = generate_world(seed)
+        shard_source = "mapgen"
+        world = None
+        chunk_path = reg.get("chunk_path")
+        if chunk_path:
+            world = try_load_region_shard(str(chunk_path), seed=seed, region_id=rid)
+            if world is not None:
+                shard_source = "osm_ascii"
+        if world is None:
+            world = generate_world(seed)
         gmap = world.gmap
         planes = dict(getattr(world, "planes", None) or {})
         if not planes:
@@ -189,6 +211,8 @@ class GlobeMixin:
             "shafts": set(getattr(world, "shafts", None) or set()),
             "club_rects": list(getattr(world, "club_rects", None) or []),
             "region_id": rid,
+            "shard_source": shard_source,
+            "chunk_path": str(chunk_path) if chunk_path and shard_source == "osm_ascii" else None,
         }
         self.globe_shards[rid] = pack
         return pack
@@ -453,10 +477,18 @@ class GlobeMixin:
 
         name = reg.get("name") or rid
         paid = "" if force or cost <= 0 else (" (−%d cr)" % cost)
+        src = ""
+        pack = self.globe_shards.get(rid) if rid != self.globe_home_id else None
+        if isinstance(pack, dict) and pack.get("shard_source") == "osm_ascii":
+            src = " · ASCII shard"
+        elif rid != self.globe_home_id:
+            src = " · mapgen shard"
         agent.log(
-            "Uplink hop complete — sleeved into %s%s. Cooldown %.0fs."
-            % (name, paid, self.globe_teleport_cooldown)
+            "Uplink hop complete — sleeved into %s%s%s. Cooldown %.0fs."
+            % (name, paid, src, self.globe_teleport_cooldown)
         )
+        # After hop, drop zoom to street so GPS closes onto the pad
+        agent.globe["zoom"] = "street"
         if hasattr(self, "_primer_note_progress"):
             self._primer_note_progress(agent, "globe_hop", 1)
         agent.sfx("uplink")
@@ -482,17 +514,47 @@ class GlobeMixin:
 
         if a in ("globe", "open_globe", "map_globe", "earth", "gps_globe"):
             agent.globe["panel_open"] = True
+            # Opening dock zooms out to schematic Earth unless already mid-ladder
+            z = str(agent.globe.get("zoom") or "globe")
+            if z == "street":
+                agent.globe["zoom"] = "globe"
             cur = self._globe_agent_region(agent)
             reg = self._globe_region(cur) or {}
             agent.log(
-                "Globe overlay open — you are in %s (%s). Teleport: teleport <region_id>."
-                % (reg.get("name", cur), cur)
+                "Globe overlay open (%s zoom) — you are in %s (%s). Teleport: teleport <region_id>."
+                % (agent.globe.get("zoom"), reg.get("name", cur), cur)
             )
             return True
 
         if a in ("globe_close", "close_globe"):
             agent.globe["panel_open"] = False
-            agent.log("Globe overlay closed.")
+            agent.globe["zoom"] = "street"
+            agent.log("Globe overlay closed — street GPS.")
+            return True
+
+        if a in ("globe_zoom", "zoom_globe", "zoom"):
+            level = (arg or "").strip().lower()
+            aliases = {
+                "street": "street",
+                "gps": "street",
+                "local": "street",
+                "region": "region",
+                "regions": "region",
+                "list": "region",
+                "district": "region",
+                "globe": "globe",
+                "earth": "globe",
+                "world": "globe",
+                "out": "globe",
+                "in": "street",
+            }
+            level = aliases.get(level, level)
+            if level not in ("street", "region", "globe"):
+                agent.log("Usage: globe_zoom street|region|globe")
+                return True
+            agent.globe["zoom"] = level
+            agent.globe["panel_open"] = level != "street"
+            agent.log("Globe zoom → %s." % level)
             return True
 
         if a in ("globe_status", "region_status", "where"):
@@ -558,6 +620,8 @@ class GlobeMixin:
                     "home": bool(r.get("home")),
                     "ecology": eco_nodes,
                     "has_ecology": bool(eco_nodes),
+                    "has_ascii_shard": bool(r.get("chunk_path")),
+                    "chunk_path": r.get("chunk_path"),
                 }
             )
         shard_seed = None
@@ -567,6 +631,26 @@ class GlobeMixin:
             shard_seed = self.globe_shards[cur].get("seed")
         else:
             shard_seed = (reg or {}).get("shard_seed")
+        zoom = str(agent.globe.get("zoom") or ("globe" if agent.globe.get("panel_open") else "street"))
+        if not agent.globe.get("panel_open") and zoom != "street":
+            zoom = "street"
+        shard_source = None
+        chunk_path = None
+        if cur == self.globe_home_id:
+            shard_source = "home"
+        elif cur in self.globe_shards:
+            shard_source = self.globe_shards[cur].get("shard_source") or "mapgen"
+            chunk_path = self.globe_shards[cur].get("chunk_path")
+        elif (reg or {}).get("chunk_path"):
+            shard_source = "osm_ascii"  # available on next hop
+            chunk_path = (reg or {}).get("chunk_path")
+        else:
+            shard_source = "mapgen"
+        hints = {
+            "street": "Street GPS — open Globe or zoom region/globe to uplink-hop.",
+            "region": "Region list — hop a locale, or zoom globe for the schematic Earth.",
+            "globe": "Schematic Earth — pick a pin / region id, then teleport (credits + cooldown).",
+        }
         return {
             "panel_open": bool(agent.globe.get("panel_open")),
             "region_id": cur,
@@ -579,6 +663,7 @@ class GlobeMixin:
                 "lat": reg.get("lat"),
                 "lon": reg.get("lon"),
                 "home": bool(reg.get("home")),
+                "has_ascii_shard": bool((reg or {}).get("chunk_path")),
             },
             "home_region_id": self.globe_home_id,
             "regions": regions_out,
@@ -588,18 +673,17 @@ class GlobeMixin:
             "teleports": int(agent.globe.get("teleports") or 0),
             "shards_loaded": sorted(self.globe_shards.keys()),
             "shard_seed": shard_seed,
-            "zoom": "globe" if agent.globe.get("panel_open") else "street",
+            "shard_source": shard_source,
+            "chunk_path": chunk_path,
+            "zoom": zoom,
+            "zoom_levels": ["street", "region", "globe"],
             "news_geo_hook": True,
             "ecology_nodes": (
                 self._ecology_globe_overlay()
                 if hasattr(self, "_ecology_globe_overlay")
                 else []
             ),
-            "hint": (
-                "Globe open — pick a pin / region id, then teleport (credits + cooldown)."
-                if agent.globe.get("panel_open")
-                else "Open globe (dock Globe or action globe) to zoom out and uplink-hop."
-            ),
+            "hint": hints.get(zoom, hints["globe"]),
         }
 
     def _globe_enemy_tick_all(self) -> None:

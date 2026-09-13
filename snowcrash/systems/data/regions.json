@@ -3,7 +3,7 @@
   "home_region_id": "fractured_la",
   "teleport_cost_credits": 15,
   "teleport_cooldown_sec": 45,
-  "notes": "Data-driven Earth coverage for globe teleport (#54). shard_seed null = live home world. Hot-reload: world.reload_region_defs().",
+  "notes": "Data-driven Earth coverage for globe teleport (#54). shard_seed null = live home world. Optional chunk_path \u2192 snowcrash_ascii_shard_v1 (OSM\u2192ASCII) preferred on hop; else generate_world(shard_seed). Hot-reload: world.reload_region_defs().",
   "news_geo_hook": "Call world.attach_news_geo(beat, region_id=...) from daily news (#51).",
   "regions": [
     {
@@ -212,7 +212,9 @@
       "lon": 13.41,
       "label": "Club-district tunnels",
       "home": false,
-      "shard_seed": 54107
+      "shard_seed": 54107,
+      "chunk_path": "shards/berlin_circuit.json",
+      "shard_source": "osm_ascii_v1"
     },
     {
       "id": "moscow_static",
@@ -355,7 +357,9 @@
       "lon": 139.69,
       "label": "Kanji street GPS",
       "home": false,
-      "shard_seed": 54120
+      "shard_seed": 54120,
+      "chunk_path": "shards/neo_tokyo.json",
+      "shard_source": "osm_ascii_v1"
     },
     {
       "id": "seoul_lane",
@@ -424,5 +428,14 @@
       "shard_seed": 54126
     }
   ],
-  "hot_reload": "Edit this file and restart or call world.reload_region_defs()."
+  "hot_reload": "Edit this file and restart or call world.reload_region_defs().",
+  "osm_shards": {
+    "format": "snowcrash_ascii_shard_v1",
+    "loader": "snowcrash.systems.ascii_shard",
+    "pilots": [
+      "neo_tokyo",
+      "berlin_circuit"
+    ],
+    "research": "docs/osm-procedural-globe.md"
+  }
 }

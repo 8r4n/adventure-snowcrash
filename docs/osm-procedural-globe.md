@@ -88,7 +88,7 @@ OSM XML/PBF  →  filter tags  →  project WGS84→grid  →  raster paint  →
 3. **Rasterize** (paint order): grass base → parks → water → building footprints (floor + wall ring) → highways (thin `=` strokes) → POIs last.
 4. **Theme** — map OSM tags → Metaverse districts (neon club, Faraday industrial, uplink rim) **without** copying real brand names or novel text; invent flavored labels (`regions.json` already does this).
 5. **Emit** — `snowcrash_ascii_shard_v1` JSON (`tiles[]` rows of glyphs, `landmarks`, `shard_seed`, `bbox`, `attribution`) and/or a deterministic `shard_seed` for today’s `generate_world(seed)` fallback.
-6. **Load** — GlobeMixin (`snowcrash/systems/globe.py`) today builds shards via `generate_world(shard_seed)`. Future hook: if `regions.json` has `chunk_path` / embedded tiles, hydrate `GameMap` from the chunk instead.
+6. **Load** — GlobeMixin prefers `regions.json` `chunk_path` → `snowcrash.systems.ascii_shard.world_from_ascii_shard` (scale-stamped into `MAP_*`); else `generate_world(shard_seed)`. Pilots under `snowcrash/systems/data/shards/`.
 
 ### Zoom ladder (ties to #54)
 
@@ -202,10 +202,12 @@ Match / extend `regions.json` fiction IDs (examples):
 | `scripts/osm_to_ascii_shard.py` | **Done** — fixture → ASCII grid + `snowcrash_ascii_shard_v1` JSON + `shard_seed` |
 | Fixture `scripts/fixtures/tiny_downtown.osm.xml` | **Done** — synthetic schema, CI-safe |
 | Live Overpass `--bbox` | Implemented; optional; not required for CI |
-| Wire chunk → `GlobeMixin` / live teleport | **Not in this issue** — follow-up after #54 remaining zoom work |
+| Wire chunk → `GlobeMixin` / live teleport | **Started on #54** — `ascii_shard.py` + pilot `chunk_path` for `neo_tokyo` / `berlin_circuit`; see [globe.md](globe.md) |
 | Full pilot city packs | **Out of scope** for #83 research |
 
-Acceptance for **#83 research**: documented path + mapping table + license notes + working offline spike. Leave production globe OSM wiring to a child issue when ready.
+Acceptance for **#83 research**: documented path + mapping table + license notes + working offline spike.
+
+**Follow-up (#54):** pilot packs + `GlobeMixin` load path + street/region/globe zoom ladder — see [globe.md](globe.md). Full Earth OSM coverage still open.
 
 ---
 
