@@ -28,6 +28,7 @@ from .jaunte import JaunteMixin
 from .empathy import EmpathyMixin
 from .forecasts import ForecastMixin
 from .ecology import EcologyMixin
+from .daily_storylines import DailyStorylinesMixin
 from .primer import PrimerMixin
 from .sleeves import SleevesMixin
 
@@ -124,7 +125,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, EcologyMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, EcologyMixin, DailyStorylinesMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -162,6 +163,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._empathy_init()
         self._forecast_init()
         self._ecology_init()
+        self._daily_storylines_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -1778,6 +1780,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "empathy": self._empathy_snapshot(agent),
             "forecast": self._forecast_snapshot(agent),
             "ecology": self._ecology_snapshot(agent),
+            "daily_storylines": self._daily_storylines_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 
