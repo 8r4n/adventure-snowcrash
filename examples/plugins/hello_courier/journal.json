@@ -1,0 +1,32 @@
+{
+  "arcs": [
+    {
+      "id": "hello_courier.delivery",
+      "title": "Hello Courier Delivery",
+      "auto_offer": true,
+      "steps": [
+        {
+          "id": "accept",
+          "text": "Accept the Hello Courier delivery arc."
+        },
+        {
+          "id": "badge",
+          "text": "Sleeve the Hello Courier Badge (mod_item hello_courier.badge).",
+          "hint": "Grant via mod_item hello_courier.badge"
+        },
+        {
+          "id": "done",
+          "text": "Delivery arc complete — keep the Faraday pin warm."
+        }
+      ]
+    }
+  ],
+  "beats": [
+    {
+      "id": "hello_courier.welcome",
+      "trigger": "join",
+      "headline": "Hello Courier",
+      "text": "Journal: Hello Courier mesh handshake — a Faraday pin waits on the rim."
+    }
+  ]
+}

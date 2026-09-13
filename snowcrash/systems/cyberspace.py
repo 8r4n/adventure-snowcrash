@@ -132,6 +132,45 @@ def _replace_glyph(grid: List[List[str]], glyph: str, with_ch: str) -> None:
                 grid[y][x] = with_ch
 
 
+def build_node_from_def(ndef: Dict[str, Any], rng: random.Random) -> Dict[str, Any]:
+    """Build a node from a validated mod cyber-node def (custom grid or type)."""
+    grid_lines = ndef.get("grid")
+    if grid_lines:
+        grid = _lines_to_grid(list(grid_lines))
+        node_type = "custom"
+    else:
+        return build_node(str(ndef.get("node_type") or "maze"), rng)
+    start = _find_glyph(grid, CYBER_START)
+    if not start:
+        start = (1, 1)
+    _replace_glyph(grid, CYBER_START, CYBER_FLOOR)
+    ice_cells = []
+    for y, row in enumerate(grid):
+        for x, ch in enumerate(row):
+            if ch == CYBER_ICE:
+                ice_cells.append([x, y])
+    loot_pos = _find_glyph(grid, CYBER_LOOT) or _find_glyph(grid, CYBER_CORE)
+    exit_pos = _find_glyph(grid, CYBER_EXIT)
+    hint = ndef.get("hint") or (
+        "Mod node — reach loot/core then X exit. Esc or jack_out to street."
+    )
+    return {
+        "node_type": node_type,
+        "grid": grid,
+        "width": len(grid[0]) if grid else 0,
+        "height": len(grid),
+        "px": start[0],
+        "py": start[1],
+        "ice_cells": ice_cells,
+        "loot_taken": False,
+        "cleared": False,
+        "rewarded": False,
+        "hint": hint,
+        "mod_id": ndef.get("mod_id"),
+        "node_id": ndef.get("id"),
+    }
+
+
 def build_node(node_type: str, rng: random.Random) -> Dict[str, Any]:
     """Build a cyberspace node session dict."""
     if node_type == "ice_gate":
@@ -267,7 +306,19 @@ class CyberspaceMixin:
         rng = getattr(self, "rng", None) or random.Random(
             (getattr(self, "seed", 0) or 0) ^ hash(agent.id) ^ self.tick
         )
-        session = build_node(node_type, rng)
+        # Prefer a weighted mod node ~35% when any are loaded (#72 ice_nodes).
+        session = None
+        if (
+            arg_l not in ("maze", "ice_gate", "ice", "gate")
+            and hasattr(self, "_pick_mod_cyber_node")
+            and getattr(self, "mod_cyber_nodes", None)
+            and rng.random() < 0.35
+        ):
+            ndef = self._pick_mod_cyber_node()
+            if ndef:
+                session = build_node_from_def(ndef, rng)
+        if session is None:
+            session = build_node(node_type, rng)
         session["active"] = True
         session["street"] = street
         # Soft shield while jacked so street swarm doesn't flatline the parked body
@@ -468,27 +519,32 @@ class CyberspaceMixin:
             agent.log("Controls: move as street · ice_probe stun|reveal melts I · Esc jack_out.")
             return True
 
-        # ICE probes inside node — synergize with #46
+        # ICE probes inside node — synergize with #46 (+ mod probes #72)
+        probes = self._all_ice_probes() if hasattr(self, "_all_ice_probes") else getattr(C, "ICE_PROBES", {})
         if al in ("ice_probe", "probe", "ice") or (
-            al.startswith("ice_") and al[4:] in getattr(C, "ICE_PROBES", {})
+            al.startswith("ice_") and al[4:] in probes
         ) or (
-            al.startswith("probe_") and al[6:] in getattr(C, "ICE_PROBES", {})
+            al.startswith("probe_") and al[6:] in probes
         ):
             pid = (arg or "").strip().lower()
-            if al.startswith("ice_") and al[4:] in C.ICE_PROBES:
+            if al.startswith("ice_") and al[4:] in probes:
                 pid = al[4:]
-            elif al.startswith("probe_") and al[6:] in C.ICE_PROBES:
+            elif al.startswith("probe_") and al[6:] in probes:
                 pid = al[6:]
             if pid in ("", "list", "help", "?"):
                 agent.log("In-node ICE: stun or reveal melts adjacent I cells (Focus cost).")
                 return True
-            if pid not in ("stun", "reveal"):
-                if pid == "scramble":
+            defn = probes.get(pid)
+            if not defn:
+                agent.log("Unknown probe in-node. Try: stun, reveal.")
+                return True
+            effect = str(defn.get("effect") or pid)
+            if effect not in ("stun", "reveal"):
+                if effect == "scramble":
                     agent.log("Aggro Scramble has no street hostiles here — try stun or reveal.")
                     return True
                 agent.log("Unknown probe in-node. Try: stun, reveal.")
                 return True
-            defn = C.ICE_PROBES[pid]
             import time as _time
             now = _time.time()
             cds = getattr(agent, "ice_cooldowns", None)
@@ -505,7 +561,7 @@ class CyberspaceMixin:
                 return True
             agent.actor.focus -= cost
             cds[pid] = now + float(defn["cooldown"])
-            n = self._cyber_clear_ice_near(agent, radius=2 if pid == "reveal" else 1)
+            n = self._cyber_clear_ice_near(agent, radius=2 if effect == "reveal" else 1)
             if not n:
                 agent.log(
                     "%s pulses the lattice (−%d Focus) — no ICE in reach. Step closer to an I."

@@ -1,0 +1,25 @@
+{
+  "pins": [
+    {
+      "id": "hello_courier.drop_pin",
+      "name": "Courier Drop",
+      "lat": 34.12,
+      "lon": -118.28,
+      "label": "Hello Courier example drop pin (metadata)",
+      "region_id": "fractured_la",
+      "kind": "mod_pin"
+    }
+  ],
+  "regions": [
+    {
+      "id": "hello_courier.rim_cache",
+      "name": "Rim Cache",
+      "kind": "poi",
+      "continent": "na",
+      "lat": 33.95,
+      "lon": -118.35,
+      "label": "Modded courier cache — metadata only, not a hop target",
+      "metadata_only": true
+    }
+  ]
+}

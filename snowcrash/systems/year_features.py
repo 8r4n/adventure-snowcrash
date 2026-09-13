@@ -187,7 +187,11 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             "step": 0,
             "steps": [dict(s) for s in JOURNAL_STEPS],
             "completed": False,
+            "mod_arcs": [],
+            "mod_beats_seen": [],
         }
+        if hasattr(self, "_modding_offer_journal"):
+            self._modding_offer_journal(agent)
         agent.reputation = int(getattr(agent, "reputation", 0) or 0)
         agent.contracts = list(getattr(agent, "contracts", []) or [])
         agent.pvp = getattr(agent, "pvp", None) or {"opt_in": False, "arena": None, "streets_pvp": False}
@@ -344,17 +348,20 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
         now = time.time()
         cds = getattr(agent, "ice_cooldowns", None) or {}
         out = []
-        for pid, defn in C.ICE_PROBES.items():
+        probes = self._all_ice_probes() if hasattr(self, "_all_ice_probes") else C.ICE_PROBES
+        for pid, defn in probes.items():
             ready_at = float(cds.get(pid, 0) or 0)
             ready_in = max(0.0, ready_at - now)
             out.append({
                 "id": pid,
                 "name": defn["name"],
-                "desc": defn["desc"],
+                "desc": defn.get("desc") or defn.get("description") or "",
                 "focus_cost": int(defn["focus_cost"]),
                 "cooldown": float(defn["cooldown"]),
                 "radius": int(defn["radius"]),
                 "duration": float(defn.get("duration", 0) or 0),
+                "effect": str(defn.get("effect") or pid),
+                "mod_id": defn.get("mod_id"),
                 "ready_in": round(ready_in, 1),
                 "ready": ready_in <= 0.05,
             })
@@ -421,13 +428,14 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
         pid = (arg or "").strip().lower()
         if pid.startswith("probe "):
             pid = pid[6:].strip()
+        probes = self._all_ice_probes() if hasattr(self, "_all_ice_probes") else C.ICE_PROBES
         if pid in ("", "list", "help", "?"):
-            names = ", ".join("%s (%df)" % (d["id"], d["focus_cost"]) for d in C.ICE_PROBES.values())
+            names = ", ".join("%s (%df)" % (d["id"], d["focus_cost"]) for d in probes.values())
             agent.log("ICE probes: %s — usage: ice_probe <type>" % names)
             return True
-        defn = C.ICE_PROBES.get(pid)
+        defn = probes.get(pid)
         if not defn:
-            agent.log("Unknown ICE probe. Try: stun, reveal, scramble.")
+            agent.log("Unknown ICE probe. Try: stun, reveal, scramble (or a mod probe id).")
             return True
         now = time.time()
         cds = getattr(agent, "ice_cooldowns", None)
@@ -444,14 +452,15 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             return True
         radius = int(defn["radius"])
         duration = float(defn.get("duration", 0) or 0)
+        effect = str(defn.get("effect") or pid)
         targets = self._ice_nearby_targets(agent, radius=radius)
-        if pid == "stun" and not targets:
+        if effect == "stun" and not targets:
             agent.log(
                 "No camera, drone, or thug deck in Stun range (%d) — move closer (Focus kept)."
                 % radius
             )
             return True
-        if pid == "scramble":
+        if effect == "scramble":
             # Cameras alone must not burn Focus: Aggro Scramble needs a hostile trail.
             hostiles = [t for t in targets if t.get("kind") in ("drone", "thug_deck")]
             if not hostiles:
@@ -461,7 +470,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                     % radius
                 )
                 return True
-        if pid not in ("stun", "reveal", "scramble") and not targets:
+        if effect not in ("stun", "reveal", "scramble") and not targets:
             agent.log("No camera, drone, or thug deck in probe range (%d)." % radius)
             return True
 
@@ -478,7 +487,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                 agent, "ambush_density", -0.015, reason="ICE probe"
             )
 
-        if pid == "stun":
+        if effect == "stun":
             hit = targets[0]
             if hit["kind"] == "camera":
                 for cam in self.ice_cameras:
@@ -503,7 +512,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                 )
             return True
 
-        if pid == "reveal":
+        if effect == "reveal":
             self._reveal_fog(agent, radius)
             for cam in getattr(self, "ice_cameras", []) or []:
                 if int(cam.get("z", 0) or 0) != int(getattr(agent.actor, "z", 0) or 0):
@@ -527,7 +536,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             agent.cutscene("terminal")
             return True
 
-        if pid == "scramble":
+        if effect == "scramble":
             n = 0
             for a in self.npcs_enemies:
                 if not a.alive or a.faction != "enemy":
@@ -689,7 +698,12 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                 p.log("Street job broadcast: %s" % job)
         else:
             # Mod street events (#72) may take the broadcast band when loaded.
-            if getattr(self, "mod_street_events", None) and self.rng.random() < 0.4:
+            # Mod street events / StreetNet broadcasts (#72) may take the band.
+            roll = self.rng.random()
+            if getattr(self, "mod_streetnet_broadcasts", None) and roll < 0.2:
+                if self._fire_mod_streetnet_broadcast(living):
+                    return
+            if getattr(self, "mod_street_events", None) and roll < 0.55:
                 if self._fire_mod_street_event(living):
                     return
             # High Flotilla pressure → prefer Flotilla-flavored broadcasts
@@ -827,22 +841,23 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
     # ----- journal -----
     def _year_update_journal(self, agent) -> None:
         j = agent.journal
-        if j.get("completed"):
-            return
-        step = int(j.get("step", 0))
-        if step == 0:
-            j["step"] = 1  # auto-accept on join
-        if step <= 1 and agent.has_payload():
-            j["step"] = 2
-            agent.log("Journal: Payload sleeved — survive to uplink.")
-        if step <= 2 and agent.has_payload() and agent.kills >= 1:
-            j["step"] = 3
-        if agent.quest_flags.get("payload_cleared") or agent.won:
-            j["step"] = 4
-            j["completed"] = True
-            agent.log("Journal: Payload-Zero arc complete.")
-            self._grant_season_xp(agent, 40)
-            self._analytics("payload", agent)
+        if not j.get("completed"):
+            step = int(j.get("step", 0))
+            if step == 0:
+                j["step"] = 1  # auto-accept on join
+            if step <= 1 and agent.has_payload():
+                j["step"] = 2
+                agent.log("Journal: Payload sleeved — survive to uplink.")
+            if step <= 2 and agent.has_payload() and agent.kills >= 1:
+                j["step"] = 3
+            if agent.quest_flags.get("payload_cleared") or agent.won:
+                j["step"] = 4
+                j["completed"] = True
+                agent.log("Journal: Payload-Zero arc complete.")
+                self._grant_season_xp(agent, 40)
+                self._analytics("payload", agent)
+        if hasattr(self, "_modding_update_journal"):
+            self._modding_update_journal(agent)
 
     # ----- analytics -----
     def _analytics(self, kind: str, agent=None, **extra: Any) -> None:
@@ -1099,9 +1114,10 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             return self._ice_probe_action(agent, arg or "")
 
         # Convenience aliases: ice_stun / probe_reveal / etc.
-        if a.startswith("ice_") and a[4:] in C.ICE_PROBES:
+        _probes = self._all_ice_probes() if hasattr(self, "_all_ice_probes") else C.ICE_PROBES
+        if a.startswith("ice_") and a[4:] in _probes:
             return self._ice_probe_action(agent, a[4:])
-        if a.startswith("probe_") and a[6:] in C.ICE_PROBES:
+        if a.startswith("probe_") and a[6:] in _probes:
             return self._ice_probe_action(agent, a[6:])
 
         if a in (
@@ -1211,12 +1227,17 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                 )
                 for m in snap.get("mods") or []:
                     agent.log(
-                        "  · %s v%s (%d items, %d events) [%s]"
+                        "  · %s v%s (items=%d events=%d journal=%d streetnet=%d "
+                        "ice=%d pins=%d) [%s]"
                         % (
                             m.get("id"),
                             m.get("version"),
                             len(m.get("items") or []),
                             len(m.get("street_events") or []),
+                            len(m.get("journal_arcs") or []) + len(m.get("journal_beats") or []),
+                            len(m.get("streetnet_broadcasts") or []),
+                            len(m.get("ice_probes") or []) + len(m.get("cyber_nodes") or []),
+                            len(m.get("globe_pins") or []) + len(m.get("globe_regions") or []),
                             ",".join(m.get("permissions") or []) or "none",
                         )
                     )

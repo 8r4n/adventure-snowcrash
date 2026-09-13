@@ -1,0 +1,31 @@
+{
+  "probes": [
+    {
+      "id": "hello_courier.ping_probe",
+      "name": "Courier Ping",
+      "desc": "Soft StreetNet ping — paints nearby cams/drones like a gentle ICE Scan.",
+      "effect": "reveal",
+      "focus_cost": 2,
+      "cooldown": 9.0,
+      "radius": 9,
+      "duration": 5.0
+    }
+  ],
+  "nodes": [
+    {
+      "id": "hello_courier.tutorial_node",
+      "node_type": "custom",
+      "weight": 2.0,
+      "hint": "Hello Courier tutorial node — grab * then exit X. Esc jack_out.",
+      "grid": [
+        "#######",
+        "#@....#",
+        "#.###.#",
+        "#...*.#",
+        "#.###.#",
+        "#....X#",
+        "#######"
+      ]
+    }
+  ]
+}
