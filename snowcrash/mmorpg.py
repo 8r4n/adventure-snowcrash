@@ -319,6 +319,11 @@ class GameWorld(YearFeaturesMixin):
                     "IRC: /join #chan · /part [#chan] · /msg nick text · /me action · "
                     "/nick newname · /names · /list · /topic · /query nick · /wish …",
                 )
+                extra = ""
+                if hasattr(self, "_mod_streetnet_help"):
+                    extra = self._mod_streetnet_help() or ""
+                if extra:
+                    self._irc_notice(agent, extra)
                 return None
 
             if cmd == "/list":
@@ -453,6 +458,10 @@ class GameWorld(YearFeaturesMixin):
                     return "empty"
                 low = text.lower()
             else:
+                if hasattr(self, "_mod_handle_streetnet_command") and self._mod_handle_streetnet_command(
+                    agent, cmd, arg1, rest
+                ):
+                    return None
                 self._irc_notice(agent, "Unknown command %s — try /help" % cmd)
                 return None
 

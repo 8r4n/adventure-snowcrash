@@ -12,7 +12,7 @@
 
 ## Data-driven districts (#37)
 - Edit `snowcrash/systems/data/districts.json` (also `recipes.json`, `season.json`).
-- Reload: restart the server **or** `POST /api/reload_defs`.
+- Reload: restart the server **or** `POST /api/reload_defs` (also remaps JSON mods from `mods/` — see [modding.md](modding.md) / [modding-workshop.md](modding-workshop.md)).
 - Fractional x0/y0/x1/y1 are normalized against map width/height. `undercity` binds to UNDER plane.
 
 ## Interest management / AOI (#18)

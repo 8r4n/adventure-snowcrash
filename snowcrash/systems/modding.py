@@ -2,7 +2,8 @@
 
 Loads manifests from ``mods/`` and ``examples/plugins/`` and registers
 JSON-defined items, street events, journal beats, StreetNet broadcasts,
-ICE probes / light cyberspace nodes, globe pins, and CSP-friendly UI panels.
+ICE probes / light cyberspace nodes, globe pins, CSP-friendly UI panels,
+and StreetNet slash commands.
 No arbitrary Python/WASM/mod-JS exec.
 """
 
@@ -21,7 +22,7 @@ from ..items import Item
 log = logging.getLogger("snowcrash.modding")
 
 # Public plugin API semver — bump minor for additive hooks, major for breaks.
-PLUGIN_API_VERSION = "1.2.0"
+PLUGIN_API_VERSION = "1.3.0"
 
 MANIFEST_NAMES = ("mod.json", "manifest.json")
 
@@ -99,6 +100,13 @@ _ALLOWED_UI_ACTIONS: Set[str] = {
 _UI_ACTION_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 _UI_ARG_RE = re.compile(r"^[A-Za-z0-9_./:-]{0,64}$")
 _UI_DOCK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _./+-]{0,23}$")
+# StreetNet slash verbs mods must not steal (core IRC + common game verbs).
+_RESERVED_STREETNET_SLASHES: Set[str] = {
+    "help", "irc", "join", "part", "nick", "name", "me", "action",
+    "msg", "privmsg", "query", "say", "wish", "feature", "list", "topic", "names",
+    "mods", "mod_item", "mod_reload", "reload", "qa",
+}
+_SLASH_RE = re.compile(r"^[a-z][a-z0-9_]{1,23}$")
 
 
 def _parse_semver(v: str) -> Optional[Tuple[int, int, int]]:
@@ -110,16 +118,32 @@ def _parse_semver(v: str) -> Optional[Tuple[int, int, int]]:
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
 
 
-def api_compatible(required: str, provided: str = PLUGIN_API_VERSION) -> bool:
-    """True if *required* major matches and minor/patch <= *provided* (same major)."""
+def api_incompatibility_reason(
+    required: str, provided: str = PLUGIN_API_VERSION
+) -> Optional[str]:
+    """None if compatible; otherwise a fail-closed reason string."""
     req = _parse_semver(required)
     got = _parse_semver(provided)
-    if req is None or got is None:
-        return False
+    if req is None:
+        return "unparseable api_version %r (need X.Y.Z) — fail closed" % (required,)
+    if got is None:
+        return "host api_version %r unparseable — fail closed" % (provided,)
     if req[0] != got[0]:
-        return False
-    # Mod asks for API <= host API within the same major.
-    return req <= got
+        return "api_version %s major != host %s (major mismatch) — fail closed" % (
+            required,
+            provided,
+        )
+    if req > got:
+        return "api_version %s requires newer host (host %s) — fail closed" % (
+            required,
+            provided,
+        )
+    return None
+
+
+def api_compatible(required: str, provided: str = PLUGIN_API_VERSION) -> bool:
+    """True if *required* major matches and minor/patch <= *provided* (same major)."""
+    return api_incompatibility_reason(required, provided) is None
 
 
 def _repo_root() -> Path:
@@ -205,6 +229,7 @@ class LoadedMod:
     journal_arcs: List[Dict[str, Any]] = field(default_factory=list)
     journal_beats: List[Dict[str, Any]] = field(default_factory=list)
     streetnet_broadcasts: List[Dict[str, Any]] = field(default_factory=list)
+    streetnet_commands: List[Dict[str, Any]] = field(default_factory=list)
     ice_probes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     cyber_nodes: List[Dict[str, Any]] = field(default_factory=list)
     globe_pins: List[Dict[str, Any]] = field(default_factory=list)
@@ -227,6 +252,7 @@ class LoadedMod:
             "journal_arcs": [a.get("id") for a in self.journal_arcs],
             "journal_beats": [b.get("id") for b in self.journal_beats],
             "streetnet_broadcasts": [b.get("id") for b in self.streetnet_broadcasts],
+            "streetnet_commands": [c.get("slash") for c in self.streetnet_commands],
             "ice_probes": sorted(self.ice_probes.keys()),
             "cyber_nodes": [n.get("id") for n in self.cyber_nodes],
             "globe_pins": [p.get("id") for p in self.globe_pins],
@@ -247,6 +273,7 @@ class ModRegistry:
     journal_arcs: List[Dict[str, Any]] = field(default_factory=list)
     journal_beats: List[Dict[str, Any]] = field(default_factory=list)
     streetnet_broadcasts: List[Dict[str, Any]] = field(default_factory=list)
+    streetnet_commands: List[Dict[str, Any]] = field(default_factory=list)
     ice_probes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     cyber_nodes: List[Dict[str, Any]] = field(default_factory=list)
     globe_pins: List[Dict[str, Any]] = field(default_factory=list)
@@ -263,6 +290,7 @@ class ModRegistry:
         self.journal_arcs.clear()
         self.journal_beats.clear()
         self.streetnet_broadcasts.clear()
+        self.streetnet_commands.clear()
         self.ice_probes.clear()
         self.cyber_nodes.clear()
         self.globe_pins.clear()
@@ -281,12 +309,17 @@ class ModRegistry:
             "journal_arc_count": len(self.journal_arcs),
             "journal_beat_count": len(self.journal_beats),
             "streetnet_count": len(self.streetnet_broadcasts),
+            "streetnet_command_count": len(self.streetnet_commands),
             "ice_probe_count": len(self.ice_probes),
             "cyber_node_count": len(self.cyber_nodes),
             "globe_pin_count": len(self.globe_pins),
             "globe_region_count": len(self.globe_regions),
             "ui_panel_count": len(self.ui_panels),
             "panels": [dict(p) for p in self.ui_panels],
+            "streetnet_commands": [
+                {"slash": c.get("slash"), "help": c.get("help"), "id": c.get("id")}
+                for c in self.streetnet_commands
+            ],
             "mods": [m.summary() for m in self.mods.values()],
             "errors": [
                 {"mod_id": e.mod_id, "path": e.path, "message": e.message}
@@ -465,6 +498,62 @@ def _validate_streetnet_broadcast(raw: Any, mod_id: str) -> Tuple[Optional[Dict[
         "player_log": str(raw.get("player_log") or "")[:240] or None,
         "weight": weight,
         "fire_on_load": bool(raw.get("fire_on_load") or False),
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_streetnet_command(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Player-typed StreetNet slash command — canned replies + optional allowlisted action."""
+    if not isinstance(raw, dict):
+        return None, "streetnet command must be an object"
+    cid = raw.get("id")
+    if not isinstance(cid, str) or not _ID_RE.match(cid):
+        return None, "invalid streetnet command id"
+    slash = raw.get("slash") or raw.get("cmd") or raw.get("command")
+    if not isinstance(slash, str):
+        return None, "streetnet command needs slash"
+    slash = slash.strip().lower().lstrip("/")
+    if not _SLASH_RE.match(slash):
+        return None, "invalid streetnet slash %r" % slash
+    if slash in _RESERVED_STREETNET_SLASHES:
+        return None, "streetnet slash %r is reserved — fail closed" % slash
+    replies = raw.get("replies") or raw.get("messages") or raw.get("text")
+    if isinstance(replies, str):
+        replies = [replies]
+    if not isinstance(replies, list) or not replies:
+        return None, "streetnet command needs replies[]"
+    clean = [str(m).strip()[:240] for m in replies if str(m).strip()]
+    if not clean:
+        return None, "streetnet command replies empty after sanitize"
+    action = raw.get("action")
+    arg_s = None
+    if action is None or action == "":
+        action = None
+    else:
+        if not isinstance(action, str) or not _UI_ACTION_RE.match(action.strip().lower()):
+            return None, "invalid streetnet command action"
+        action = action.strip().lower()
+        if action not in _ALLOWED_UI_ACTIONS:
+            return None, "streetnet command action %r not allowlisted" % action
+        arg = raw.get("arg")
+        if arg is None or arg == "":
+            arg_s = None
+        else:
+            if not isinstance(arg, (str, int, float)):
+                return None, "streetnet command arg must be string/number"
+            arg_s = str(arg).strip()
+            if not _UI_ARG_RE.match(arg_s):
+                return None, "streetnet command arg failed sanitize"
+            arg_s = arg_s[:64]
+    return {
+        "id": cid,
+        "slash": slash,
+        "help": str(raw.get("help") or "")[:120] or None,
+        "replies": clean,
+        "player_log": str(raw.get("player_log") or "")[:240] or None,
+        "action": action,
+        "arg": arg_s,
+        "broadcast": bool(raw.get("broadcast") or False),
         "mod_id": mod_id,
     }, None
 
@@ -761,14 +850,11 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
         return None
 
     api_req = str(manifest.get("api_version") or manifest.get("api") or "")
-    if not api_compatible(api_req, registry.api_version):
-        msg = "incompatible api_version %r (host %s) — fail closed" % (
-            api_req,
-            registry.api_version,
-        )
-        registry.errors.append(ModLoadError(mid, path_s, msg))
-        registry.skipped.append({"id": mid, "reason": msg})
-        log.warning("mod %s: %s", mid, msg)
+    incompat = api_incompatibility_reason(api_req, registry.api_version)
+    if incompat:
+        registry.errors.append(ModLoadError(mid, path_s, incompat))
+        registry.skipped.append({"id": mid, "reason": incompat})
+        log.warning("mod %s: %s", mid, incompat)
         return None
 
     raw_perms = manifest.get("permissions") or []
@@ -837,14 +923,12 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 registry.errors.append(ModLoadError(mid, path_s, "bad item: %s" % ierr))
                 return None
             iid = idef["id"]
-            if iid in registry.items:
+            if iid in registry.items or iid in loaded.items:
                 registry.errors.append(
                     ModLoadError(mid, path_s, "item id collision %r" % iid)
                 )
                 return None
             loaded.items[iid] = idef
-            registry.items[iid] = idef
-            registry.item_owners[iid] = mid
     elif entry.get("items"):
         loaded.warnings.append("items file present but permission 'items' not granted — ignored")
 
@@ -874,7 +958,6 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 registry.errors.append(ModLoadError(mid, path_s, "bad street event: %s" % eerr))
                 return None
             loaded.street_events.append(edef)
-            registry.street_events.append(edef)
     elif entry.get("street_events"):
         loaded.warnings.append(
             "street_events file present but permission not granted — ignored"
@@ -903,14 +986,12 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 registry.errors.append(ModLoadError(mid, path_s, "bad journal arc: %s" % aerr))
                 return None
             loaded.journal_arcs.append(adef)
-            registry.journal_arcs.append(adef)
         for raw in j_doc.get("beats") or []:
             bdef, berr = _validate_journal_beat(raw, mid)
             if berr or not bdef:
                 registry.errors.append(ModLoadError(mid, path_s, "bad journal beat: %s" % berr))
                 return None
             loaded.journal_beats.append(bdef)
-            registry.journal_beats.append(bdef)
         if not loaded.journal_arcs and not loaded.journal_beats:
             registry.errors.append(
                 ModLoadError(mid, path_s, "journal.json needs arcs[] and/or beats[]")
@@ -933,10 +1014,20 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
         except (OSError, json.JSONDecodeError) as exc:
             registry.errors.append(ModLoadError(mid, path_s, "streetnet JSON error: %s" % exc))
             return None
-        raw_sn = sn_doc.get("broadcasts") if isinstance(sn_doc, dict) else sn_doc
+        if isinstance(sn_doc, dict):
+            raw_sn = sn_doc.get("broadcasts") or []
+            raw_cmds = sn_doc.get("commands") or []
+        else:
+            raw_sn = sn_doc
+            raw_cmds = []
         if not isinstance(raw_sn, list):
             registry.errors.append(
                 ModLoadError(mid, path_s, "streetnet.json must list broadcasts[]")
+            )
+            return None
+        if not isinstance(raw_cmds, list):
+            registry.errors.append(
+                ModLoadError(mid, path_s, "streetnet.json commands must be a list")
             )
             return None
         for raw in raw_sn:
@@ -947,7 +1038,29 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 )
                 return None
             loaded.streetnet_broadcasts.append(bdef)
-            registry.streetnet_broadcasts.append(bdef)
+        for raw in raw_cmds:
+            cdef, cerr = _validate_streetnet_command(raw, mid)
+            if cerr or not cdef:
+                registry.errors.append(
+                    ModLoadError(mid, path_s, "bad streetnet command: %s" % cerr)
+                )
+                return None
+            slash = cdef["slash"]
+            taken = {c.get("slash") for c in registry.streetnet_commands}
+            taken.update(c.get("slash") for c in loaded.streetnet_commands)
+            if slash in taken:
+                registry.errors.append(
+                    ModLoadError(mid, path_s, "streetnet slash collision %r" % slash)
+                )
+                return None
+            loaded.streetnet_commands.append(cdef)
+        if not loaded.streetnet_broadcasts and not loaded.streetnet_commands:
+            registry.errors.append(
+                ModLoadError(
+                    mid, path_s, "streetnet.json needs broadcasts[] and/or commands[]"
+                )
+            )
+            return None
     elif entry.get("streetnet"):
         loaded.warnings.append("streetnet file present but permission not granted — ignored")
 
@@ -974,20 +1087,18 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 registry.errors.append(ModLoadError(mid, path_s, "bad ice probe: %s" % perr))
                 return None
             pid = pdef["id"]
-            if pid in registry.ice_probes:
+            if pid in registry.ice_probes or pid in loaded.ice_probes:
                 registry.errors.append(
                     ModLoadError(mid, path_s, "ice probe id collision %r" % pid)
                 )
                 return None
             loaded.ice_probes[pid] = pdef
-            registry.ice_probes[pid] = pdef
         for raw in ice_doc.get("nodes") or []:
             ndef, nerr = _validate_cyber_node(raw, mid)
             if nerr or not ndef:
                 registry.errors.append(ModLoadError(mid, path_s, "bad cyber node: %s" % nerr))
                 return None
             loaded.cyber_nodes.append(ndef)
-            registry.cyber_nodes.append(ndef)
         if not loaded.ice_probes and not loaded.cyber_nodes:
             registry.errors.append(
                 ModLoadError(mid, path_s, "ice_nodes.json needs probes[] and/or nodes[]")
@@ -1023,7 +1134,6 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 registry.errors.append(ModLoadError(mid, path_s, "bad globe pin: %s" % perr))
                 return None
             loaded.globe_pins.append(pdef)
-            registry.globe_pins.append(pdef)
         for raw in g_doc.get("regions") or []:
             rdef, rerr = _validate_globe_region(raw, mid)
             if rerr or not rdef:
@@ -1036,7 +1146,6 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 )
                 return None
             loaded.globe_regions.append(rdef)
-            registry.globe_regions.append(rdef)
         if not loaded.globe_pins and not loaded.globe_regions:
             registry.errors.append(
                 ModLoadError(mid, path_s, "globe_regions.json needs pins[] and/or regions[]")
@@ -1083,7 +1192,6 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 )
                 return None
             loaded.ui_panels.append(pdef)
-            registry.ui_panels.append(pdef)
     elif entry.get("ui_panel") or entry.get("ui_panels"):
         loaded.warnings.append("ui_panel file present but permission not granted — ignored")
 
@@ -1094,16 +1202,31 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
                 "permission %r declared but not hooked in API %s yet" % (p, PLUGIN_API_VERSION)
             )
 
+    # Atomic commit — only after every def validated (no partial apply).
+    registry.items.update(loaded.items)
+    for iid in loaded.items:
+        registry.item_owners[iid] = mid
+    registry.street_events.extend(loaded.street_events)
+    registry.journal_arcs.extend(loaded.journal_arcs)
+    registry.journal_beats.extend(loaded.journal_beats)
+    registry.streetnet_broadcasts.extend(loaded.streetnet_broadcasts)
+    registry.streetnet_commands.extend(loaded.streetnet_commands)
+    registry.ice_probes.update(loaded.ice_probes)
+    registry.cyber_nodes.extend(loaded.cyber_nodes)
+    registry.globe_pins.extend(loaded.globe_pins)
+    registry.globe_regions.extend(loaded.globe_regions)
+    registry.ui_panels.extend(loaded.ui_panels)
     registry.mods[mid] = loaded
     log.info(
         "mod loaded %s v%s (%d items, %d street events, %d journal, %d streetnet, "
-        "%d probes, %d nodes, %d pins, %d ui panels)",
+        "%d cmds, %d probes, %d nodes, %d pins, %d ui panels)",
         mid,
         loaded.version,
         len(loaded.items),
         len(loaded.street_events),
         len(loaded.journal_arcs) + len(loaded.journal_beats),
         len(loaded.streetnet_broadcasts),
+        len(loaded.streetnet_commands),
         len(loaded.ice_probes),
         len(loaded.cyber_nodes),
         len(loaded.globe_pins) + len(loaded.globe_regions),
@@ -1144,6 +1267,7 @@ class ModdingMixin:
         self.mod_journal_arcs = list(registry.journal_arcs)
         self.mod_journal_beats = list(registry.journal_beats)
         self.mod_streetnet_broadcasts = list(registry.streetnet_broadcasts)
+        self.mod_streetnet_commands = list(registry.streetnet_commands)
         self.mod_ice_probes = dict(registry.ice_probes)
         self.mod_cyber_nodes = list(registry.cyber_nodes)
         self.mod_globe_pins = list(registry.globe_pins)
@@ -1153,13 +1277,38 @@ class ModdingMixin:
             getattr(self, "_mod_streetnet_fired_on_load", set()) or set()
         )
 
+    def _modding_clear_globe_overlays(self) -> None:
+        """Drop previous-load mod overlays so reload does not leave stale pins."""
+        if not hasattr(self, "globe_regions") or not isinstance(self.globe_regions, dict):
+            return
+        stale = [
+            rid
+            for rid, reg in list(self.globe_regions.items())
+            if isinstance(reg, dict) and reg.get("mod_overlay")
+        ]
+        for rid in stale:
+            self.globe_regions.pop(rid, None)
+        defs = getattr(self, "globe_defs", None)
+        if isinstance(defs, dict):
+            defs["regions"] = [
+                r
+                for r in (defs.get("regions") or [])
+                if not (isinstance(r, dict) and r.get("mod_overlay"))
+            ]
+
     def _modding_apply_globe_overlays(self) -> None:
-        """Merge metadata-only mod regions into globe_regions (non-destructive)."""
+        """Merge metadata-only mod regions into globe_regions (reload-safe)."""
+        self._modding_clear_globe_overlays()
         if not hasattr(self, "globe_regions") or not isinstance(self.globe_regions, dict):
             return
         for reg in getattr(self, "mod_globe_regions", None) or []:
             rid = str(reg.get("id") or "")
-            if not rid or rid in self.globe_regions:
+            if not rid:
+                continue
+            if rid in self.globe_regions and not (
+                isinstance(self.globe_regions.get(rid), dict)
+                and self.globe_regions[rid].get("mod_overlay")
+            ):
                 continue
             if reg.get("metadata_only", True):
                 overlay = dict(reg)
@@ -1168,10 +1317,13 @@ class ModdingMixin:
                 self.globe_regions[rid] = overlay
                 defs = getattr(self, "globe_defs", None)
                 if isinstance(defs, dict):
-                    regions = list(defs.get("regions") or [])
-                    if not any(str(r.get("id")) == rid for r in regions):
-                        regions.append(overlay)
-                        defs["regions"] = regions
+                    regions = [
+                        r
+                        for r in (defs.get("regions") or [])
+                        if not (isinstance(r, dict) and str(r.get("id")) == rid)
+                    ]
+                    regions.append(overlay)
+                    defs["regions"] = regions
 
     def _modding_init(self) -> None:
         self._modding_bind_registry(load_all_mods())
@@ -1191,6 +1343,9 @@ class ModdingMixin:
         self._mod_streetnet_fired_on_load = set()
         self._modding_bind_registry(load_all_mods())
         self._modding_apply_globe_overlays()
+        # Journal offer is idempotent (skips known arc/beat ids).
+        for agent in (getattr(self, "players", None) or {}).values():
+            self._modding_offer_journal(agent)
         snap = self.mod_registry.snapshot()
         self._push_event(
             "mod",
@@ -1282,6 +1437,48 @@ class ModdingMixin:
                 continue
             if self._fire_mod_streetnet_broadcast(ev=ev):
                 fired.add(eid)
+
+    def _mod_streetnet_help(self) -> str:
+        cmds = getattr(self, "mod_streetnet_commands", None) or []
+        if not cmds:
+            return ""
+        bits = []
+        for c in cmds[:12]:
+            slash = c.get("slash")
+            if not slash:
+                continue
+            help_s = c.get("help") or "mod StreetNet command"
+            bits.append("/%s — %s" % (slash, help_s))
+        return "Mod cmds: " + " · ".join(bits) if bits else ""
+
+    def _mod_handle_streetnet_command(self, agent, cmd: str, arg1: str = "", rest: str = "") -> bool:
+        """Handle a player slash if a loaded mod registered it. Fail closed otherwise."""
+        slash = (cmd or "").strip().lower().lstrip("/")
+        if not slash:
+            return False
+        for cdef in getattr(self, "mod_streetnet_commands", None) or []:
+            if cdef.get("slash") != slash:
+                continue
+            replies = list(cdef.get("replies") or [])
+            reply = self.rng.choice(replies) if replies else ""
+            if reply:
+                if hasattr(self, "_irc_notice"):
+                    self._irc_notice(agent, reply)
+                else:
+                    agent.log(reply)
+            plog = cdef.get("player_log")
+            if plog:
+                agent.log(plog)
+            action = cdef.get("action")
+            if action and hasattr(self, "handle_year_action"):
+                try:
+                    self.handle_year_action(agent, action, cdef.get("arg") or "")
+                except Exception:
+                    log.warning("mod streetnet command %s action %s failed", slash, action)
+            if cdef.get("broadcast") and reply and hasattr(self, "system_chat"):
+                self.system_chat(reply)
+            return True
+        return False
 
     def _modding_offer_journal(self, agent) -> None:
         """Attach mod journal arcs / fire join beats for a freshly bootstrapped agent."""

@@ -11,5 +11,18 @@
       ],
       "player_log": "StreetNet mod (hello_courier): uplink hello."
     }
+  ],
+  "commands": [
+    {
+      "id": "hello_courier.slash_hello",
+      "slash": "hello",
+      "help": "Ping the Hello Courier mesh.",
+      "replies": [
+        "Hello Courier \u2014 mesh ack. Faraday pin online.",
+        "StreetNet // HELLO_COURIER: slash handshake ok."
+      ],
+      "player_log": "You pinged Hello Courier.",
+      "broadcast": false
+    }
   ]
 }
