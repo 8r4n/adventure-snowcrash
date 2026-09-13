@@ -208,7 +208,7 @@ func notify_snapshot(state: Dictionary) -> void:
 	# StreetNet chat growth → soft ping
 	var chat = state.get("chat", [])
 	if typeof(chat) == TYPE_ARRAY:
-		var n := chat.size()
+		var n: int = chat.size()
 		if _chat_len >= 0 and n > _chat_len:
 			play_streetnet_ping()
 		_chat_len = n

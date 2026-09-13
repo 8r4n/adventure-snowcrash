@@ -272,7 +272,7 @@ func _open_action_for(id: String) -> String:
 func _refresh_dock_btn_states() -> void:
 	for id in _dock_btns.keys():
 		var btn: Button = _dock_btns[id]
-		var active := (id == _open_id)
+		var active: bool = (id == _open_id)
 		btn.set_pressed_no_signal(active)
 		_style_btn(btn, active)
 
