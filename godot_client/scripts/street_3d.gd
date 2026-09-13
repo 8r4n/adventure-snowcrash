@@ -1,6 +1,7 @@
 extends Node3D
 class_name Street3D
 ## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
+## #158: modular corridor / prop kit (MeshKit) — snapshot-placed, original meshes.
 ## #156: shared trim / PBR + Catppuccin recolor (MaterialLibrary) — Omni budget unchanged.
 ## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
@@ -124,6 +125,7 @@ const STREET_FOG := Color(0.14, 0.12, 0.22, 1)
 
 
 func _ready() -> void:
+	MeshKit.ensure()
 	_ensure_resources()
 	_ensure_courier_parts()
 	_ensure_objective_cue()
@@ -460,6 +462,12 @@ func _ensure_resources() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(float(_build_radius * 2 + 6), float(_build_radius * 2 + 6))
 	_meshes["ground"] = plane
+	# #158 modular kit (original OBJ → ArrayMesh). Fallback stays PrimitiveMesh.
+	MeshKit.ensure()
+	for kn in MeshKit.NAMES:
+		var km: Mesh = MeshKit.get_mesh(kn)
+		if km:
+			_meshes[kn] = km
 
 
 func _mat(color: Color, emission_energy: float = 0.0, metallic: float = 0.15) -> Material:
@@ -565,30 +573,37 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 	match role:
 		"wall":
 			var mat = _mats["wall_hi"] if alt else _mats["wall"]
-			_add_mesh(map_root, _meshes["box"], mat, origin + Vector3(0, WALL_H * 0.5, 0), Vector3(1.0, WALL_H, 1.0))
+			var wall_mesh: Mesh = _kit("wall_panel", _meshes["box"])
+			_add_mesh(map_root, wall_mesh, mat, origin + Vector3(0, WALL_H * 0.5, 0), Vector3(1.0, WALL_H, 1.0))
 		"floor":
-			_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
+			_maybe_scatter_prop(origin, x, y, "floor")
 		"street":
-			_add_mesh(map_root, _meshes["floor"], _mats["street"], origin + Vector3(0, 0.04, 0))
-			# Neon lane tick
-			_add_mesh(map_root, _meshes["box"], _mats["door"], origin + Vector3(0, 0.07, 0), Vector3(0.12, 0.02, 0.55))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["street"], origin + Vector3(0, 0.04, 0))
+			# Neon lane tick — kit strip when available
+			var strip: Mesh = _kit("neon_strip", _meshes["box"])
+			_add_mesh(map_root, strip, _mats["door"], origin + Vector3(0, 0.08, 0), Vector3(1.0, 1.0, 1.0) if strip != _meshes["box"] else Vector3(0.12, 0.02, 0.55))
+			_maybe_scatter_prop(origin, x, y, "street")
 		"grass":
-			_add_mesh(map_root, _meshes["floor"], _mats["grass"], origin + Vector3(0, 0.04, 0))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["grass"], origin + Vector3(0, 0.04, 0))
+			_maybe_scatter_prop(origin, x, y, "grass")
 		"water":
-			_add_mesh(map_root, _meshes["floor"], _mats["water"], origin + Vector3(0, 0.02, 0), Vector3(1.0, 0.7, 1.0))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["water"], origin + Vector3(0, 0.02, 0), Vector3(1.0, 0.7, 1.0))
 		"door":
-			_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
-			_add_mesh(map_root, _meshes["box"], _mats["door"], origin + Vector3(0, 1.15, 0), Vector3(0.18, 2.2, 0.92))
-			_add_mesh(map_root, _meshes["box"], _mats["door"], origin + Vector3(0, 1.15, 0), Vector3(0.92, 2.2, 0.18))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
+			var frame: Mesh = _kit("door_frame", _meshes["box"])
+			_add_mesh(map_root, frame, _mats["door"], origin + Vector3(0, 1.15, 0), Vector3(1.0, 2.2, 1.0))
+			var frame_b: MeshInstance3D = _add_mesh(map_root, frame, _mats["door"], origin + Vector3(0, 1.15, 0), Vector3(1.0, 2.2, 1.0))
+			frame_b.rotation.y = PI * 0.5
 		"manhole":
-			_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
 			_add_mesh(map_root, _meshes["disc"], _mats["manhole"], origin + Vector3(0, 0.1, 0))
 		"stairs_up", "stairs_down":
-			_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
 			var h := 0.55 if role == "stairs_up" else 0.28
 			_add_mesh(map_root, _meshes["box"], _mats["stairs"], origin + Vector3(0, h * 0.5, 0), Vector3(0.85, h, 0.85))
 		_:
-			_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
+			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
 
 
 func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
@@ -1166,6 +1181,33 @@ func _style_entity(node: Node3D, role: String, label: String, show_facing: bool 
 		lab.text = label
 		lab.modulate = label_color
 		lab.position = Vector3(0, label_y, 0)
+
+
+func _kit(name: String, fallback: Mesh) -> Mesh:
+	if _meshes.has(name) and _meshes[name] != null:
+		return _meshes[name] as Mesh
+	var km: Mesh = MeshKit.get_mesh(name)
+	if km:
+		return km
+	return fallback
+
+
+func _maybe_scatter_prop(origin: Vector3, x: int, y: int, kind: String) -> void:
+	## Sparse kit debris / foliage / vents. High only (#148 AOI headroom). No extra Omni.
+	var scatter_on: bool = true
+	if GraphicsSettings:
+		scatter_on = GraphicsSettings.kit_scatter()
+	if not scatter_on:
+		return
+	var h: int = int(absi(x * 73856093 ^ y * 19349663) % 23)
+	if kind == "grass" and h == 3:
+		_add_mesh(map_root, _kit("foliage", _meshes["box"]), _mats["grass"], origin + Vector3(0.18, 0.0, -0.12), Vector3(1.1, 1.1, 1.1))
+	elif kind == "street" and h == 7:
+		_add_mesh(map_root, _kit("crate", _meshes["box"]), _mats["prop"], origin + Vector3(-0.28, 0.0, 0.22))
+	elif kind == "street" and h == 11:
+		_add_mesh(map_root, _kit("pipe", _meshes["pillar"]), _mats["manhole"], origin + Vector3(0.32, 0.0, -0.28))
+	elif kind == "floor" and h == 5:
+		_add_mesh(map_root, _kit("vent", _meshes["box"]), _mats["prop"], origin + Vector3(0.0, 1.4, 0.46), Vector3(1.0, 1.0, 1.0))
 
 
 func _add_mesh(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scale: Vector3 = Vector3.ONE) -> MeshInstance3D:
