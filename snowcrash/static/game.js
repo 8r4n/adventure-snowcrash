@@ -792,6 +792,28 @@
       if (ws) try { ws.close(); } catch (_) {}
     }
 
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        stopPing();
+        return;
+      }
+      if (!wantOpen) return;
+      if (ws && ws.readyState === 1) {
+        startPing();
+        send({ type: "ping", t: performance.now() });
+      } else if (displayName) {
+        // Tab foregrounded after close — reconnect path already schedules; nudge if idle
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => connect(displayName).catch(() => {}), 200);
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", () => { stopPing(); });
+    window.addEventListener("pageshow", () => {
+      if (document.visibilityState === "visible") onVisibility();
+    });
+
     return { connect, action, chat, disconnect, send, isJoined: () => joined };
   })();
 
@@ -844,6 +866,23 @@
     scene.width = SCENE_W;
     scene.height = SCENE_H;
     const sctx = scene.getContext("2d", { alpha: false });
+
+    function scenePlan() {
+      // Mid-range phones: fewer ray columns (still upscaled by VideoAscii)
+      try {
+        const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+        const narrow = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+        if (coarse || narrow) return [320, 180];
+      } catch (_) {}
+      return [SCENE_W, SCENE_H];
+    }
+    function syncSceneSize() {
+      const [w, h] = scenePlan();
+      if (scene.width !== w || scene.height !== h) {
+        scene.width = w;
+        scene.height = h;
+      }
+    }
 
     let ascii = null;
     let running = false;
@@ -940,8 +979,9 @@
 
     function paintScene(s, t) {
       if (!s || !sctx) return;
-      const W = SCENE_W;
-      const H = SCENE_H;
+      syncSceneSize();
+      const W = scene.width || SCENE_W;
+      const H = scene.height || SCENE_H;
       const px = s.player.x + 0.5;
       const py = s.player.y + 0.5;
       const facing = (s.player.facing || 0) % 4;
@@ -1199,16 +1239,32 @@
       updateHud(s);
     }
 
-    function loop(ts) {
-      if (!running) return;
+    // #75: adaptive idle FPS — mid-range phones / coarse pointer / reduced motion
+    function idleFrameMs() {
+      try {
+        if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 200;
+        const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+        const narrow = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+        if (coarse || narrow) return 110; // ~9fps idle scanlines
+      } catch (_) {}
+      return 80; // ~12.5fps desktop idle
+    }
+
+    function scheduleLoop() {
+      if (!running || paused || document.hidden) return;
+      if (rafId) return;
       rafId = requestAnimationFrame(loop);
-      if (paused || !lastState) return;
+    }
+
+    function loop(ts) {
+      rafId = 0;
+      if (!running) return;
+      if (paused || document.hidden) return;
+      scheduleLoop();
+      if (!lastState) return;
       noiseT = (ts || 0) / 1000;
-      // idle refresh ~12fps for scanlines/noise without burning CPU
-      if (((ts / 80) | 0) === ((noiseT * 12) | 0) || true) {
-        // throttle: only repaint every ~80ms
-      }
-      if (!loop._last || ts - loop._last > 80) {
+      const interval = idleFrameMs();
+      if (!loop._last || ts - loop._last > interval) {
         loop._last = ts;
         paintScene(lastState, noiseT);
         pushAscii();
@@ -1216,21 +1272,30 @@
     }
 
     function start() {
+      syncSceneSize();
       ensureAscii();
       resizeAscii();
       running = true;
       paused = false;
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(loop);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      scheduleLoop();
     }
 
     function pause() {
       paused = true;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
     }
 
     function resume() {
       paused = false;
       if (lastState) render(lastState);
+      scheduleLoop();
     }
 
     function stop() {
@@ -1244,8 +1309,10 @@
 
     function kick() {
       // force a redraw after layout changes
+      syncSceneSize();
       resizeAscii();
       if (lastState) render(lastState);
+      scheduleLoop();
     }
 
     // wire bridge for CutscenePlayer
@@ -1257,6 +1324,16 @@
     window.addEventListener("resize", () => {
       if (!running) return;
       kick();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!running) return;
+      if (document.visibilityState === "visible") {
+        if (lastState) render(lastState);
+        scheduleLoop();
+      } else if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
     });
 
     return { start, stop, pause, resume, render, kick, scene };
@@ -1783,9 +1860,26 @@
       }
     }
 
+    function weatherIdleMs() {
+      try {
+        if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 200;
+        if (window.matchMedia && (window.matchMedia("(pointer: coarse)").matches || window.matchMedia("(max-width: 720px)").matches)) return 125;
+      } catch (_) {}
+      return 80;
+    }
+
     function paintWeather() {
+      weatherRaf = 0;
+      if (!weatherKind || document.hidden) return;
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const interval = weatherIdleMs();
+      if (paintWeather._last && now - paintWeather._last < interval) {
+        weatherRaf = requestAnimationFrame(paintWeather);
+        return;
+      }
+      paintWeather._last = now;
       const canvas = els.weatherCanvas;
-      if (!canvas || !weatherKind) return;
+      if (!canvas) return;
       const parent = canvas.parentElement;
       const w = (parent && parent.clientWidth) || 480;
       const h = (parent && parent.clientHeight) || 270;
@@ -1831,7 +1925,9 @@
           ctx.stroke();
         }
       }
-      weatherRaf = requestAnimationFrame(paintWeather);
+      if (!document.hidden && weatherKind) {
+        weatherRaf = requestAnimationFrame(paintWeather);
+      }
     }
 
     function renderWeather(s) {
@@ -1853,9 +1949,20 @@
           const ctx = els.weatherCanvas.getContext("2d");
           if (ctx) ctx.clearRect(0, 0, els.weatherCanvas.width, els.weatherCanvas.height);
         }
-        if (kind) weatherRaf = requestAnimationFrame(paintWeather);
+        if (kind && !document.hidden) weatherRaf = requestAnimationFrame(paintWeather);
       }
     }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") {
+        if (weatherRaf) {
+          cancelAnimationFrame(weatherRaf);
+          weatherRaf = 0;
+        }
+        return;
+      }
+      if (weatherKind && !weatherRaf) weatherRaf = requestAnimationFrame(paintWeather);
+    });
 
     function renderCrew(s) {
       if (!els.crewBody) return;
@@ -2391,6 +2498,21 @@
           toast(fbText, cls, 4500);
         }
       }
+      const globeRegs = defArr(defObj(s.globe).regions);
+      const regionOpts = globeRegs
+        .slice(0, 40)
+        .map((r) => `<option value="${escapeHtml(defStr(r.id, ""))}">${escapeHtml(defStr(r.name || r.id, ""))}</option>`)
+        .join("");
+      const chipSrc = (globeRegs.length ? globeRegs : [
+        { id: "neo_tokyo" }, { id: "fractured_la" }, { id: "neo_nyc" }, { id: "cont_eu" }, { id: "london_fog" }
+      ]).slice(0, 8);
+      const regionChips = chipSrc
+        .map((r) => {
+          const id = defStr(r.id, "");
+          if (!id) return "";
+          return `<button type="button" class="chip" data-jaunte-region="${escapeHtml(id)}">${escapeHtml(id)}</button>`;
+        })
+        .join("");
       els.jaunteBody.innerHTML =
         `<div class="jaunte-meta"><strong>${escapeHtml(rankName)}</strong> · rank ${rank}` +
         ` · xp ${xp}${xpNext != null ? "/" + xpNext : ""}` +
@@ -2401,8 +2523,17 @@
         `<div class="row">` +
         `<button type="button" data-jaunte="short">Short</button>` +
         `<button type="button" data-jaunte="district"${rank < 2 ? " title=\"Rank 2+ (misfire risk)\"" : ""}>District</button>` +
-        `<button type="button" data-jaunte="globe"${rank < 3 ? " title=\"Rank 3+ (misfire risk)\"" : ""}>Globe…</button>` +
+        `<button type="button" data-jaunte="globe"${rank < 3 ? " title=\"Rank 3+ (misfire risk)\"" : ""}>Globe</button>` +
         `<button type="button" data-jaunte="train">Train</button>` +
+        `</div>` +
+        `<div class="jaunte-globe-hop" id="jaunte-globe-hop">` +
+        `<label class="dim" for="jaunte-region">Globe region</label>` +
+        `<div class="row jaunte-hop-row">` +
+        `<input id="jaunte-region" type="text" list="jaunte-region-list" maxlength="48" autocomplete="off" placeholder="e.g. neo_tokyo" inputmode="text" />` +
+        `<button type="button" data-jaunte-hop="1">Hop</button>` +
+        `</div>` +
+        `<datalist id="jaunte-region-list">${regionOpts}</datalist>` +
+        `<div class="jaunte-region-chips">${regionChips}</div>` +
         `</div>` +
         `<div class="row"><button type="button" data-jaunte="open">Refresh</button>` +
         `<button type="button" data-jaunte="status">Status</button>` +
@@ -3114,14 +3245,39 @@
           if (v === "short") send("jaunte_short");
           else if (v === "district") send("jaunte_district");
           else if (v === "globe") {
-            const rid = window.prompt("Globe hop region id (e.g. neo_tokyo):", "neo_tokyo");
-            if (rid) send("jaunte_globe", rid);
+            const hop = document.getElementById("jaunte-globe-hop");
+            const input = document.getElementById("jaunte-region");
+            if (hop) hop.classList.add("open");
+            if (input) {
+              try { input.focus(); } catch (_) {}
+            }
           } else if (v === "train") send("jaunte_train");
           else if (v === "status") send("jaunte_status");
           else if (v === "close") send("jaunte_close");
           else send("jaunte");
         }],
+        ["data-jaunte-hop", () => {
+          const input = document.getElementById("jaunte-region");
+          const rid = ((input && input.value) || "").trim();
+          if (rid) send("jaunte_globe", rid);
+        }],
+        ["data-jaunte-region", (v) => {
+          const input = document.getElementById("jaunte-region");
+          if (input) input.value = v;
+          if (v) send("jaunte_globe", v);
+        }],
       ]);
+      if (els.jaunteBody && !els.jaunteBody.dataset.hopEnter) {
+        els.jaunteBody.dataset.hopEnter = "1";
+        els.jaunteBody.addEventListener("keydown", (ev) => {
+          if (ev.key !== "Enter") return;
+          const t = ev.target;
+          if (!t || t.id !== "jaunte-region") return;
+          ev.preventDefault();
+          const rid = (t.value || "").trim();
+          if (rid) send("jaunte_globe", rid);
+        });
+      }
       bindPanel(els.empathyBody, [
         ["data-empathy", (v) => {
           if (v === "audit") send("empathy_audit");
@@ -4164,21 +4320,46 @@
     } catch (_) {}
   }
 
-  // Copy join link helper (#75) — shares current URL with ?name=
+  // Copy / QR join helpers (#75) — share current URL with ?name=
+  function buildJoinUrl() {
+    const name = ((displayNameEl && displayNameEl.value) || "").trim() || "Courier";
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set("name", name);
+      return u.toString();
+    } catch (_) {
+      return window.location.origin + "/?name=" + encodeURIComponent(name);
+    }
+  }
   const btnCopyJoin = document.getElementById("btn-copy-join");
   const copyJoinStatus = document.getElementById("copy-join-status");
+  const btnShowQr = document.getElementById("btn-show-qr");
+  const joinQr = document.getElementById("join-qr");
+  const joinQrFrame = document.getElementById("join-qr-frame");
+  function paintJoinQr() {
+    if (!joinQrFrame) return false;
+    const url = buildJoinUrl();
+    if (typeof qrcode !== "function") {
+      joinQrFrame.innerHTML = '<p class="dim">QR helper unavailable — use Copy join link.</p>';
+      return false;
+    }
+    try {
+      const q = qrcode(0, "M");
+      q.addData(url);
+      q.make();
+      const svg = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+      joinQrFrame.innerHTML = svg;
+      joinQrFrame.setAttribute("data-url", url);
+      return true;
+    } catch (err) {
+      joinQrFrame.innerHTML = '<p class="dim">Could not draw QR — use Copy join link.</p>';
+      return false;
+    }
+  }
   if (btnCopyJoin) {
     btnCopyJoin.addEventListener("click", async () => {
       Sound.unlock();
-      const name = ((displayNameEl && displayNameEl.value) || "").trim() || "Courier";
-      let url;
-      try {
-        const u = new URL(window.location.href);
-        u.searchParams.set("name", name);
-        url = u.toString();
-      } catch (_) {
-        url = window.location.origin + "/?name=" + encodeURIComponent(name);
-      }
+      const url = buildJoinUrl();
       let ok = false;
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -4206,6 +4387,32 @@
         try { if (typeof YearUI !== "undefined" && YearUI.toast) YearUI.toast("Join link copied", "party", 2200); } catch (_) {}
       }
     });
+  }
+  if (btnShowQr && joinQr) {
+    btnShowQr.addEventListener("click", () => {
+      Sound.unlock();
+      const opening = joinQr.hasAttribute("hidden") || joinQr.classList.contains("hidden");
+      if (opening) {
+        paintJoinQr();
+        joinQr.classList.remove("hidden");
+        joinQr.removeAttribute("hidden");
+        btnShowQr.setAttribute("aria-expanded", "true");
+        btnShowQr.textContent = "Hide QR";
+        if (copyJoinStatus && !copyJoinStatus.textContent) {
+          copyJoinStatus.textContent = "Scan or copy the join URL";
+        }
+      } else {
+        joinQr.classList.add("hidden");
+        joinQr.setAttribute("hidden", "");
+        btnShowQr.setAttribute("aria-expanded", "false");
+        btnShowQr.textContent = "Show QR";
+      }
+    });
+    if (displayNameEl) {
+      displayNameEl.addEventListener("input", () => {
+        if (!joinQr.classList.contains("hidden")) paintJoinQr();
+      });
+    }
   }
   ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
     window.addEventListener(evt, () => Sound.unlock(), { once: true, passive: true });
