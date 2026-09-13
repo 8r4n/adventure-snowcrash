@@ -67,7 +67,7 @@ Biggest remaining Steam-screenshot gaps vs that bar: lighting / kit / ground / d
 **Visual-fidelity checklist** (children of #163 — keep parent epics #163 / #141 open; use `Refs` only):
 
 - [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
-- [ ] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
+- [x] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (snapshot-placed)
 - [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend materials
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens

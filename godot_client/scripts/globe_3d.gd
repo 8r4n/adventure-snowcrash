@@ -4,6 +4,7 @@ class_name Globe3D
 ## Driven by snapshot `globe` / `regions` — no client simulation. Pins call existing
 ## `teleport` / dock selection; Street + ICE SubViewports stay separate.
 ## Slice 5: rim DirectionalLight + optional orbit dust; Omni budget = FillLight only.
+## #157: High SSAO/SSIL/volumetric via GraphicsSettings — Low off.
 
 signal pin_selected(region_id: String)
 signal pin_activated(region_id: String)  # double-click / confirm hop
@@ -74,9 +75,27 @@ func _on_quality_changed(_level: int) -> void:
 func _apply_quality() -> void:
 	var env: Environment = world_env.environment if world_env else null
 	if env:
+		var high := GraphicsSettings.is_high() if GraphicsSettings else true
 		env.glow_enabled = GraphicsSettings.glow_enabled() if GraphicsSettings else true
 		env.glow_intensity = GraphicsSettings.glow_intensity_globe() if GraphicsSettings else 0.62
 		env.glow_bloom = GraphicsSettings.glow_bloom_globe() if GraphicsSettings else 0.14
+		# #157 High stack — Low off (Deck / #148). Globe keeps Fill Omni only.
+		env.ssao_enabled = GraphicsSettings.ssao_enabled() if GraphicsSettings else high
+		env.ssil_enabled = GraphicsSettings.ssil_enabled() if GraphicsSettings else high
+		if env.ssao_enabled:
+			env.ssao_radius = 1.8
+			env.ssao_intensity = 0.55
+		if env.ssil_enabled:
+			env.ssil_radius = 5.0
+			env.ssil_intensity = 0.45
+		var vol := GraphicsSettings.volumetric_fog_enabled() if GraphicsSettings else high
+		env.volumetric_fog_enabled = vol
+		if vol:
+			env.volumetric_fog_density = GraphicsSettings.volumetric_fog_density_globe() if GraphicsSettings else 0.018
+			env.volumetric_fog_albedo = Color(0.12, 0.1, 0.22)
+			env.volumetric_fog_emission = Color(0.4, 0.35, 0.7)
+			env.volumetric_fog_emission_energy = 0.3
+			env.volumetric_fog_length = 40.0
 	if rim:
 		rim.visible = GraphicsSettings.rim_enabled() if GraphicsSettings else true
 		rim.light_energy = 0.48 if (GraphicsSettings == null or GraphicsSettings.is_high()) else 0.0

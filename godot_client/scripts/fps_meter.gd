@@ -161,6 +161,9 @@ func _quality_bits() -> Dictionary:
 	var glow := false
 	var bob := false
 	var smooth := true
+	var ssao := false
+	var taa := false
+	var vol := false
 	if GraphicsSettings:
 		qname = GraphicsSettings.quality_name()
 		msaa = GraphicsSettings.msaa_3d()
@@ -171,6 +174,9 @@ func _quality_bits() -> Dictionary:
 		glow = GraphicsSettings.glow_enabled()
 		bob = GraphicsSettings.head_bob()
 		smooth = GraphicsSettings.look_smoothing()
+		ssao = GraphicsSettings.ssao_enabled()
+		taa = GraphicsSettings.taa_enabled()
+		vol = GraphicsSettings.volumetric_fog_enabled()
 	return {
 		"quality": qname,
 		"msaa": msaa,
@@ -181,6 +187,9 @@ func _quality_bits() -> Dictionary:
 		"glow": glow,
 		"bob": bob,
 		"smooth": smooth,
+		"ssao": ssao,
+		"taa": taa,
+		"vol": vol,
 	}
 
 
@@ -207,6 +216,12 @@ func _refresh_label() -> void:
 		% [
 			"on" if bits.get("smooth", true) else "off",
 			"on" if bits.get("bob", false) else "off",
+		]
+		+ "High stack · TAA %s · SSAO %s · vol %s (#157)\n"
+		% [
+			"on" if bits.get("taa", false) else "off",
+			"on" if bits.get("ssao", false) else "off",
+			"on" if bits.get("vol", false) else "off",
 		]
 		+ "F3 toggle · Shift+F3 log → user://fps_samples.log"
 	)

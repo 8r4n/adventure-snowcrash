@@ -2,6 +2,7 @@ extends Node
 ## Low / High 3D quality preset (#141 slice 5). Persists in ConfigFile with onboarding/audio.
 ## Omni budget is documented in docs/godot-3d.md — this autoload never adds lights.
 ## #161 camera juice (look smooth / head bob) is cosmetic only — no client position authority.
+## #157 High SSAO/SSIL/TAA/volumetric + probes — Low keeps these off (Deck / #148).
 
 const CONFIG_PATH := "user://snowcrash_client.cfg"
 const CONFIG_SECTION := "graphics"
@@ -180,6 +181,44 @@ func look_yaw_rate() -> float:
 func look_pos_rate() -> float:
 	## Cosmetic grid-cell mesh lerp (courier + entities). Not prediction.
 	return 14.0 if not _look_smooth else 9.5
+
+
+
+func ssao_enabled() -> bool:
+	## #157 High only — Deck Low keeps AO off (#148).
+	return is_high()
+
+
+func ssil_enabled() -> bool:
+	## #157 High only (affordable with Omni ≤3 + Forward+).
+	return is_high()
+
+
+func taa_enabled() -> bool:
+	## #157 High SubViewport.use_taa — Low off.
+	return is_high()
+
+
+func volumetric_fog_enabled() -> bool:
+	return is_high()
+
+
+func volumetric_fog_density_street() -> float:
+	## Denser neon shafts on High; Low unused (feature off).
+	return 0.0 if is_low() else 0.028
+
+
+func volumetric_fog_density_ice() -> float:
+	return 0.0 if is_low() else 0.042
+
+
+func volumetric_fog_density_globe() -> float:
+	return 0.0 if is_low() else 0.018
+
+
+func reflection_probes_enabled() -> bool:
+	## Hotspots only (J / U / ICE core+exit) — not every tile.
+	return is_high()
 
 
 func fog_density_street() -> float:

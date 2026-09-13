@@ -6,6 +6,7 @@ class_name Street3D
 ## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
 ## #161: camera juice (look smooth, bob, landing FOV, entity mesh lerp) — cosmetic only; /ws authority.
+## #157: High SSAO/SSIL/TAA/volumetric + ReflectionProbes at J/U/ICE hotspots — Low off; Omni budget unchanged.
 ## Slice 3: jack-in visual language — grid/node lattice, neon ICE walls, layer plates.
 ## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
 ## Glyphs become PrimitiveMesh instances + Catppuccin trim materials (not solid color only).
@@ -723,6 +724,7 @@ func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void
 	lab.outline_modulate = Catppuccin.CRUST
 	lab.pixel_size = 0.008
 	holder.add_child(lab)
+	_add_hotspot_probe(holder, Vector3(10.0, 8.0, 10.0), 0.75 if is_jack else 0.8)
 
 
 func _spawn_vendor(x: int, y: int, px: int, py: int, label: String) -> void:
@@ -1308,10 +1310,18 @@ func _place_ice_tile(ch: String, origin: Vector3, alt: bool) -> void:
 			_add_mesh(map_root, _meshes["sphere"], _mats["core"], origin + Vector3(0, 1.15, 0), Vector3(1.25, 1.25, 1.25))
 			_add_mesh(map_root, _meshes["ring"], _mats["core"], origin + Vector3(0, 1.15, 0), Vector3(1.2, 0.45, 1.2))
 			_add_ice_label(origin + Vector3(0, 2.15, 0), "%  CORE", Catppuccin.PINK)
+			var core_holder := Node3D.new()
+			core_holder.position = origin
+			map_root.add_child(core_holder)
+			_add_hotspot_probe(core_holder, Vector3(7.0, 6.0, 7.0), 0.85)
 		"X":
 			_add_mesh(map_root, _meshes["box"], _mats["exit"], origin + Vector3(0, 1.25, 0), Vector3(0.22, 2.5, 0.22))
 			_add_mesh(map_root, _meshes["ring"], _mats["ice_exit_ring"], origin + Vector3(0, 1.35, 0), Vector3(1.35, 0.55, 1.35))
 			_add_ice_label(origin + Vector3(0, 2.85, 0), "X  EXIT", Catppuccin.GREEN)
+			var exit_holder := Node3D.new()
+			exit_holder.position = origin
+			map_root.add_child(exit_holder)
+			_add_hotspot_probe(exit_holder, Vector3(6.5, 5.5, 6.5), 0.7)
 		"*":
 			_add_mesh(map_root, _meshes["sphere"], _mats["pickup"], origin + Vector3(0, 0.55, 0), Vector3(0.7, 0.7, 0.7))
 			_add_mesh(map_root, _meshes["disc"], _mats["loot"], origin + Vector3(0, 0.12, 0), Vector3(0.7, 0.7, 0.7))
@@ -1410,6 +1420,20 @@ func _apply_environment_quality() -> void:
 		return
 	var high := true if GraphicsSettings == null else GraphicsSettings.is_high()
 	env.glow_enabled = high if GraphicsSettings == null else GraphicsSettings.glow_enabled()
+	# #157 High stack — Low keeps AO / SSIL / volumetric off (Deck / #148).
+	var ssao := GraphicsSettings.ssao_enabled() if GraphicsSettings else high
+	var ssil := GraphicsSettings.ssil_enabled() if GraphicsSettings else high
+	var vol := GraphicsSettings.volumetric_fog_enabled() if GraphicsSettings else high
+	env.ssao_enabled = ssao
+	env.ssil_enabled = ssil
+	if ssao:
+		env.ssao_radius = 1.35 if _ice_mode else 1.55
+		env.ssao_intensity = 0.85 if _ice_mode else 0.7
+		env.ssao_power = 1.5
+	if ssil:
+		env.ssil_radius = 4.0
+		env.ssil_intensity = 0.75 if _ice_mode else 0.55
+	env.volumetric_fog_enabled = vol
 	if _ice_mode:
 		env.background_color = Color(0.02, 0.035, 0.07)
 		env.ambient_light_color = Color(0.2, 0.45, 0.68)
@@ -1418,6 +1442,14 @@ func _apply_environment_quality() -> void:
 		env.fog_density = GraphicsSettings.fog_density_ice() if GraphicsSettings else 0.045
 		env.glow_intensity = GraphicsSettings.glow_intensity_ice() if GraphicsSettings else 0.88
 		env.glow_bloom = GraphicsSettings.glow_bloom_ice() if GraphicsSettings else 0.22
+		if vol:
+			env.volumetric_fog_density = GraphicsSettings.volumetric_fog_density_ice() if GraphicsSettings else 0.042
+			env.volumetric_fog_albedo = Color(0.25, 0.55, 0.85)
+			env.volumetric_fog_emission = Color(0.15, 0.45, 0.75)
+			env.volumetric_fog_emission_energy = 0.55
+			env.volumetric_fog_anisotropy = 0.35
+			env.volumetric_fog_length = 48.0
+			env.volumetric_fog_ambient_inject = 0.35
 	else:
 		env.background_color = STREET_BG
 		env.ambient_light_color = STREET_AMB
@@ -1426,6 +1458,14 @@ func _apply_environment_quality() -> void:
 		env.fog_density = GraphicsSettings.fog_density_street() if GraphicsSettings else 0.022
 		env.glow_intensity = GraphicsSettings.glow_intensity_street() if GraphicsSettings else 0.55
 		env.glow_bloom = GraphicsSettings.glow_bloom_street() if GraphicsSettings else 0.12
+		if vol:
+			env.volumetric_fog_density = GraphicsSettings.volumetric_fog_density_street() if GraphicsSettings else 0.028
+			env.volumetric_fog_albedo = Color(0.18, 0.14, 0.28)
+			env.volumetric_fog_emission = Color(0.35, 0.55, 0.85)
+			env.volumetric_fog_emission_energy = 0.4
+			env.volumetric_fog_anisotropy = 0.28
+			env.volumetric_fog_length = 56.0
+			env.volumetric_fog_ambient_inject = 0.25
 
 
 func _ensure_fx() -> void:
@@ -1629,3 +1669,22 @@ func _lerp_entity_meshes(delta: float, pos_rate: float, yaw_rate: float) -> void
 		var ty: float = float(n.get_meta("target_yaw"))
 		n.position = n.position.lerp(tp, clampf(pos_rate * delta, 0.0, 1.0))
 		n.rotation.y = lerp_angle(n.rotation.y, ty, clampf(yaw_rate * delta, 0.0, 1.0))
+
+func _add_hotspot_probe(parent: Node3D, size: Vector3 = Vector3(9.0, 7.0, 9.0), intensity: float = 0.7) -> void:
+	## #157 ReflectionProbe at jackpoint / uplink / ICE core+exit only — not every tile.
+	if GraphicsSettings and not GraphicsSettings.reflection_probes_enabled():
+		return
+	var probe := ReflectionProbe.new()
+	probe.name = "HotspotProbe"
+	probe.size = size
+	probe.origin_offset = Vector3(0.0, 1.6, 0.0)
+	probe.intensity = intensity
+	probe.max_distance = 28.0
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	probe.ambient_mode = ReflectionProbe.AMBIENT_ENVIRONMENT
+	probe.box_projection = true
+	probe.enable_shadows = false
+	probe.position = Vector3(0.0, 1.4, 0.0)
+	parent.add_child(probe)
+
+

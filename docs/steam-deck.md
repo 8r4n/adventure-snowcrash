@@ -87,7 +87,7 @@ Valve note: if a Linux build exists they test it first; only fall back to Window
 
 ### Performance (checklist sibling)
 
-Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and **≤3 Omni lights** (courier + J + U). Neon rim is a **DirectionalLight** (not Omni). Slice 5 adds a **Low/High** quality preset (`GraphicsSettings` / F8) — **Low** disables particles, MSAA, glow, and shrinks AOI (**build 12 / entity 10 / pool ≤24** after #148). Prefer Low on Deck until hardware QA. Use **F3** FPS overlay + Shift+F3 → `user://fps_samples.log` per [godot-3d.md § FPS measurement (#148)](godot-3d.md#fps-measurement-148). ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
+Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and **≤3 Omni lights** (courier + J + U). Neon rim is a **DirectionalLight** (not Omni). Slice 5 adds a **Low/High** quality preset (`GraphicsSettings` / F8) — **Low** disables particles, MSAA, glow, and shrinks AOI (**build 12 / entity 10 / pool ≤24** after #148). **#157** High adds SSAO/SSIL/TAA/volumetric + hotspot ReflectionProbes — **Low keeps that stack off**; do not leave Deck on High as the silent default. Prefer Low on Deck until hardware QA. Use **F3** FPS overlay + Shift+F3 → `user://fps_samples.log` per [godot-3d.md § FPS measurement (#148)](godot-3d.md#fps-measurement-148). ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
 
 ---
 
