@@ -15,7 +15,7 @@ This doc tracks **slice progress** — #75 stays open until the full acceptance 
 | Light service worker (offline shell) | **Done** | `/sw.js` precaches shell assets only; live play still needs network/WS |
 | Mobile HUD visible on narrow / coarse pointer | **Done** | CSS `@media (max-width: 720px)` and coarse-pointer tablet rule |
 | Panel scroll (Journal / ICE / dock) | **Improved (#88)** | Year-panel accordion (one open); `#side` single scroll on narrow; dock wrap on mid widths |
-| Toasts vs HP / Focus | **Partial** | Sticky stats + toasts parked under topbar (not over HUD / sticky HP row) |
+| Toasts vs HP / Focus | **Improved (#124)** | Sticky stats + toasts under topbar; identical flash/journal lines coalesce within ~2.8s (no back-to-back stacks on join) |
 | Safe-area insets | **Done** | `#app`, mobile HUD, minimap / toast offsets use `env(safe-area-inset-*)` |
 | Joystick scroll bleed | **Done** | `touch-action: none` + non-passive `touchmove` preventDefault on pads |
 

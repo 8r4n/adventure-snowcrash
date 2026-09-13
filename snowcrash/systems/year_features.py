@@ -643,7 +643,19 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             setattr(a, "schedule_tod", tod)
 
     def _push_event(self, kind: str, text: str, **extra: Any) -> None:
-        ev = {"t": time.time(), "tick": self.tick, "kind": kind, "text": text, **extra}
+        # #124 — coalesce identical flash/journal lines within a short window
+        # so join + early ticks do not emit duplicate ticker beats.
+        now = time.time()
+        text_s = str(text or "").strip()
+        if text_s and self.event_ticker:
+            last = self.event_ticker[-1]
+            if (
+                str(last.get("text") or "").strip() == text_s
+                and str(last.get("kind") or "") == str(kind or "")
+                and (now - float(last.get("t") or 0)) < 2.8
+            ):
+                return
+        ev = {"t": now, "tick": self.tick, "kind": kind, "text": text, **extra}
         self.event_ticker.append(ev)
         if len(self.event_ticker) > 40:
             self.event_ticker = self.event_ticker[-40:]

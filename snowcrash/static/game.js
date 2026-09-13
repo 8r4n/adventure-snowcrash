@@ -1419,7 +1419,7 @@
     let lastJaunteFbSig = "";
     let lastEmpathyFbSig = "";
     let lastForecastFbSig = "";
-  let lastWishSig = "";
+    let lastWishSig = "";
     let lastSkillOpen = false;
     let lastDead = false;
     let weatherKind = "";
@@ -1428,6 +1428,11 @@
     let modTarget = "";
     let seenFeeMsgs = new Set();
     let theaterSpeed = 1;
+    // #124 — coalesce identical flash/journal toasts within a short window
+    const TOAST_DEDUPE_MS = 2800;
+    let lastToastText = "";
+    let lastToastAt = 0;
+    const seenEventKeys = new Set();
 
     function defArr(v) { return Array.isArray(v) ? v : []; }
     function defObj(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
@@ -1442,11 +1447,30 @@
 
     function toast(text, cls, ms) {
       if (!els.toastStack || !text) return;
+      const normalized = String(text).replace(/\s+/g, " ").trim();
+      if (!normalized) return;
+      const now = Date.now();
+      // Identical line within the coalesce window → skip (join / early tick stacks)
+      if (normalized === lastToastText && (now - lastToastAt) < TOAST_DEDUPE_MS) {
+        return;
+      }
+      lastToastText = normalized;
+      lastToastAt = now;
       const el = document.createElement("div");
       el.className = "toast" + (cls ? " " + cls : "");
       el.textContent = text;
       els.toastStack.appendChild(el);
       setTimeout(() => { try { el.remove(); } catch (_) {} }, ms || 4200);
+    }
+
+    function eventToastKey(e) {
+      if (typeof e === "string") return "s:" + e;
+      const id = defStr(e.event_id || e.id, "");
+      const tick = e.tick != null ? String(e.tick) : "";
+      const t = e.t != null ? String(e.t) : "";
+      const body = defStr(e.text || e.msg || e.name, "");
+      if (id) return "id:" + id + "|" + tick + "|" + body;
+      return "t:" + tick + "|" + t + "|" + body;
     }
 
     function openPanel(name, opts) {
@@ -1537,7 +1561,8 @@
       const events = defArr(s.events);
       if (els.eventTicker) {
         if (events.length) {
-          const top = events[0];
+          // Prefer newest flash on the ticker strip
+          const top = events[events.length - 1];
           const text = typeof top === "string" ? top : defStr(top.text || top.msg || top.name, "WORLD EVENT");
           els.eventTicker.hidden = false;
           els.eventTicker.textContent = "⚡ " + text;
@@ -1547,14 +1572,27 @@
         }
       }
       const sig = events
-        .map((e) => (typeof e === "string" ? e : defStr(e.id || e.text || e.msg, "")))
+        .map((e) => eventToastKey(e))
         .join("|");
       if (sig && sig !== lastEventSig) {
-        const fresh = events.slice(0, 3);
-        fresh.forEach((e) => {
+        // Only toast beats not yet shown — avoid re-stacking prior journal/flash lines
+        const fresh = [];
+        events.forEach((e) => {
+          const key = eventToastKey(e);
+          if (!key || seenEventKeys.has(key)) return;
+          seenEventKeys.add(key);
+          fresh.push(e);
+        });
+        // Cap burst size; show chronological so join handshake precedes later propaganda
+        fresh.slice(-3).forEach((e) => {
           const t = typeof e === "string" ? e : defStr(e.text || e.msg || e.name, "");
           if (t) toast(t, "event", 5000);
         });
+        if (seenEventKeys.size > 120) {
+          const keep = Array.from(seenEventKeys).slice(-60);
+          seenEventKeys.clear();
+          keep.forEach((k) => seenEventKeys.add(k));
+        }
         lastEventSig = sig;
       }
     }

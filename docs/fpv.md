@@ -41,7 +41,7 @@ Map tile `J` remains the jackpoint landmark; it is not a journal hotkey.
 
 Corner **Street GPS** (`#minimap-wrap`) is web-only chrome. Toggle with the toolbar **GPS** button (next to Mute / Aa / FPV) or the `` ` `` (backtick) key. Preference persists in `localStorage` under `snowcrash_gps_hidden` (`"1"` = hidden). Default remains **visible**.
 
-Hiding GPS must not affect movement, combat, compass pills, flash toasts, or year-panel docks — only the minimap overlay is suppressed.
+Hiding GPS must not affect movement, combat, compass pills, flash toasts, or year-panel docks — only the minimap overlay is suppressed. Flash/journal toasts themselves coalesce identical lines within a short window (#124).
 
 **TUI:** N/A — curses client has no Street GPS overlay; `v` toggles FPV ↔ overhead map instead.
 

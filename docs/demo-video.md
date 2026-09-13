@@ -41,7 +41,7 @@ Aim for a watchable **~90–180s** MP4 covering as many surfaces as fit:
 15. **Catppuccin** — theme select Mocha / Macchiato / Frappé / Latte
 16. **Aa large type** — `#btn-large-type` cycles Auto → Large → Compact
 
-Known capture notes: ICE sidebar overlap filed separately; duplicate flash/journal toasts are minor.
+Known capture notes: ICE sidebar overlap filed separately; duplicate flash/journal toasts fixed in #124.
 
 ## Live capture (preferred)
 
