@@ -109,6 +109,8 @@ godot4 --headless --path godot_client \
 
 First-time tip: open the project once in the editor so `.godot/` imports exist; some headless exports fail on a cold checkout.
 
+**Verified:** Godot **4.3.stable** headless Linux export succeeded on this repo (release tag [`godot-linux-2026-09-13`](https://github.com/8r4n/adventure-snowcrash/releases/tag/godot-linux-2026-09-13)); explicit `:=` type annotations in `audio_manager.gd` / `main.gd` / `year_docks.gd` are required for that compiler (#154).
+
 ### Artifact smoke
 
 ```bash

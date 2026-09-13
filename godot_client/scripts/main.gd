@@ -803,25 +803,25 @@ func _process(delta: float) -> void:
 
 func _chord_move_action() -> String:
 	# Keyboard + Deck/gamepad InputMap (move_* from left stick / d-pad).
-	var w := (
-		_move_keys.get("w", false)
+	var w: bool = (
+		bool(_move_keys.get("w", false))
 		or Input.is_physical_key_pressed(KEY_W)
 		or Input.is_physical_key_pressed(KEY_UP)
 		or Input.is_action_pressed("move_forward")
 	)
-	var a := (
-		_move_keys.get("a", false)
+	var a: bool = (
+		bool(_move_keys.get("a", false))
 		or Input.is_physical_key_pressed(KEY_A)
 		or Input.is_action_pressed("move_left")
 	)
-	var s := (
-		_move_keys.get("s", false)
+	var s: bool = (
+		bool(_move_keys.get("s", false))
 		or Input.is_physical_key_pressed(KEY_S)
 		or Input.is_physical_key_pressed(KEY_DOWN)
 		or Input.is_action_pressed("move_back")
 	)
-	var d := (
-		_move_keys.get("d", false)
+	var d: bool = (
+		bool(_move_keys.get("d", false))
 		or Input.is_physical_key_pressed(KEY_D)
 		or Input.is_action_pressed("move_right")
 	)
