@@ -88,7 +88,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 | **Mods** | JSON plugin API + local pack contract ([modding.md](modding.md), [modding-workshop.md](modding-workshop.md)); Workshop upload not wired. |
 | **Demo / trailer source** | README montage (#111 done); live re-capture still open (#126). |
 | **SFX** | Procedural WAVs under `snowcrash/static/sfx/` (UI/combat cues). No music bed / juice pass for Steam first impressions. |
-| **Onboarding** | StreetNet Primer (#60) teaches systems *in the web client*; Godot/Steam “first 10 minutes” fantasy sell is not designed as a product beat. |
+| **Onboarding** | StreetNet Primer (#60) teaches systems *in the web client*. Godot/Steam first-10 beat: [godot-onboarding.md](godot-onboarding.md) (#133). |
 | **Mobile / Deck** | PWA research (#75); no Steam Deck Verified checklist or device QA plan yet. |
 
 ### Gaps vs the 10 themes
@@ -96,7 +96,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 | Theme | Gap |
 |-------|-----|
 | 1 Godot primary SKU | Slice 1 only; docks/StreetNet/year parity (#127), export, GodotSteam, sidecar/offline story still open. #67 still recommends Tauri wrap of *web* as fastest v1 — **reprioritize**: Godot is the marketable SKU; Tauri is fallback if calendar forces a wrap. |
-| 2 First 10 minutes | No guided jack-in → one objective → win fantasy beat for Godot/Steam; Primer is content-rich but HUD-heavy for cold Steam traffic. |
+| 2 First 10 minutes | **Shipped #133 (Godot):** jack-in brief → name → Payload-Zero beat with dock gate + death/win feedback + skip/remember — see [godot-onboarding.md](godot-onboarding.md). Human ≥3 cold playtest still follow-up. Primer remains deeper post-beat teaching. |
 | 3 Info design | Web HUD is dense (“HUD soup” risk); Godot HUD is minimal (good) but lacks Cogmind-grade tooltips / death recap / teach-in-place. |
 | 4 World density | Globe (#54) + news arcs (#51) still open; density exists as systems but not as a continuous living world read for new players. |
 | 5 Persistence fantasy | Shared world works on hosted `dev`; Steam SKU needs clear offline vs always-online messaging (#67 open questions) and visible reputation/consequence UX in-client. |
@@ -121,7 +121,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 Order of investment toward the north star:
 
 1. **Godot Steam SKU** — finish #118 play loop → #127 docks/StreetNet parity → export + GodotSteam (see [godot-client.md](godot-client.md)).
-2. **Onboarding / juice** — first-10-minutes fantasy beat + audio/music pass (child issues under this epic).
+2. **Onboarding / juice** — first-10-minutes fantasy beat (**#133** / [godot-onboarding.md](godot-onboarding.md)) + audio/music pass (**#134**).
 3. **Store page / trailer** — capsules + live trailer source (#126) using the Godot client when ready; asset sizes remain in [steam-packaging.md](steam-packaging.md).
 4. **Workshop** — keep JSON mods shipping (#72); Workshop when Steamworks is real.
 5. **Deck** — Verified checklist + native Linux depot QA after a playable export exists.
@@ -150,4 +150,5 @@ Still covered by existing opens: Godot SKU **#118** / **#127**, store/trailer so
 - [demo-video.md](demo-video.md) — #126 live re-capture
 - [mobile.md](mobile.md) — #75 PWA; not a Steam substitute
 - [primer.md](primer.md) — in-world teaching tablet (feeds theme 2)
+- [godot-onboarding.md](godot-onboarding.md) — #133 first 10 minutes Godot/Steam beat
 - [qa-automation.md](qa-automation.md) — #112 review-hygiene helper

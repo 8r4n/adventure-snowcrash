@@ -27,6 +27,9 @@ var _dock_btns: Dictionary = {}  # id -> Button
 var _mod_panel_ids: PackedStringArray = PackedStringArray()
 var _jaunte_region: String = ""
 var _globe_search: String = ""
+var _secondary_gated: bool = false
+var _gate_banner: Label = null
+
 
 @onready var dock_bar: HBoxContainer = %DockBar
 @onready var dock_title: Label = %DockTitle
@@ -49,6 +52,65 @@ func setup(net_client: NetClient) -> void:
 func is_chat_focused() -> bool:
 	return chat_input.has_focus()
 
+func set_secondary_gated(gated: bool) -> void:
+	"""Hide year docks + StreetNet during first-session beat (#133 anti-HUD soup)."""
+	if _secondary_gated == gated:
+		_apply_gate_visibility()
+		return
+	_secondary_gated = gated
+	if gated and not _open_id.is_empty():
+		_open_id = ""
+		_refresh_dock_btn_states()
+		_show_empty_dock()
+	_apply_gate_visibility()
+
+
+func is_secondary_gated() -> bool:
+	return _secondary_gated
+
+
+func _apply_gate_visibility() -> void:
+	var show_full := not _secondary_gated
+	# Dock chrome
+	if has_node("DockBarScroll"):
+		$DockBarScroll.visible = show_full
+	if has_node("DockHead"):
+		$DockHead.visible = show_full
+	if has_node("DockPanel"):
+		$DockPanel.visible = show_full
+	# StreetNet
+	if has_node("IrcHead"):
+		$IrcHead.visible = show_full
+	if has_node("IrcTopic"):
+		$IrcTopic.visible = show_full
+	if has_node("IrcChannelsScroll"):
+		$IrcChannelsScroll.visible = show_full
+	if has_node("IrcMid"):
+		$IrcMid.visible = show_full
+	if has_node("ChatRow"):
+		$ChatRow.visible = show_full
+	_ensure_gate_banner()
+	if _gate_banner:
+		_gate_banner.visible = _secondary_gated
+
+
+func _ensure_gate_banner() -> void:
+	if _gate_banner != null and is_instance_valid(_gate_banner):
+		return
+	_gate_banner = Label.new()
+	_gate_banner.name = "OnboardingGateBanner"
+	_gate_banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_gate_banner.add_theme_color_override("font_color", Catppuccin.PEACH)
+	_gate_banner.add_theme_font_size_override("font_size", 12)
+	_gate_banner.text = (
+		"Onboarding beat active — year docks & StreetNet locked.\n"
+		+ "Clear Payload-Zero (jackpoint J → uplink U) or Skip beat to unlock."
+	)
+	# Insert at top of YearDocks
+	add_child(_gate_banner)
+	move_child(_gate_banner, 0)
+
+
 
 func _ready() -> void:
 	dock_close_btn.pressed.connect(_on_close_pressed)
@@ -58,6 +120,7 @@ func _ready() -> void:
 	chat_input.focus_exited.connect(func(): chat_focus_changed.emit(false))
 	_build_dock_bar()
 	_show_empty_dock()
+	_apply_gate_visibility()
 
 
 func _build_dock_bar() -> void:
@@ -104,6 +167,8 @@ func _on_close_pressed() -> void:
 
 
 func _on_jack_pressed() -> void:
+	if _secondary_gated:
+		return
 	if net == null or not net.is_joined():
 		return
 	var cyber: Dictionary = _as_dict(_last_state.get("cyberspace", {}))
@@ -116,6 +181,8 @@ func _on_jack_pressed() -> void:
 
 
 func _toggle_dock(id: String) -> void:
+	if _secondary_gated:
+		return
 	if _open_id == id:
 		_open_id = ""
 		_refresh_dock_btn_states()
@@ -149,6 +216,9 @@ func _refresh_dock_btn_states() -> void:
 
 func paint(state: Dictionary) -> void:
 	_last_state = state
+	if _secondary_gated:
+		_apply_gate_visibility()
+		return
 	_paint_streetnet(state)
 	_ensure_mod_dock_buttons(state)
 	if _open_id.is_empty():
@@ -386,6 +456,8 @@ func _join_channel(ch: String) -> void:
 
 
 func _on_chat_send() -> void:
+	if _secondary_gated:
+		return
 	if net == null or not net.is_joined():
 		return
 	var raw := chat_input.text.strip_edges()

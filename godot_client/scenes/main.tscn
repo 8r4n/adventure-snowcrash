@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://c8snowcrashplayloop1"]
+[gd_scene load_steps=5 format=3 uid="uid://c8snowcrashplayloop1"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/net_client.gd" id="2_net"]
 [ext_resource type="Script" path="res://scripts/year_docks.gd" id="3_docks"]
+[ext_resource type="Script" path="res://scripts/onboarding.gd" id="4_onboard"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -47,7 +48,7 @@ theme_override_constants/separation = 5
 layout_mode = 2
 theme_override_colors/font_color = Color(0.580392, 0.886275, 0.835294, 1)
 theme_override_font_sizes/font_size = 18
-text = "SNOWCRASH · Godot docks + StreetNet"
+text = "SNOWCRASH · Godot · first-10 onboarding"
 
 [node name="Status" type="Label" parent="Margin/VBox"]
 unique_name_in_owner = true
@@ -344,3 +345,8 @@ theme_override_colors/font_color = Color(0.65098, 0.678431, 0.784314, 1)
 theme_override_font_sizes/font_size = 10
 autowrap_mode = 3
 text = "Controls appear after load"
+
+[node name="OnboardingBeat" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+script = ExtResource("4_onboard")
+
