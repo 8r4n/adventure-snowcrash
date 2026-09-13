@@ -2242,6 +2242,17 @@ body:not(.intro-active) {
 .globe-region-list .row { align-items: center; }
 .globe-region-list .row button { flex-shrink: 0; font-size: 0.62rem; padding: 0.12rem 0.35rem; }
 .globe-meta { color: #7a8794; font-size: 0.65rem; margin-bottom: 0.25rem; }
+.globe-zoom-bar { display: flex; gap: 0.25rem; margin-bottom: 0.35rem; flex-wrap: wrap; }
+.globe-zoom-bar button {
+  font-size: 0.62rem; padding: 0.12rem 0.4rem; border: 1px solid #2a3a4a;
+  background: #121a22; color: #9aa8b5; border-radius: 3px; cursor: pointer;
+}
+.globe-zoom-bar button.active { background: #1e3a4a; color: #c8f0ff; border-color: #3a6a8a; }
+.globe-street-card { margin: 0.35rem 0; padding: 0.4rem; background: #0e161e; border-radius: 4px; font-size: 0.7rem; }
+.globe-street-card p { margin: 0.25rem 0 0.4rem; }
+.globe-svg .pin.ascii { stroke: #a8ffc8; stroke-width: 0.7; }
+.globe-region-list-compact { max-height: 6.5rem; overflow: auto; margin-top: 0.25rem; }
+
 
 /* Sleeves / avatar hop (#59) */
 .year-panel .panel-body.sleeves-body { max-height: 16rem; }

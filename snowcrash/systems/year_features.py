@@ -1119,6 +1119,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             "teleport", "globe_teleport", "uplink_hop", "hop", "tp",
             "globe_recall", "recall", "home_hop",
             "globe_failsafe", "globe_rescue",
+            "globe_zoom", "zoom_globe",
         ):
             return self._globe_action(agent, a, arg or "")
 

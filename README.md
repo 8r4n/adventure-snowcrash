@@ -269,7 +269,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Neon Dash timed street race | [docs/neon-dash.md](docs/neon-dash.md) | #48 · parent #42 |
 | Corp patrol pressure (heat) | [docs/corp-patrol.md](docs/corp-patrol.md) | #50 · parent #42 |
 | Soft hardcore (opt-in death tax) | [docs/soft-hardcore.md](docs/soft-hardcore.md) | #49 · parent #42 |
-| Globe map + region teleport | [docs/globe.md](docs/globe.md) | #54 · parent #42 (slice; issue stays open) |
+| Globe map + region teleport | [docs/globe.md](docs/globe.md) | #54 · parent #42 (OSM ASCII pilots + zoom ladder; issue stays open) |
 | OSM → ASCII Metaverse shards (research) | [docs/osm-procedural-globe.md](docs/osm-procedural-globe.md) | #83 · parent #42 · links #54/#51 |
 | Sleeve / avatar hop (stat tradeoffs) | [docs/sleeves.md](docs/sleeves.md) | #59 · parent #42 |
 | StreetNet Primer (teaching quests) | [docs/primer.md](docs/primer.md) | #60 · parent #42 |
