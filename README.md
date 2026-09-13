@@ -209,6 +209,7 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `r` | Respawn after death/win (same name / same session) |
 | `q` | Quit (TUI) |
 | `m` (web) | Mute / unmute SFX |
+| `` ` `` (web) | Toggle Street GPS / minimap overlay (persists in `localStorage`) |
 | `j` (web) | Jack in at jackpoint `J` / jack out in cyberspace (else absolute south) |
 | `Shift+J` (web) | Open quest journal |
 | `z` / `x` / `c` (web) | ICE probes: Stun / Reveal / Scramble |
@@ -237,7 +238,7 @@ Bump into NPCs to talk. Walk onto items and press `g`. Bring **Payload-Zero** ne
 
 **TUI FPV (#78):** curses raycasts the local map + facing straight to ASCII columns (no canvas). Toggle with `v`; see `docs/tui-fpv.md`.
 
-**Street GPS:** enhanced ASCII minimap (glyph language, 2×2 upscaled/colorized) in matching METAVERSE LAYER chrome.
+**Street GPS:** enhanced ASCII minimap (glyph language, 2×2 upscaled/colorized) in matching METAVERSE LAYER chrome. Hide/show with toolbar **GPS** (near Mute / Aa / FPV) or `` ` ``; preference stored in `localStorage` (`snowcrash_gps_hidden`). Default is visible. TUI has no Street GPS chrome — use `v` for FPV ↔ overhead (`docs/tui-fpv.md`).
 
 Movement is **relative to facing** (GTA-like): `W/S` forward/back, `A/D` strafe, `Q/E` (or arrows) turn.
 
