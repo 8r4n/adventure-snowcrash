@@ -4,6 +4,7 @@ class_name Street3D
 ## #158: modular corridor / prop kit (MeshKit) — snapshot-placed, original meshes.
 ## #156: shared trim / PBR + Catppuccin recolor (MaterialLibrary) — Omni budget unchanged.
 ## #159: ground blend (floor/street/grass/water/rubble) — world-space shared mats; Low cheaper.
+## #160: diegetic screens (jack terminal + StreetNet board) — Label3D/quad; #133 docks untouched.
 ## #150: landmark readability (J/U/$) + subtle objective world marker / compass tick (no HUD soup · #133).
 ## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
 ## #161: camera juice (look smooth, bob, landing FOV, entity mesh lerp) — cosmetic only; /ws authority.
@@ -125,6 +126,9 @@ var _obj_active: bool = false
 var _obj_id: String = ""
 var _obj_glyph: String = ""
 var _ice_mode: bool = false
+var _diegetic_screens: Array = []  # #160 Label3D prefabs (display-only)
+var _last_screen_fp: String = ""
+var _screen_root: Node3D = null
 var _trans_t: float = 0.0
 var _trans_dir: int = 0  # +1 jack-in, -1 jack-out
 ## Deck: reuse shared PrimitiveMesh + materials; entity nodes are pooled (no free/alloc per snap).
@@ -176,6 +180,7 @@ func _apply_quality(force_rebuild: bool = false) -> void:
 	if force_rebuild:
 		_last_map_fp = ""
 		_last_landmark_fp = ""
+		_last_screen_fp = ""
 		_quality_dirty = true
 
 
@@ -270,6 +275,7 @@ func apply_snapshot(state: Dictionary) -> void:
 		_have_pose = false
 		_last_map_fp = ""
 		_last_landmark_fp = ""
+		_last_screen_fp = ""
 		_apply_ice_environment(ice_now)
 	var player: Dictionary = state.get("player", {})
 	if typeof(player) != TYPE_DICTIONARY:
@@ -295,6 +301,7 @@ func apply_snapshot(state: Dictionary) -> void:
 		nameplate.text = nm
 	_rebuild_map_if_needed(state, px, py)
 	_paint_landmarks(state, px, py)
+	_paint_diegetic_screens(state, px, py)
 	_update_objective_cue(state, px, py)
 	_paint_entities(state, px, py, str(state.get("you", player.get("id", ""))))
 
@@ -675,6 +682,54 @@ func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
 				_spawn_pickup_beacon(mx, my, px, py, nm if nm else "Loot")
 				seen[key] = true
 	_sync_particles()
+
+
+
+func _ensure_screen_root() -> Node3D:
+	if _screen_root and is_instance_valid(_screen_root):
+		return _screen_root
+	_screen_root = get_node_or_null("ScreenRoot") as Node3D
+	if _screen_root == null:
+		_screen_root = Node3D.new()
+		_screen_root.name = "ScreenRoot"
+		add_child(_screen_root)
+	return _screen_root
+
+
+func _paint_diegetic_screens(state: Dictionary, px: int, py: int) -> void:
+	## #160 — jack terminal + StreetNet billboard. Display-only (never unlocks #133 docks).
+	_ensure_resources()
+	var root := _ensure_screen_root()
+	var jack = state.get("jackpoint", [])
+	var uplink = state.get("uplink", [])
+	var fp := "%s|%s|%s" % [str(jack), str(uplink), "ice" if _ice_mode else "street"]
+	if fp != _last_screen_fp:
+		_last_screen_fp = fp
+		for c in root.get_children():
+			c.free()
+		_diegetic_screens.clear()
+		var place := (not _ice_mode) or (GraphicsSettings != null and GraphicsSettings.diegetic_screens_detailed())
+		if place and typeof(jack) == TYPE_ARRAY and jack.size() >= 2:
+			var jh := Node3D.new()
+			jh.position = Vector3(float(jack[0]) + 0.5, 0.0, float(jack[1]) + 0.5)
+			root.add_child(jh)
+			_diegetic_screens.append(DiegeticScreens.spawn_terminal(jh, _mats))
+		if place and typeof(uplink) == TYPE_ARRAY and uplink.size() >= 2:
+			var uh := Node3D.new()
+			uh.position = Vector3(float(uplink[0]) + 0.5, 0.0, float(uplink[1]) + 0.5)
+			root.add_child(uh)
+			_diegetic_screens.append(DiegeticScreens.spawn_billboard(uh, _mats))
+	var detailed := true
+	if GraphicsSettings:
+		detailed = GraphicsSettings.diegetic_screens_detailed()
+	DiegeticScreens.paint(_diegetic_screens, state, _ice_mode, detailed)
+
+
+func _clear_diegetic_screens() -> void:
+	var root := _ensure_screen_root()
+	for c in root.get_children():
+		c.free()
+	_diegetic_screens.clear()
 
 
 func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void:

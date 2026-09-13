@@ -66,6 +66,10 @@ Record notes under issue #133 comments or QA fixtures when humans are available.
 
 ---
 
+## Diegetic screens vs dock gate
+
+#160 jack terminal / StreetNet billboards are **presentation only** — they never call `set_secondary_gated(false)` or open docks.
+
 ## Related
 
 - [steam-quality-bar.md](steam-quality-bar.md) — theme 2 tracker

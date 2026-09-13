@@ -56,7 +56,7 @@ Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs
 - [x] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
 - [x] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
-- [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
+- [x] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
 - [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: this section + [steam-quality-bar.md](steam-quality-bar.md) cite (this PR)
 
@@ -232,6 +232,7 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | Materials (#156) | albedo + procedural trim (no normal/ORM) | trim albedo + normal + ORM |
 | Kit scatter (#158) | off (AOI mesh headroom) | crates / pipes / foliage / vents |
 | Ground blend (#159) | single tinted albedo | world-space multi-tex + rubble chips |
+| Diegetic screens (#160) | short labels; hidden in ICE | full StreetNet/objective lines; ICE simplified |
 | Head bob (#161) | **forced off** | optional (F7; default off) |
 | Look smooth (#161) | on (cosmetic yaw/pos rates) | on (default) |
 | SSAO (#157) | **off** | on |
@@ -480,7 +481,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; diegesis #160)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; **diegesis #160 done**)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -607,6 +608,30 @@ Live street stills still **TBD** (no Godot / Deck in CI — same honesty as #148
 
 ---
 
+
+## Diegetic in-world screens (#160)
+
+Two **display-only** prefabs sell Metaverse density without opening a Control dock:
+
+| Prefab | Placement | Content (from `/ws` snapshot) |
+|--------|-----------|-------------------------------|
+| Jack terminal | Beside **J** | Objective text / “JACK · READY” |
+| StreetNet billboard | Beside **U** | IRC topic / recent chat line + rotating cyber ad (or Primer title) |
+
+Implementation: `diegetic_screens.gd` → emissive quads + **Label3D** (shared mats from #156). **No browser / no SubViewport video.**
+
+**ICE:** High shows simplified “ICE LINK / StreetNet paused”; Low hides screens entirely.
+
+**#133 dock gate:** screens never call `YearDocks` / never unlock secondary docks — presentation only.
+
+**High vs Low:** `GraphicsSettings.diegetic_screens_detailed()`. Omni budget unchanged (courier + J + U).
+
+**Not shipped:** Abandoned Spaceship arcade video assets.
+
+`Refs #163` · `Refs #141` · `#133` — epics stay open.
+
+---
+
 ## Landmark readability (#150)
 
 
@@ -629,10 +654,11 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats / #159 ground / #161 camera juice / #157 GI+probes |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / #160 screens / objective cue / particles / quality / #156 mats / #159 ground / #161 camera juice / #157 GI+probes |
 | `godot_client/materials/` | Shared trim / PBR (#156) + ground blend (#159): `recolor_trim.gdshader`, `ground_blend.gdshader`, `library.gd`, `.tres`, generated textures |
 | `godot_client/models/` | #158 original OBJ kit (wall panel, floor tile, door frame, crate, pipe, neon, foliage, vent) |
 | `godot_client/scripts/mesh_kit.gd` | OBJ → ArrayMesh loader + role catalog (`MeshKit`) |
+| `godot_client/scripts/diegetic_screens.gd` | #160 jack terminal + StreetNet billboard prefabs (Label3D) |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
 | `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload (+ #161 bob / look smooth · #157 SSAO/SSIL/TAA/vol/probes · #159 ground blend) |
