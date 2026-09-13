@@ -41,6 +41,8 @@
 
   let state = null;
   let invMode = false;
+  let invDigitBuf = "";
+  let invDigitTimer = null;
   let lastMode = null;
   let cutscenePlaying = false;
   let gameplayReady = false;
@@ -3405,13 +3407,21 @@
       invEl.innerHTML = "";
       (s.inventory || []).forEach((it, i) => {
         const li = document.createElement("li");
-        li.textContent = `${i}: ${it.glyph} ${it.name}`;
+        // 0-9 digits; 10+ show a,b,c… for keyboard (#100)
+        const label = i <= 9 ? String(i) : (i < 36 ? String.fromCharCode(87 + i) : String(i));
+        li.textContent = `${label}: ${it.glyph} ${it.name}`;
         if (it.equipped) li.classList.add("equipped");
         if (it.kind === "wish") li.classList.add("wish");
         if (i === s.selected_inv) li.classList.add("sel");
-        li.title = it.description;
+        li.title = (it.description || "") + " — click select, double-click use, then u";
         li.addEventListener("click", () => {
           Sound.play("click");
+          // Selection only — never instant-use (#100)
+          send("inv_select", String(i));
+        });
+        li.addEventListener("dblclick", (ev) => {
+          ev.preventDefault();
+          Sound.play("use");
           send("u", String(i));
         });
         invEl.appendChild(li);
@@ -3429,7 +3439,7 @@
       overlay.innerHTML = `<pre>${escapeHtml(s.help)}\n\n[any key / Esc to close]</pre>`;
     } else if (s.mode === "dead") {
       overlay.classList.remove("hidden");
-      overlay.innerHTML = `<div class="box banner">YOU DIED<br/><span style="font-size:0.85rem;color:#c9d1d9">Press <kbd>r</kbd> to restart</span></div>`;
+      overlay.innerHTML = `<div class="box banner">YOU DIED<br/><span style="font-size:0.85rem;color:#c9d1d9">Press <kbd>r</kbd> to respawn</span></div>`;
     } else if (s.mode === "won") {
       overlay.classList.remove("hidden");
       overlay.innerHTML = `<div class="box banner">YOU WIN<br/><span style="font-size:0.85rem;color:#c9d1d9">Personal quest done. <kbd>r</kbd> respawn</span></div>`;
@@ -3562,6 +3572,10 @@
     }
     if (ev.key === "Enter" && gameplayReady && !CutscenePlayer.isPlaying() && !IntroPlayer.isActive()) {
       ev.preventDefault();
+      if (state && state.mode === "inventory") {
+        send("u");
+        return;
+      }
       if (chatInput) {
         chatInput.focus();
         chatFocused = true;
@@ -3730,12 +3744,57 @@
       return;
     }
 
-    const action = KEYMAP[ev.key] || KEYMAP[nk];
-    if (!action) {
+    // Inventory multi-digit / letter indices (#100)
+    if (state && state.mode === "inventory") {
       if (/^[0-9]$/.test(ev.key)) {
         ev.preventDefault();
-        send(ev.key);
+        invDigitBuf = (invDigitBuf || "") + ev.key;
+        if (invDigitTimer) clearTimeout(invDigitTimer);
+        invDigitTimer = setTimeout(() => {
+          if (invDigitBuf) send("inv_select", invDigitBuf);
+          invDigitBuf = "";
+          invDigitTimer = null;
+        }, 420);
+        return;
       }
+      if (/^[a-zA-Z]$/.test(ev.key)) {
+        const ch = ev.key.toLowerCase();
+        if (ch === "e" || ch === "u" || ch === "d" || ch === "i" || ch === "q") {
+          /* fall through to equip/use/drop/close */
+        } else if ("wasd".includes(ch)) {
+          /* fall through — selection navigate */
+        } else {
+          ev.preventDefault();
+          const idx = 10 + (ch.charCodeAt(0) - 97);
+          send("inv_select", String(idx));
+          return;
+        }
+      }
+      if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
+        ev.preventDefault();
+        send(ev.key === "ArrowUp" ? "w" : "s");
+        return;
+      }
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        send("u");
+        return;
+      }
+    } else if (/^[0-9]$/.test(ev.key)) {
+      // Play mode: multi-digit select without instant use
+      ev.preventDefault();
+      invDigitBuf = (invDigitBuf || "") + ev.key;
+      if (invDigitTimer) clearTimeout(invDigitTimer);
+      invDigitTimer = setTimeout(() => {
+        if (invDigitBuf) send("inv_select", invDigitBuf);
+        invDigitBuf = "";
+        invDigitTimer = null;
+      }, 420);
+      return;
+    }
+
+    const action = KEYMAP[ev.key] || KEYMAP[nk];
+    if (!action) {
       return;
     }
     ev.preventDefault();
@@ -3745,8 +3804,8 @@
     }
     if (ev.key === " " && state && (state.mode === "dead" || state.mode === "won")) return;
     if (action === "r" && state && (state.mode === "dead" || state.mode === "won")) {
-      const seed = state.seed != null ? state.seed : null;
-      runIntroThenGame({ seed });
+      // Reuse the live session — do not re-intro/rejoin (same-name slot stayed dead) (#99)
+      send("r");
       return;
     }
     if ((action === "plane_down" || action === "plane_up") && state && state.mode === "inventory") {
