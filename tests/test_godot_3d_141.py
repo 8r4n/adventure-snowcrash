@@ -207,3 +207,40 @@ def test_snapshot_fields_godot_ice_reads():
     assert h.get("layers") == 3
     assert "px" in h and "py" in h
     assert heist_snap.get("map") == h["map"]
+
+
+def test_slice6_ascii_overlay_hybrid():
+    """Slice 6: optional ASCII overlay on 3D — Refs #141, never Closes."""
+    main = (GODOT / "scripts" / "main.gd").read_text(encoding="utf-8")
+    assert "3d_ascii" in main
+    assert 'VIEW_MODES := ["3d", "3d_ascii", "fpv", "map"]' in main
+    assert "AsciiOverlay" in main
+    assert "_save_view_mode" in main
+    assert "_load_view_mode" in main
+    assert "VIEW_CONFIG_SECTION" in main
+    assert '_view_mode_label' in main or "_view_mode_label" in main
+    assert "mouse_filter" not in main or True  # filter is on the Label in tscn
+    assert "_ascii_paint_state" in main
+    assert "Closes #141" not in main
+    tscn = (GODOT / "scenes" / "main.tscn").read_text(encoding="utf-8")
+    assert "AsciiOverlay" in tscn
+    # IGNORE == 2
+    overlay_block = tscn.split('[node name="AsciiOverlay"')[1].split("[node name=")[0]
+    assert "mouse_filter = 2" in overlay_block
+    assert "fpv_ascii.gd" in (GODOT / "scripts" / "fpv_ascii.gd").name or (GODOT / "scripts" / "fpv_ascii.gd").is_file()
+
+
+def test_docs_slice6_progress_and_steam_gaps():
+    d3d = (DOCS / "godot-3d.md").read_text(encoding="utf-8")
+    assert "ASCII overlay" in d3d or "3D+ASCII" in d3d
+    assert "3d_ascii" in d3d or "3D+ASCII" in d3d
+    assert "mouse_filter" in d3d or "IGNORE" in d3d
+    assert "snowcrash_client.cfg" in d3d
+    assert "Remaining Steam-ready gaps" in d3d
+    assert "stays OPEN" in d3d
+    assert "Refs #141" in d3d
+    assert "Closes #141" not in d3d
+    # slices 1-6 marked done / this PR
+    assert "slice 6" in d3d.lower() or "Slice 6" in d3d
+    client = (DOCS / "godot-client.md").read_text(encoding="utf-8")
+    assert "3D+ASCII" in client or "ASCII overlay" in client

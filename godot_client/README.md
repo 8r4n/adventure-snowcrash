@@ -27,7 +27,7 @@ The Godot **editor/binary is not required in this repo**. These files are a vali
 4. Press **F5** (Run Project). Main scene is `scenes/main.tscn`.
 5. Leave the URL as `ws://127.0.0.1:8766/ws`, enter a courier name, **Jack in**.
 6. Status should go `connecting…` → `ONLINE · <player id> · …ms · N online`.
-7. Click the view (or anywhere that is not a LineEdit), then play. Default view is the **3D street** (live snapshot meshes). **V** cycles 3D → FPV ASCII → overhead map. **C** toggles 1st/3rd camera. Open the **Globe** dock for the **3D Earth** overlay (hybrid with the region list). Use the **dock bar** for year panels; **StreetNet** chat is on the right.
+7. Click the view (or anywhere that is not a LineEdit), then play. Default view is the **3D street** (live snapshot meshes). **V** cycles 3D → 3D+ASCII overlay → FPV ASCII → overhead map. **C** toggles 1st/3rd camera. Open the **Globe** dock for the **3D Earth** overlay (hybrid with the region list). Use the **dock bar** for year panels; **StreetNet** chat is on the right.
 
 Production server default is port **8765** — change the URL if you point at that process.
 
@@ -46,7 +46,7 @@ Production server default is port **8765** — change the URL if you point at th
 | U / Enter (in inv) | use selected |
 | Esc | close inventory / escape |
 | R | respawn |
-| V | cycle **3D street** ↔ FPV ASCII ↔ overhead map crop |
+| V | cycle **3D → 3D+ASCII overlay → FPV → map** |
 | C | toggle courier camera 1st ↔ close 3rd |
 | J | `jack_in` at J / `jack_out` while jacked (ICE 3D lattice) |
 | Z / X | `ice_probe stun` / `reveal` (melts `I` in-node) |
@@ -64,7 +64,7 @@ Production server default is port **8765** — change the URL if you point at th
 | Y (North) | inventory |
 | L2 | use (`u`) |
 | R2 | respawn (`r`) — confirm on device |
-| Select | 3D ↔ FPV ↔ map |
+| Select | 3D ↔ 3D+ASCII ↔ FPV ↔ map |
 | Right stick X | turn (look) |
 | R3 | camera 1st ↔ 3rd |
 | Start | cycle year docks |
@@ -103,6 +103,7 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 - Inventory `ItemList` (click select, double-click use)
 - Scrolling log from `state.messages`
 - **3D street** (default): snapshot glyphs → neon meshes; courier camera; J/U/`$` landmarks; distinct entity silhouettes + facing — [godot-3d.md](../docs/godot-3d.md)
+- **3D+ASCII** hybrid: semi-transparent FPV overlay on live 3D (ConfigFile-persisted)
 - **FPV** text view (TUI-style raycast from snapshot map) or cropped ASCII overhead with facing glyph (V toggle; path not deleted)
 - Year dock body + StreetNet channel list / nick list / chat log
 
@@ -112,7 +113,7 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 |------|------|
 | `project.godot` | Godot 4.3+ config, **Forward+** / Mobile, 1280×800, Deck InputMap |
 | `export_presets.cfg.example` | Linux/X11 + Windows export stub (#132) |
-| `scenes/main.tscn` | Name gate, HUD, 3D SubViewport + FPV/map, inventory, log, docks, StreetNet |
+| `scenes/main.tscn` | Name gate, HUD, 3D SubViewport + AsciiOverlay + FPV/map, inventory, log, docks, StreetNet |
 | `scenes/street.tscn` | Node3D street world + courier camera (#141) |
 | `scenes/globe.tscn` | Stylized 3D Earth + region pins (#141 slice 4) |
 | `scripts/graphics_settings.gd` | Low/High quality ConfigFile autoload (#141 slice 5) |
@@ -155,4 +156,4 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street + ICE + globe (#141 slices 1–4, epic open)** are in-tree.
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street + ICE + globe + polish + ASCII overlay (#141 slices 1–6, epic open)** are in-tree.

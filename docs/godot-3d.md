@@ -33,7 +33,7 @@ Thin-client rule still holds: **Godot never simulates the street.** It paints `s
 2. Godot 4.3+ → Import `godot_client/project.godot` → **F5**
 3. Enter a courier name → **Jack in**
 4. Default viewport is **3D street** (neon corridor from the live snapshot)
-5. **V** / Select / View button cycles **3D → FPV ASCII → overhead map → 3D**
+5. **V** / Select / View button cycles **3D → 3D+ASCII overlay → FPV ASCII → overhead map → 3D**
 6. **C** / Cam button / R3 toggles **close 3rd-person ↔ first-person**
 7. Move/look: WASD + Q/E, left stick, L1/R1, **right stick X → turn** (same WS intents)
 
@@ -208,8 +208,8 @@ Honesty: **no Deck hardware pass yet** (same gate as [steam-deck.md](steam-deck.
 | 2 | **Entities polish** — distinct silhouettes, facing chevrons, vendors `$`, pickups, landmark billboards | Done (#143) |
 | 3 | **Cyberspace / ICE** — distinct 3D visual language for jack-in layers | Done (#144) |
 | 4 | **Globe** — 3D Earth / region picker hybrid with year dock | Done (#145) |
-| 5 | **Polish** — lighting, particles, materials, quality preset, Deck budget | **This PR** |
-| 6 | Optional ASCII overlay (hybrid look on top of 3D) | Open |
+| 5 | **Polish** — lighting, particles, materials, quality preset, Deck budget | Done (#146) |
+| 6 | **Optional ASCII overlay** — hybrid FPV on live 3D | **This PR** |
 
 **#141 stays OPEN** until the Steam-ready 3D loop (acceptance on the issue). This PR is `Refs #141` only (do not close the epic).
 
@@ -289,7 +289,7 @@ Deck: simple sphere + emissive pin spheres (no Earth texture, no extra Omni beyo
 ---
 ## Lighting / particles / quality (slice 5)
 
-Presentation polish only — Python `/ws` unchanged. No ASCII overlay (that is slice 6).
+Presentation polish only — Python `/ws` unchanged. ASCII overlay landed in slice 6.
 
 ### Visual
 - Street: warmer Catppuccin ambient + denser night fog; **sky rim** Directional opposite the moon
@@ -304,7 +304,43 @@ Presentation polish only — Python `/ws` unchanged. No ASCII overlay (that is s
 - [x] Low disables particles + MSAA/glow; shrinks AOI; documented in this file + [steam-deck.md](steam-deck.md)
 - [x] Low/High quality preset persisted in ConfigFile (`GraphicsSettings`)
 - [x] Honest Deck QA: still **not measured on hardware**; checklist updated
-- [x] `Refs #141` only — epic stays OPEN (slice 6 ASCII overlay remains)
+- [x] `Refs #141` only — epic stays OPEN (slice 6 was still open at merge time)
+
+---
+
+## ASCII overlay / hybrid (slice 6)
+
+Optional hybrid look: semi-transparent FPV ASCII drawn on top of the live **3D street / ICE** SubViewport. Python `/ws` unchanged.
+
+### Toggle
+
+| Control | Behavior |
+|---------|----------|
+| **V** / Select / **View** button | Cycle **3D → 3D+ASCII → FPV → map → 3D** |
+| ConfigFile | `user://snowcrash_client.cfg` section `[view]` key `mode` (`3d` / `3d_ascii` / `fpv` / `map`) |
+
+Overlay `AsciiOverlay` Label uses `mouse_filter = IGNORE` so year docks / StreetNet / buttons stay clickable. Font alpha ≈ 0.55 over the neon meshes. Globe dock still swaps to Earth SubViewport (overlay hidden while globe is up). While jacked, FPV/overlay raycasts from `ice_avatar_xy()` (lattice avatar), not the street body parked at **J**.
+
+### Slice 6 acceptance (this PR)
+
+- [x] Semi-transparent ASCII FPV overlay on live 3D street / ICE
+- [x] **V** cycle includes hybrid step; ASCII-only + map kept
+- [x] Overlay Label `mouse_filter = IGNORE` (docks work)
+- [x] View mode persisted in ConfigFile
+- [x] `docs/godot-3d.md` — slices 1–6 shipped; Steam-ready gaps listed
+- [x] `Refs #141` only — **epic stays OPEN**
+
+### Remaining Steam-ready gaps (keep #141 open)
+
+Epic acceptance still unmet / not device-QA’d:
+
+- [ ] **30 fps+ measured** on mid PC and Steam Deck (budget documented only; no hardware pass)
+- [ ] Landmark / vendor readability **without HUD soup** (onboarding + docks still Control chrome)
+- [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
+- [ ] Desktop export builds (Linux / Windows / macOS) toward Steam (#130 / #67)
+- [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
+
+Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
 
 ---
 
@@ -317,10 +353,10 @@ Presentation polish only — Python `/ws` unchanged. No ASCII overlay (that is s
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
 | `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload |
-| `godot_client/scenes/main.tscn` | Street + Globe SubViewports + Quality button |
-| `godot_client/scripts/main.gd` | View cycle, globe overlay, cam/quality, jack-in flash |
+| `godot_client/scenes/main.tscn` | Street + Globe SubViewports + AsciiOverlay + Quality |
+| `godot_client/scripts/main.gd` | View cycle (3D/3D+ASCII/FPV/map), overlay, globe, cam/quality |
 | `godot_client/scripts/year_docks.gd` | Globe dock hybrid list + open/close → overlay |
-| `godot_client/scripts/fpv_ascii.gd` | ASCII FPV / map (kept) |
+| `godot_client/scripts/fpv_ascii.gd` | ASCII FPV / map / hybrid overlay source (kept) |
 
 ---
 
