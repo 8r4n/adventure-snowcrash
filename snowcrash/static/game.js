@@ -4359,5 +4359,27 @@
   }
 
   YearUI.bind();
+
+  // Secondary QA bridge (#112) — only when server enabled ADVENTURE_QA
+  (function installQaBridge() {
+    const meta = document.querySelector('meta[name="snowcrash-qa"]');
+    const on =
+      (meta && meta.getAttribute("content") === "1") ||
+      (document.body && document.body.getAttribute("data-qa") === "1");
+    if (!on) return;
+    window.__QA__ = {
+      enabled: true,
+      state: () => state || null,
+      player: () => (state && state.player) || null,
+      inventory: () => (state && state.inventory) || [],
+      messages: () => (state && state.messages) || [],
+      action: (a, arg) => Net.action(a, arg == null ? null : arg),
+      chat: (text) => Net.chat(text),
+      disconnect: () => Net.disconnect(),
+      requestQaSnapshot: () => Net.send({ type: "qa_snapshot" }),
+      requestQaEvents: (limit) => Net.send({ type: "qa_events", limit: limit || 50 }),
+    };
+  })();
+
   boot();
 })();

@@ -6,5 +6,6 @@ cd "$ROOT"
 export SNOWCRASH_ENV=dev
 PORT="${PORT:-8766}"
 SEED="${SEED:-42}"
+# Optional QA automation (#112): ADVENTURE_QA=1 enables /qa/* + WS qa_snapshot
 if [[ -f .venv/bin/activate ]]; then source .venv/bin/activate; fi
 exec python -m snowcrash.web --host 0.0.0.0 --port "$PORT" --seed "$SEED" --env dev
