@@ -5,6 +5,7 @@
 - Research / architecture: [`docs/godot-client.md`](../docs/godot-client.md)
 - Implementation epic: GitHub **#118**
 - Slice 1 play loop: **#118** · Slice 2 StreetNet + year docks: **#127**
+- First 10 minutes onboarding: **#133** — see [`docs/godot-onboarding.md`](../docs/godot-onboarding.md)
 - Steam north star: **#130** (Godot is the preferred Steam SKU)
 
 The Godot **editor/binary is not required in this repo**. These files are a valid project — open them in a local Godot 4.x editor.
@@ -64,6 +65,12 @@ Production server default is port **8765** — change the URL if you point at th
 
 Dock bar is accordion-style (one panel open). Opening Globe/Primer/Jaunte/Sleeves/Forecast/Ecology/Empathy sends the same refresh action as web. Catppuccin Mocha colors via `scripts/catppuccin.gd`.
 
+## Onboarding (#133)
+
+Cold launch shows a short jack-in brief → name gate → **Payload-Zero** street beat. Year docks + StreetNet stay gated until the beat wins or the player skips. Returning players: `user://snowcrash_client.cfg` remembers name / skip intro.
+
+Death during the beat opens a recap (cause + last objective + respawn). Details: [`docs/godot-onboarding.md`](../docs/godot-onboarding.md).
+
 ## HUD
 
 - Connection status + RTT + online count
@@ -82,7 +89,8 @@ Dock bar is accordion-style (one panel open). Opening Globe/Primer/Jaunte/Sleeve
 | `scenes/main.tscn` | Name gate, HUD, FPV/map, inventory, log, docks, StreetNet |
 | `scripts/net_client.gd` | `WebSocketPeer` — join/rejoin by id, action, chat, ping, backoff reconnect |
 | `scripts/main.gd` | UI + hold-to-move + inventory digits + docks wiring |
-| `scripts/year_docks.gd` | StreetNet + year dock paint/actions (#127) |
+| `scripts/year_docks.gd` | StreetNet + year dock paint/actions (#127); secondary gate for #133 |
+| `scripts/onboarding.gd` | First-10 fantasy beat overlays + ConfigFile (#133) |
 | `scripts/fpv_ascii.gd` | Snapshot → FPV ASCII / map crop |
 | `scripts/catppuccin.gd` | Mocha palette tokens |
 | `icon.svg` | Placeholder Catppuccin icon |
@@ -102,4 +110,4 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), death/respawn UX polish, party/crew/shop/craft surfaces, desktop export, SFX, full Theme resource, Steam packaging (#67 / #130).
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, SFX, full Theme resource, Steam packaging (#67 / #130). Onboarding beat #133 is in-tree.

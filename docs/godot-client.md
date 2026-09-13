@@ -2,7 +2,7 @@
 
 Issue **#109** (related **#67** Steam · **#75** mobile · **#72** modding · **#78** TUI FPV · **#54** globe · **#90** Catppuccin). Evaluate Godot as a **native desktop/mobile shell** around the existing Python MMORPG server — not a replacement for the web or TUI clients.
 
-**Decision (this ticket):** **GO** on a **Godot 4.x thin client** (UI + WebSocket to existing `snowcrash.web` `/ws`). **NO-GO** on rewriting the Python authority server or abandoning web/TUI. Spike lives in [`godot_client/`](../godot_client/).
+**Decision (this ticket):** **GO** on a **Godot 4.x thin client** (UI + WebSocket to existing `snowcrash.web` `/ws`). **NO-GO** on rewriting the Python authority server or abandoning web/TUI. Spike lives in [`godot_client/`](../godot_client/). First-10 Steam beat: [godot-onboarding.md](godot-onboarding.md) (**#133**).
 
 Godot **was not installed** on the research box (2026-09-13). Project files are still valid Godot 4.3+; open them in the editor locally (see [`godot_client/README.md`](../godot_client/README.md)).
 

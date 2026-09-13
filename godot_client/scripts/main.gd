@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + StreetNet/year docks UI (#118 / #127).
+## Core play loop + StreetNet/year docks + first-10 onboarding (#118 / #127 / #133).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -16,6 +16,7 @@ extends Control
 @onready var hint_label: Label = %Hint
 @onready var net: NetClient = %NetClient
 @onready var year_docks: YearDocks = %YearDocks
+@onready var onboarding: OnboardingBeat = %OnboardingBeat
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -28,6 +29,8 @@ var _last_state: Dictionary = {}
 var _inv_digit_buf: String = ""
 var _inv_digit_accum: float = -1.0
 var _mode: String = "play"
+var _prev_mode: String = "play"
+var _death_recap_logged: bool = false
 
 
 func _ready() -> void:
@@ -44,6 +47,7 @@ func _ready() -> void:
 	net.server_error.connect(_on_server_error)
 	year_docks.setup(net)
 	year_docks.chat_focus_changed.connect(func(_f): pass)
+	_wire_onboarding()
 	_on_status("disconnected — start dev server on :8766", "warn")
 	hud_label.text = "HP —  · Focus —  · XP —  · $—"
 	objective_label.text = "Objective: (jack in)"
@@ -51,6 +55,54 @@ func _ready() -> void:
 	log_box.clear()
 	log_box.append_text("[color=#a6adc8]Log idle — connect to Python /ws[/color]\n")
 	_apply_theme_hints()
+
+
+
+func _wire_onboarding() -> void:
+	if onboarding == null:
+		return
+	var remembered := onboarding.remembered_name()
+	if remembered and not remembered.is_empty():
+		name_edit.text = remembered
+	onboarding.docks_gate_changed.connect(_on_docks_gate_changed)
+	onboarding.beat_started.connect(func(): _append_log("Onboarding beat: Payload-Zero"))
+	onboarding.beat_completed.connect(_on_beat_completed)
+	onboarding.request_focus_name.connect(func(): name_edit.grab_focus())
+	onboarding.request_jack_in.connect(_on_onboarding_jack_in)
+	onboarding.respawn_requested.connect(_on_onboarding_respawn)
+	if onboarding.is_gated():
+		year_docks.set_secondary_gated(true)
+	else:
+		year_docks.set_secondary_gated(false)
+
+
+func _on_docks_gate_changed(gated: bool) -> void:
+	year_docks.set_secondary_gated(gated)
+	if gated:
+		hint_label.text = (
+			"ONBOARDING · WASD move · Q/E turn · G get · F fire · . look · R respawn · "
+			+ "one objective: Payload-Zero (docks locked)"
+		)
+	else:
+		_apply_theme_hints()
+
+
+func _on_beat_completed(reason: String) -> void:
+	_append_log("Onboarding complete (%s) — docks unlocked" % reason)
+	year_docks.set_secondary_gated(false)
+	_apply_theme_hints()
+
+
+func _on_onboarding_jack_in() -> void:
+	var n := onboarding.get_name_for_join()
+	if n and not n.is_empty():
+		name_edit.text = n
+	_on_join_pressed()
+
+
+func _on_onboarding_respawn() -> void:
+	if net.is_joined():
+		net.send_action("r")
 
 
 func _apply_theme_hints() -> void:
@@ -62,7 +114,13 @@ func _apply_theme_hints() -> void:
 
 
 func _on_join_pressed() -> void:
-	net.connect_to_server(url_edit.text, name_edit.text)
+	var n := name_edit.text.strip_edges()
+	if n.is_empty():
+		n = "Courier"
+		name_edit.text = n
+	if onboarding:
+		onboarding.remember_name(n)
+	net.connect_to_server(url_edit.text, n)
 
 
 func _on_disconnect_pressed() -> void:
@@ -112,10 +170,14 @@ func _on_server_error(text: String) -> void:
 
 func _on_welcome(_player_id: String, state: Dictionary) -> void:
 	_append_log("Jacked in as %s" % str(state.get("player", {}).get("name", "?")))
+	if onboarding:
+		onboarding.notify_welcome(state)
 	_paint(state)
 
 
 func _on_snapshot(state: Dictionary) -> void:
+	if onboarding:
+		onboarding.notify_snapshot(state)
 	_paint(state)
 
 
@@ -141,23 +203,55 @@ func _paint(state: Dictionary) -> void:
 		"Lv %s  HP %s/%s  Focus %s/%s  XP %s/%s  $%s  ·  (%s,%s) %s  ·  t%s  ·  %s"
 		% [level, hp, max_hp, focus, max_focus, xp, xp_next, credits, x, y, facing, tick, _mode]
 	)
-	var objective := str(state.get("objective", ""))
-	if objective.is_empty():
-		objective = "(none)"
+	var objective := _format_objective(state)
 	objective_label.text = "Objective: %s" % objective
-	if state.get("won"):
+	var dead_now := bool(state.get("dead")) or _mode == "dead" or bool(state.get("lost"))
+	if state.get("won") or _mode == "won":
 		objective_label.text += "  [WON]"
 		objective_label.add_theme_color_override("font_color", Catppuccin.GREEN)
-	elif state.get("lost") or _mode == "dead":
+	elif dead_now:
 		objective_label.text += "  [DEAD — press R]"
 		objective_label.add_theme_color_override("font_color", Catppuccin.RED)
+		if onboarding == null or not onboarding.is_beat_active():
+			_append_death_recap_once(state)
 	else:
 		objective_label.add_theme_color_override("font_color", Catppuccin.PEACH)
+		_death_recap_logged = false
+	_prev_mode = _mode
 
 	_paint_view(state)
 	_paint_inventory(state)
 	_paint_log(state)
 	year_docks.paint(state)
+
+
+
+func _format_objective(state: Dictionary) -> String:
+	var obj = state.get("objective", "")
+	if typeof(obj) == TYPE_DICTIONARY:
+		var text := str(obj.get("text", ""))
+		var compass := str(obj.get("compass", ""))
+		var dist = obj.get("dist", null)
+		var bits: PackedStringArray = PackedStringArray()
+		if not text.is_empty():
+			bits.append(text)
+		if not compass.is_empty() and compass != "·":
+			bits.append(str(compass))
+		if dist != null:
+			bits.append("%sm" % dist)
+		return " · ".join(bits) if bits.size() else "(none)"
+	var s := str(obj).strip_edges()
+	return s if not s.is_empty() else "(none)"
+
+
+func _append_death_recap_once(state: Dictionary) -> void:
+	if _death_recap_logged:
+		return
+	_death_recap_logged = true
+	var cause = state.get("death_cause", "Courier down")
+	if typeof(cause) == TYPE_DICTIONARY:
+		cause = cause.get("cause", cause.get("by", "Courier down"))
+	_append_log("DEATH RECAP: %s — press R to respawn" % str(cause))
 
 
 func _paint_view(state: Dictionary) -> void:
