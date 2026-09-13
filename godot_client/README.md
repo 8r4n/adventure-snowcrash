@@ -91,6 +91,10 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 | `scripts/main.gd` | UI + hold-to-move + inventory digits + docks wiring |
 | `scripts/year_docks.gd` | StreetNet + year dock paint/actions (#127); secondary gate for #133 |
 | `scripts/onboarding.gd` | First-10 fantasy beat overlays + ConfigFile (#133) |
+| `scripts/audio_manager.gd` | AudioBus Master/SFX/Music, juice, volume ConfigFile (#134) |
+| `default_bus_layout.tres` | Master → SFX / Music |
+| `audio/sfx/` | Mirrored procedural WAVs (+ streetnet_ping) |
+| `audio/music/` | street_ambient + ice_jackin loops + trailer bed |
 | `scripts/fpv_ascii.gd` | Snapshot → FPV ASCII / map crop |
 | `scripts/catppuccin.gd` | Mocha palette tokens |
 | `icon.svg` | Placeholder Catppuccin icon |
@@ -108,6 +112,14 @@ python scripts/godot_ws_harness.py --url ws://127.0.0.1:8766/ws
 
 Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`, `primer`, `jaunte`, `sleeves`, `forecast`, `ecology`, `empathy`, StreetNet chat).
 
+## Audio (#134)
+
+- **Mute** button / **M** key; **Audio** panel with Master / SFX / Music sliders (persist `user://snowcrash_client.cfg`).
+- Snapshot `sfx[]` + death / win / uplink / StreetNet ping juice.
+- Music: street bed on the Street; ICE bed while `cyberspace` / `heist`.
+- Regenerate: `python scripts/gen_sfx.py && python scripts/gen_music.py`
+- Attribution: [docs/audio.md](../docs/audio.md)
+
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, SFX, full Theme resource, Steam packaging (#67 / #130). Onboarding beat #133 is in-tree.
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 are in-tree.

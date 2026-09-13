@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + StreetNet/year docks + first-10 onboarding (#118 / #127 / #133).
+## Core play loop + StreetNet/year docks + onboarding + audio (#118 / #127 / #133 / #134).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -17,6 +17,12 @@ extends Control
 @onready var net: NetClient = %NetClient
 @onready var year_docks: YearDocks = %YearDocks
 @onready var onboarding: OnboardingBeat = %OnboardingBeat
+@onready var mute_btn: Button = %MuteBtn
+@onready var audio_btn: Button = %AudioBtn
+@onready var audio_panel: HBoxContainer = %AudioPanel
+@onready var master_slider: HSlider = %MasterSlider
+@onready var sfx_slider: HSlider = %SfxSlider
+@onready var music_slider: HSlider = %MusicSlider
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -48,6 +54,7 @@ func _ready() -> void:
 	year_docks.setup(net)
 	year_docks.chat_focus_changed.connect(func(_f): pass)
 	_wire_onboarding()
+	_wire_audio()
 	_on_status("disconnected — start dev server on :8766", "warn")
 	hud_label.text = "HP —  · Focus —  · XP —  · $—"
 	objective_label.text = "Objective: (jack in)"
@@ -74,6 +81,46 @@ func _wire_onboarding() -> void:
 		year_docks.set_secondary_gated(true)
 	else:
 		year_docks.set_secondary_gated(false)
+
+
+
+func _wire_audio() -> void:
+	if mute_btn:
+		mute_btn.pressed.connect(_on_mute_pressed)
+		_sync_mute_btn()
+	if audio_btn:
+		audio_btn.pressed.connect(func():
+			if audio_panel:
+				audio_panel.visible = not audio_panel.visible
+		)
+	if master_slider:
+		master_slider.value = AudioManager.master_linear()
+		master_slider.value_changed.connect(func(v): AudioManager.set_master_linear(v))
+	if sfx_slider:
+		sfx_slider.value = AudioManager.sfx_linear()
+		sfx_slider.value_changed.connect(func(v): AudioManager.set_sfx_linear(v))
+	if music_slider:
+		music_slider.value = AudioManager.music_linear()
+		music_slider.value_changed.connect(func(v): AudioManager.set_music_linear(v))
+	net.ping_updated.connect(_on_rtt_ping)
+	# Menu bed until jack-in
+	AudioManager.set_music_bed("street")
+
+
+func _on_mute_pressed() -> void:
+	AudioManager.toggle_mute()
+	_sync_mute_btn()
+
+
+func _sync_mute_btn() -> void:
+	if mute_btn == null:
+		return
+	mute_btn.text = "Unmute" if AudioManager.is_muted() else "Mute"
+
+
+func _on_rtt_ping(rtt_ms: int) -> void:
+	# Throttled inside AudioManager — keeps StreetNet feeling alive
+	AudioManager.notify_rtt_ping(rtt_ms)
 
 
 func _on_docks_gate_changed(gated: bool) -> void:
@@ -109,7 +156,7 @@ func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD move · Q/E turn · G get · F fire/hack · . look/wait · I inventory · "
 		+ "0-9 select · U / Enter use · R respawn · V FPV/map · Esc close · "
-		+ "dock bar year panels · StreetNet chat /join"
+		+ "dock bar year panels · StreetNet chat /join · M mute · Audio sliders"
 	)
 
 
@@ -120,11 +167,13 @@ func _on_join_pressed() -> void:
 		name_edit.text = n
 	if onboarding:
 		onboarding.remember_name(n)
+	AudioManager.play_confirm()
 	net.connect_to_server(url_edit.text, n)
 
 
 func _on_disconnect_pressed() -> void:
 	net.disconnect_from_server()
+	AudioManager.set_music_bed("street")
 
 
 func _on_view_toggle() -> void:
@@ -137,6 +186,7 @@ func _on_view_toggle() -> void:
 func _on_use_pressed() -> void:
 	if not net.is_joined():
 		return
+	AudioManager.play_confirm()
 	net.send_action("u")
 
 
@@ -170,12 +220,14 @@ func _on_server_error(text: String) -> void:
 
 func _on_welcome(_player_id: String, state: Dictionary) -> void:
 	_append_log("Jacked in as %s" % str(state.get("player", {}).get("name", "?")))
+	AudioManager.notify_welcome(state)
 	if onboarding:
 		onboarding.notify_welcome(state)
 	_paint(state)
 
 
 func _on_snapshot(state: Dictionary) -> void:
+	AudioManager.notify_snapshot(state)
 	if onboarding:
 		onboarding.notify_snapshot(state)
 	_paint(state)
@@ -391,6 +443,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 
 	var keycode := ev.physical_keycode
+	# Mute
+	if keycode == KEY_M:
+		_on_mute_pressed()
+		get_viewport().set_input_as_handled()
+		return
+
 	# View toggle
 	if keycode == KEY_V:
 		_on_view_toggle()

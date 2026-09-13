@@ -190,6 +190,15 @@ python scripts/gen_intro_video.py      # Pillow + ffmpeg → colored-ASCII intro
 python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline)
 ```
 
+Godot music beds + StreetNet ping + trailer clip (**#134**):
+
+```bash
+python scripts/gen_music.py
+```
+
+Attribution / bus map: [docs/audio.md](docs/audio.md).
+
+
 ## Controls
 
 | Key | Action |
