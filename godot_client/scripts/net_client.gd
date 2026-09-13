@@ -1,16 +1,18 @@
 extends Node
 class_name NetClient
-## Thin WebSocket clone of snowcrash/static/game.js Net (#109).
+## Thin WebSocket client mirroring snowcrash/static/game.js Net (#109 / #118).
 ## Python GameWorld stays the authority — we only join / intent / paint.
 
 signal status_changed(text: String, kind: String)
 signal welcome_received(player_id: String, state: Dictionary)
 signal snapshot_received(state: Dictionary)
 signal server_error(text: String)
+signal ping_updated(rtt_ms: int)
 
 const DEFAULT_URL := "ws://127.0.0.1:8766/ws"
 const PING_INTERVAL := 2.5
 const RECONNECT_SEC := 1.2
+const MAX_RECONNECT_SEC := 8.0
 
 var socket := WebSocketPeer.new()
 var _url: String = DEFAULT_URL
@@ -22,7 +24,12 @@ var _joined: bool = false
 var _last_state: int = WebSocketPeer.STATE_CLOSED
 var _ping_accum: float = 0.0
 var _reconnect_accum: float = 0.0
+var _reconnect_delay: float = RECONNECT_SEC
 var _waiting_reconnect: bool = false
+var _last_ping_sent_ms: int = 0
+var _last_rtt_ms: int = -1
+var _online_hint: int = 0
+
 
 func is_joined() -> bool:
 	return _joined
@@ -30,6 +37,14 @@ func is_joined() -> bool:
 
 func player_id() -> String:
 	return _player_id
+
+
+func courier_name() -> String:
+	return _courier_name
+
+
+func last_rtt_ms() -> int:
+	return _last_rtt_ms
 
 
 func connect_to_server(url: String, courier_name: String) -> void:
@@ -40,6 +55,7 @@ func connect_to_server(url: String, courier_name: String) -> void:
 	_want_open = true
 	_waiting_reconnect = false
 	_reconnect_accum = 0.0
+	_reconnect_delay = RECONNECT_SEC
 	_open_socket()
 
 
@@ -61,6 +77,11 @@ func send_chat(text: String) -> bool:
 	return _send({"type": "chat", "text": text})
 
 
+func send_respawn() -> bool:
+	# Prefer action "r" (same as web); server also accepts type "respawn".
+	return send_action("r")
+
+
 func _open_socket() -> void:
 	_join_sent = false
 	_joined = false
@@ -78,13 +99,13 @@ func _schedule_reconnect() -> void:
 		return
 	_waiting_reconnect = true
 	_reconnect_accum = 0.0
-	status_changed.emit("reconnecting…", "warn")
+	status_changed.emit("reconnecting in %.1fs…" % _reconnect_delay, "warn")
 
 
 func _process(delta: float) -> void:
 	if _waiting_reconnect:
 		_reconnect_accum += delta
-		if _reconnect_accum >= RECONNECT_SEC:
+		if _reconnect_accum >= _reconnect_delay:
 			_waiting_reconnect = false
 			_open_socket()
 		return
@@ -97,6 +118,7 @@ func _process(delta: float) -> void:
 
 	if state == WebSocketPeer.STATE_OPEN:
 		if _last_state != WebSocketPeer.STATE_OPEN:
+			_reconnect_delay = RECONNECT_SEC
 			_send_join()
 		while socket.get_available_packet_count() > 0:
 			var packet := socket.get_packet()
@@ -105,7 +127,8 @@ func _process(delta: float) -> void:
 		_ping_accum += delta
 		if _ping_accum >= PING_INTERVAL:
 			_ping_accum = 0.0
-			_send({"type": "ping", "t": Time.get_ticks_msec()})
+			_last_ping_sent_ms = Time.get_ticks_msec()
+			_send({"type": "ping", "t": _last_ping_sent_ms})
 	elif state == WebSocketPeer.STATE_CLOSING:
 		pass
 	elif state == WebSocketPeer.STATE_CLOSED:
@@ -115,6 +138,7 @@ func _process(delta: float) -> void:
 			var code := socket.get_close_code()
 			status_changed.emit("closed (%s)" % code, "warn")
 			if _want_open:
+				_reconnect_delay = minf(_reconnect_delay * 1.5, MAX_RECONNECT_SEC)
 				_schedule_reconnect()
 
 	_last_state = state
@@ -148,17 +172,37 @@ func _handle_text(text: String) -> void:
 		"welcome":
 			_player_id = str(msg.get("you", ""))
 			_joined = true
-			status_changed.emit("ONLINE · %s" % _player_id, "")
+			_reconnect_delay = RECONNECT_SEC
+			_emit_online_status()
 			var st: Dictionary = msg.get("state", {})
 			if typeof(st) == TYPE_DICTIONARY:
+				_online_hint = int(st.get("online_count", _online_hint))
 				welcome_received.emit(_player_id, st)
 		"snapshot":
 			var st2 = msg.get("state", {})
 			if typeof(st2) == TYPE_DICTIONARY:
+				_online_hint = int(st2.get("online_count", _online_hint))
+				if _joined:
+					_emit_online_status()
 				snapshot_received.emit(st2)
 		"pong":
-			pass
+			if _last_ping_sent_ms > 0:
+				_last_rtt_ms = maxi(0, Time.get_ticks_msec() - _last_ping_sent_ms)
+				ping_updated.emit(_last_rtt_ms)
+				_emit_online_status()
 		"error":
 			var err_text := str(msg.get("error", "unknown"))
 			status_changed.emit("error: %s" % err_text, "err")
 			server_error.emit(err_text)
+
+
+func _emit_online_status() -> void:
+	var bits: PackedStringArray = PackedStringArray()
+	bits.append("ONLINE")
+	if not _player_id.is_empty():
+		bits.append(_player_id)
+	if _last_rtt_ms >= 0:
+		bits.append("%dms" % _last_rtt_ms)
+	if _online_hint > 0:
+		bits.append("%d online" % _online_hint)
+	status_changed.emit(" · ".join(bits), "")

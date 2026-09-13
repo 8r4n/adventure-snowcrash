@@ -346,6 +346,59 @@ Reasons:
 
 ---
 
+## Implementation progress
+
+Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`).
+
+### Slice 1 — reliable core play loop (**done**, this PR)
+
+| Item | Status |
+|------|--------|
+| Join / rejoin by name (+ `id` on reconnect); connection status; disconnect recovery with backoff | Done — `godot_client/scripts/net_client.gd` |
+| Intents: move (WASD/QE + chords), look, wait, combat (`f`), pickup (`g`) | Done — `main.gd` |
+| Inventory select (`inv_select` / digits) + use (`u`) | Done |
+| Live HUD: HP/Focus/XP/credits, objective, scrolling log | Done |
+| ASCII map crop + FPV text view (TUI-style raycast on snapshot map) | Done — `fpv_ascii.gd`, `V` toggle |
+| Catppuccin Mocha colors where easy | Done — `catppuccin.gd` + scene |
+| Docs / how-to | Done — this section + `godot_client/README.md` |
+| Optional Python WS harness mirroring Godot envelopes | Done — `scripts/godot_ws_harness.py`, `tests/test_godot_ws_protocol.py` |
+
+### Remaining epic items (later slices)
+
+**Core loop leftovers**
+
+- [ ] Street GPS / minimap (respect #116 hide-GPS)
+- [ ] Death / respawn UX polish beyond `R` + HUD flag
+- [ ] Gamepad mapping
+
+**Social & meta**
+
+- [ ] StreetNet / IRC dock
+- [ ] Quest journal + compass
+- [ ] Party / crew / contracts surfaces
+- [ ] Shop / craft / stash / season pass
+
+**Systems docks**
+
+- [ ] ICE probes + heists UX
+- [ ] Cyberspace jack-in
+- [ ] Globe / teleport
+- [ ] Primer, Jaunte, Sleeves, Forecast, Ecology, Empathy
+- [ ] Hello Courier / mod `ui_panel` host
+- [ ] Catppuccin theme throughout (Theme resource, not just consts)
+
+**Polish & ship**
+
+- [ ] Opening intro / jack-in cutscene
+- [ ] SFX + mute
+- [ ] Settings (name, theme, GPS hide, large type)
+- [ ] Export: Linux/Windows/macOS desktop builds
+- [ ] Docs: mark client “implemented” for player how-to when parity is real
+- [ ] Optional: Steam packaging path (#67) using Godot export
+
+Suggested next slice: **docks + StreetNet parity**.
+
+---
 ## Related
 
 - [steam-packaging.md](steam-packaging.md) — #67 Tauri v1 SKU; Godot is the mid-term native SKU
