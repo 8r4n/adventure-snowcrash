@@ -1,4 +1,4 @@
-"""Godot client WS envelope smoke (#118) — no Godot binary required."""
+"""Godot client WS envelope smoke (#118 / #127) — no Godot binary required."""
 
 from __future__ import annotations
 
@@ -20,3 +20,15 @@ def _load_harness():
 def test_godot_ws_message_shapes():
     harness = _load_harness()
     harness.run_with_starlette_client()
+
+
+def test_godot_dock_action_envelopes():
+    """Static shape check for #127 dock/chat payloads (no server)."""
+    harness = _load_harness()
+    for payload in harness.GODOT_DOCK_ACTIONS:
+        assert payload["type"] == "action"
+        assert isinstance(payload["action"], str) and payload["action"]
+    assert harness.GODOT_CHAT_JOIN["type"] == "chat"
+    assert harness.GODOT_CHAT_JOIN["text"].startswith("/join")
+    for k in harness.OPTIONAL_DOCK_KEYS:
+        assert isinstance(k, str)

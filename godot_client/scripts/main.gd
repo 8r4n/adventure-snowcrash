@@ -1,5 +1,5 @@
 extends Control
-## Core play loop UI for #118 — join, move, combat, inv, HUD, FPV/map.
+## Core play loop + StreetNet/year docks UI (#118 / #127).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -15,6 +15,7 @@ extends Control
 @onready var log_box: RichTextLabel = %LogBox
 @onready var hint_label: Label = %Hint
 @onready var net: NetClient = %NetClient
+@onready var year_docks: YearDocks = %YearDocks
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -41,6 +42,8 @@ func _ready() -> void:
 	net.welcome_received.connect(_on_welcome)
 	net.snapshot_received.connect(_on_snapshot)
 	net.server_error.connect(_on_server_error)
+	year_docks.setup(net)
+	year_docks.chat_focus_changed.connect(func(_f): pass)
 	_on_status("disconnected — start dev server on :8766", "warn")
 	hud_label.text = "HP —  · Focus —  · XP —  · $—"
 	objective_label.text = "Objective: (jack in)"
@@ -53,7 +56,8 @@ func _ready() -> void:
 func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD move · Q/E turn · G get · F fire/hack · . look/wait · I inventory · "
-		+ "0-9 select · U / Enter use · R respawn · V toggle FPV/map · Esc close inv"
+		+ "0-9 select · U / Enter use · R respawn · V FPV/map · Esc close · "
+		+ "dock bar year panels · StreetNet chat /join"
 	)
 
 
@@ -153,6 +157,7 @@ func _paint(state: Dictionary) -> void:
 	_paint_view(state)
 	_paint_inventory(state)
 	_paint_log(state)
+	year_docks.paint(state)
 
 
 func _paint_view(state: Dictionary) -> void:
@@ -210,7 +215,13 @@ func _append_log(text: String) -> void:
 
 
 func _ui_focused() -> bool:
-	return name_edit.has_focus() or url_edit.has_focus()
+	if name_edit.has_focus() or url_edit.has_focus():
+		return true
+	if year_docks != null and year_docks.is_chat_focused():
+		return true
+	# Dock LineEdits (globe search / jaunte region) — any LineEdit focus blocks move
+	var focus := get_viewport().gui_get_focus_owner()
+	return focus is LineEdit
 
 
 func _process(delta: float) -> void:
