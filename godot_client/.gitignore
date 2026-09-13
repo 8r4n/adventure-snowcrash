@@ -2,5 +2,6 @@
 .godot/
 *.translation
 export_presets.cfg
+# Tracked stub (copy → export_presets.cfg): export_presets.cfg.example (#132)
 # Editor-generated UIDs (4.4+); recreate on import
 *.uid

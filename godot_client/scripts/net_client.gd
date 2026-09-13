@@ -1,7 +1,8 @@
 extends Node
 class_name NetClient
-## Thin WebSocket client mirroring snowcrash/static/game.js Net (#109 / #118).
+## Thin WebSocket client mirroring snowcrash/static/game.js Net (#109 / #118 / #132).
 ## Python GameWorld stays the authority — we only join / intent / paint.
+## Deck/mobile suspend: pause ping on focus-out; nudge reconnect on resume.
 
 signal status_changed(text: String, kind: String)
 signal welcome_received(player_id: String, state: Dictionary)
@@ -80,6 +81,43 @@ func send_chat(text: String) -> bool:
 func send_respawn() -> bool:
 	# Prefer action "r" (same as web); server also accepts type "respawn".
 	return send_action("r")
+
+
+
+func _notification(what: int) -> void:
+	# Steam Deck sleep / OS suspend / window focus — same class as mobile.md visibility.
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			_on_app_background()
+		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
+			_on_app_foreground()
+
+
+func _on_app_background() -> void:
+	# Stop pinging while frozen; keep _want_open so resume can rejoin.
+	_ping_accum = 0.0
+	if _want_open and _joined:
+		status_changed.emit("background — WS may drop", "warn")
+
+
+func _on_app_foreground() -> void:
+	if not _want_open:
+		return
+	_ping_accum = 0.0
+	var state := WebSocketPeer.STATE_CLOSED
+	if socket != null:
+		state = socket.get_ready_state()
+	if state == WebSocketPeer.STATE_OPEN:
+		_last_ping_sent_ms = Time.get_ticks_msec()
+		_send({"type": "ping", "t": _last_ping_sent_ms})
+		status_changed.emit("foreground — ping", "warn")
+	else:
+		# Immediate reconnect nudge (don't wait out a long backoff after sleep).
+		_reconnect_delay = RECONNECT_SEC
+		_waiting_reconnect = false
+		_reconnect_accum = 0.0
+		status_changed.emit("resume — reconnecting…", "warn")
+		_open_socket()
 
 
 func _open_socket() -> void:

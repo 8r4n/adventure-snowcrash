@@ -7,6 +7,7 @@
 - Slice 1 play loop: **#118** · Slice 2 StreetNet + year docks: **#127**
 - First 10 minutes onboarding: **#133** — see [`docs/godot-onboarding.md`](../docs/godot-onboarding.md)
 - Steam north star: **#130** (Godot is the preferred Steam SKU)
+- Steam Deck Verified path: **#132** — see [`docs/steam-deck.md`](../docs/steam-deck.md)
 
 The Godot **editor/binary is not required in this repo**. These files are a valid project — open them in a local Godot 4.x editor.
 
@@ -47,6 +48,23 @@ Production server default is port **8765** — change the URL if you point at th
 | V | toggle FPV ASCII ↔ overhead map crop |
 | Disconnect | stop reconnect loop |
 
+### Gamepad / Steam Deck (#132)
+
+| Input | Intent |
+|-------|--------|
+| Left stick / D-pad | relative move (8-way) |
+| L1 / R1 | turn_left / turn_right |
+| A (South) | get (`g`) |
+| X (West) | fire (`f`) |
+| B (East) | look |
+| Y (North) | inventory |
+| L2 | use (`u`) |
+| R2 | respawn (`r`) — confirm on device |
+| Select | FPV ↔ map |
+| Start | cycle year docks |
+
+Default viewport **1280×800** (`keep` aspect). Linux export preset: `export_presets.cfg.example`. Suspend/resume nudges WS reconnect in `net_client.gd`. **Device QA not yet run on hardware.**
+
 ## StreetNet + year docks (#127)
 
 | Surface | Snapshot fields | Core actions |
@@ -85,7 +103,8 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 
 | Path | Role |
 |------|------|
-| `project.godot` | Godot 4.3+ config, GL Compatibility |
+| `project.godot` | Godot 4.3+ config, GL Compatibility, 1280×800, Deck InputMap |
+| `export_presets.cfg.example` | Linux/X11 + Windows export stub (#132) |
 | `scenes/main.tscn` | Name gate, HUD, FPV/map, inventory, log, docks, StreetNet |
 | `scripts/net_client.gd` | `WebSocketPeer` — join/rejoin by id, action, chat, ping, backoff reconnect |
 | `scripts/main.gd` | UI + hold-to-move + inventory digits + docks wiring |

@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + StreetNet/year docks + onboarding + audio (#118 / #127 / #133 / #134).
+## Core play loop + StreetNet/year docks + onboarding + audio + Deck pad (#118 / #127 / #132 / #133 / #134).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -154,9 +154,9 @@ func _on_onboarding_respawn() -> void:
 
 func _apply_theme_hints() -> void:
 	hint_label.text = (
-		"WASD move · Q/E turn · G get · F fire/hack · . look/wait · I inventory · "
-		+ "0-9 select · U / Enter use · R respawn · V FPV/map · Esc close · "
-		+ "dock bar year panels · StreetNet chat /join · M mute · Audio sliders"
+		"WASD / stick move · Q/E / L1 R1 turn · G / A get · F / X fire · "
+		+ "B look · Y inv · L2 use · R2 respawn · Select FPV/map · Start docks · "
+		+ "StreetNet chat · M mute · Audio (Deck map: docs/steam-deck.md)"
 	)
 
 
@@ -386,10 +386,18 @@ func _process(delta: float) -> void:
 
 	var action := _chord_move_action()
 	if action.is_empty():
-		# Hold turn keys
-		if Input.is_physical_key_pressed(KEY_Q) or Input.is_physical_key_pressed(KEY_LEFT):
+		# Hold turn keys + gamepad L1/R1 (InputMap turn_left / turn_right)
+		if (
+			Input.is_physical_key_pressed(KEY_Q)
+			or Input.is_physical_key_pressed(KEY_LEFT)
+			or Input.is_action_pressed("turn_left")
+		):
 			action = "turn_left"
-		elif Input.is_physical_key_pressed(KEY_E) or Input.is_physical_key_pressed(KEY_RIGHT):
+		elif (
+			Input.is_physical_key_pressed(KEY_E)
+			or Input.is_physical_key_pressed(KEY_RIGHT)
+			or Input.is_action_pressed("turn_right")
+		):
 			action = "turn_right"
 
 	if action.is_empty():
@@ -408,10 +416,29 @@ func _process(delta: float) -> void:
 
 
 func _chord_move_action() -> String:
-	var w := _move_keys.get("w", false) or Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
-	var a := _move_keys.get("a", false) or Input.is_physical_key_pressed(KEY_A)
-	var s := _move_keys.get("s", false) or Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
-	var d := _move_keys.get("d", false) or Input.is_physical_key_pressed(KEY_D)
+	# Keyboard + Deck/gamepad InputMap (move_* from left stick / d-pad).
+	var w := (
+		_move_keys.get("w", false)
+		or Input.is_physical_key_pressed(KEY_W)
+		or Input.is_physical_key_pressed(KEY_UP)
+		or Input.is_action_pressed("move_forward")
+	)
+	var a := (
+		_move_keys.get("a", false)
+		or Input.is_physical_key_pressed(KEY_A)
+		or Input.is_action_pressed("move_left")
+	)
+	var s := (
+		_move_keys.get("s", false)
+		or Input.is_physical_key_pressed(KEY_S)
+		or Input.is_physical_key_pressed(KEY_DOWN)
+		or Input.is_action_pressed("move_back")
+	)
+	var d := (
+		_move_keys.get("d", false)
+		or Input.is_physical_key_pressed(KEY_D)
+		or Input.is_action_pressed("move_right")
+	)
 	if w and a and not s and not d:
 		return "forward_left"
 	if w and d and not s and not a:
@@ -504,3 +531,35 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Discrete Deck / gamepad face buttons (#132). Hold-to-move is in _process.
+	if _ui_focused() or not net.is_joined():
+		return
+	if event.is_action_pressed("interact_get"):
+		net.send_action("g")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("interact_fire"):
+		net.send_action("f")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("look_wait"):
+		net.send_action("look")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("inventory"):
+		net.send_action("i")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("use_item"):
+		net.send_action("u")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("respawn"):
+		net.send_action("r")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("toggle_view"):
+		_on_view_toggle()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("toggle_docks"):
+		if year_docks != null:
+			year_docks.cycle_dock()
+		get_viewport().set_input_as_handled()
+

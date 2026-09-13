@@ -189,9 +189,10 @@ Secrets: `STEAM_USERNAME`, `STEAM_CONFIG_VDF` or shared_secret TOTP — store in
 
 ### Proton / Steam Deck
 
-- Prefer a **native Linux** depot for Deck when ready.
-- Until then, mark **Proton** compatibility after playtesting the Windows build on Deck (webview + localhost + WS). Deck verification is a launch risk — budget a device pass.
-- Controllers: web client already has mobile/touch paths; map Steam Input for Deck later.
+- Prefer a **native Linux** depot for Deck (Godot export is the preferred SKU — see [steam-deck.md](steam-deck.md) / #132).
+- **Do not** ship Deck as Proton-only. Windows+Proton remains a fallback depot only.
+- Controllers / UI scale / suspend-reconnect / device QA checklist: **[steam-deck.md](steam-deck.md)**.
+- Tauri/webview path (#67 historical): still budget a Deck pass if used as calendar fallback — webview + sleep is a Verified risk.
 
 ### Launch options (Steamworks)
 
@@ -347,6 +348,7 @@ PWA service worker already caches shell only — same philosophy: shell offline,
 
 - [ ] Spike: Tauri 2 + PyInstaller `snowcrash.web` sidecar on Windows
 - [ ] Spike: same on Linux; Deck/Proton check
+- [ ] Godot Linux export → Deck device QA per [steam-deck.md](steam-deck.md) (#132)
 - [ ] Decide Electron fallback criteria
 - [ ] Steamworks init + achievement stub
 - [ ] `steam_appid.txt` dev workflow documented
@@ -361,6 +363,7 @@ PWA service worker already caches shell only — same philosophy: shell offline,
 ## Related docs
 
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 north star, comps, gaps; **Godot preferred Steam SKU** (Tauri = calendar fallback)
+- [steam-deck.md](steam-deck.md) — #132 Steam Deck Verified checklist + Linux depot plan
 - [godot-client.md](godot-client.md) — #109/#118 Godot 4 thin client (preferred native SKU per #130; Tauri remains fastest wrap of current web)
 - [modding.md](modding.md) — Workshop precursor (#72)
 - [mobile.md](mobile.md) — PWA shell; not a Steam substitute
