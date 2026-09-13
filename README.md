@@ -281,8 +281,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |
-
-Steam packaging research is tracked separately as **#67** (not covered by these docs).
+| Steam packaging research | [docs/steam-packaging.md](docs/steam-packaging.md) | #67 · parent #42 · related #72 |
 
 ## Package layout
 
@@ -311,6 +310,7 @@ adventure/
   scripts/fixtures/tiny_downtown.osm.xml
   docs/osm-procedural-globe.md
   docs/modding.md
+  docs/steam-packaging.md  # #67 Steam Direct / packaging research
   examples/plugins/hello_courier/   # #72 example mod
   mods/                             # user plugin drop folder
 ```
