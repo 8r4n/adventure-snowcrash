@@ -6,3 +6,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Godot editor (godot_client/ spike)
+.godot/
+**/.godot/

@@ -130,6 +130,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **Uplink Hop / Street Jaunt (#62)** — learned short → district → globe hops with rank gates, Focus cost, and misfire/cooldown feedback. See [docs/jaunte.md](docs/jaunte.md).
 - **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
 - **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; hooks for items, street events, journal, StreetNet, ICE/cyber nodes, globe pins, CSP-safe UI panels (API 1.2). Example Hello Courier. See [docs/modding.md](docs/modding.md).
+- **Godot thin client (#109)** — research recommends Godot **4.x** as an additive native UI talking to the same `/ws` server (not a rewrite). Spike: [godot_client/](godot_client/). See [docs/godot-client.md](docs/godot-client.md).
 - **Scarce resource ecology (#57)** — bandwidth / condensate water / uplink spectrum wars on globe regions; claim or raid nodes; weather shifts with control. See [docs/ecology.md](docs/ecology.md).
 - **Empathy audit + synth bounties (#63)** — optional StreetNet empathy dialogue test + rogue-synth Retire/Reclaim contracts with heat/reputation swings. See [docs/empathy-bounties.md](docs/empathy-bounties.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
@@ -282,6 +283,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |
 | Steam packaging research | [docs/steam-packaging.md](docs/steam-packaging.md) | #67 · parent #42 · related #72 |
+| Godot thin client (research + spike) | [docs/godot-client.md](docs/godot-client.md) · [godot_client/](godot_client/) | #109 · related #67/#75/#72 |
 
 ## Package layout
 
@@ -311,6 +313,8 @@ adventure/
   docs/osm-procedural-globe.md
   docs/modding.md
   docs/steam-packaging.md  # #67 Steam Direct / packaging research
+  docs/godot-client.md      # #109 Godot 4 thin-client research
+  godot_client/             # #109 Godot 4 WebSocket spike (open in editor)
   examples/plugins/hello_courier/   # #72 example mod
   mods/                             # user plugin drop folder
 ```
