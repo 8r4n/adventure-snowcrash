@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + 3D street + docks + onboarding + audio + Deck pad + quality (#141 / #118 / #127 / #132 / #133 / #134).
+## Core play loop + 3D street + ASCII overlay + docks + onboarding + audio + Deck pad + quality (#141 / #118 / #127 / #132 / #133 / #134).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -35,6 +35,7 @@ extends Control
 @onready var globe_host: SubViewportContainer = %GlobeHost
 @onready var globe_vp: SubViewport = %GlobeViewport
 @onready var globe_banner: Label = %GlobeBanner
+@onready var ascii_overlay: Label = %AsciiOverlay
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -42,7 +43,7 @@ const INV_DIGIT_MS := 420
 var _hold_accum: float = 0.0
 var _held_action: String = ""
 var _move_keys: Dictionary = {}  # "w"/"a"/"s"/"d" -> true
-var _view_mode: String = "3d"  # "3d" | "fpv" | "map"
+var _view_mode: String = "3d"  # "3d" | "3d_ascii" | "fpv" | "map"
 var _last_state: Dictionary = {}
 var _inv_digit_buf: String = ""
 var _inv_digit_accum: float = -1.0
@@ -55,6 +56,9 @@ var _globe_selected: String = ""
 var _flash_t: float = 0.0
 var _flash_in: bool = true
 const ICE_FLASH_SEC := 0.5
+const VIEW_CONFIG_PATH := "user://snowcrash_client.cfg"
+const VIEW_CONFIG_SECTION := "view"
+const VIEW_MODES := ["3d", "3d_ascii", "fpv", "map"]
 
 
 func _ready() -> void:
@@ -91,7 +95,8 @@ func _ready() -> void:
 	_on_status("disconnected — start dev server on :8766", "warn")
 	hud_label.text = "HP —  · Focus —  · XP —  · $—"
 	objective_label.text = "Objective: (jack in)"
-	view_label.text = "(3D street / FPV / map after jack-in)"
+	view_label.text = "(3D / 3D+ASCII / FPV / map after jack-in)"
+	_load_view_mode()
 	_apply_view_visibility()
 	log_box.clear()
 	log_box.append_text("[color=#a6adc8]Log idle — connect to Python /ws[/color]\n")
@@ -189,7 +194,7 @@ func _on_onboarding_respawn() -> void:
 func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD / stick move · Q/E / L1 R1 / R-stick turn · G / A get · F / X fire · "
-		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/FPV/map · C camera · Start docks · "
+		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/3D+ASCII/FPV/map · C camera · Start docks · "
 		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · F8 quality · Audio "
 		+ "(Deck: docs/steam-deck.md · 3D: docs/godot-3d.md)"
 	)
@@ -212,16 +217,15 @@ func _on_disconnect_pressed() -> void:
 
 
 func _on_view_toggle() -> void:
-	match _view_mode:
-		"3d":
-			_view_mode = "fpv"
-		"fpv":
-			_view_mode = "map"
-		_:
-			_view_mode = "3d"
+	var idx := VIEW_MODES.find(_view_mode)
+	if idx < 0:
+		idx = 0
+	_view_mode = VIEW_MODES[(idx + 1) % VIEW_MODES.size()]
+	_save_view_mode()
 	_apply_view_visibility()
 	if not _last_state.is_empty():
 		_paint_view(_last_state)
+	_append_log("View %s" % _view_mode_label())
 
 
 func _on_cam_toggle() -> void:
@@ -265,16 +269,22 @@ func _apply_viewport_quality() -> void:
 
 
 func _apply_view_visibility() -> void:
-	var is_3d := _view_mode == "3d"
+	var is_3d := _view_mode == "3d" or _view_mode == "3d_ascii"
 	var show_globe := _globe_overlay and is_3d
+	var show_ascii_overlay := _view_mode == "3d_ascii" and not show_globe
 	if street_host:
 		street_host.visible = is_3d and not show_globe
 	if globe_host:
 		globe_host.visible = show_globe
 	if view_scroll:
 		view_scroll.visible = not is_3d
+	if ascii_overlay:
+		ascii_overlay.visible = show_ascii_overlay
+		if not show_ascii_overlay:
+			ascii_overlay.text = ""
 	if view_toggle_btn:
-		view_toggle_btn.text = "View: %s" % ("GLOBE" if show_globe else _view_mode.to_upper())
+		var label := "GLOBE" if show_globe else _view_mode_label()
+		view_toggle_btn.text = "View: %s" % label
 	_sync_street_vp()
 	_sync_globe_vp()
 
@@ -298,6 +308,58 @@ func _sync_globe_vp() -> void:
 		globe_vp.render_target_update_mode = (
 			SubViewport.UPDATE_WHEN_VISIBLE if _globe_overlay else SubViewport.UPDATE_DISABLED
 		)
+
+
+
+func _view_mode_label() -> String:
+	match _view_mode:
+		"3d_ascii":
+			return "3D+ASCII"
+		"fpv":
+			return "FPV"
+		"map":
+			return "MAP"
+		_:
+			return "3D"
+
+
+func _load_view_mode() -> void:
+	var cfg := ConfigFile.new()
+	var err := cfg.load(VIEW_CONFIG_PATH)
+	if err != OK and err != ERR_FILE_NOT_FOUND:
+		push_warning("view mode: load failed %s" % err)
+		return
+	var raw := str(cfg.get_value(VIEW_CONFIG_SECTION, "mode", "3d")).to_lower()
+	if raw in VIEW_MODES:
+		_view_mode = raw
+	elif raw == "ascii" or raw == "hybrid":
+		_view_mode = "3d_ascii"
+
+
+func _save_view_mode() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(VIEW_CONFIG_PATH)  # merge other sections when present
+	cfg.set_value(VIEW_CONFIG_SECTION, "mode", _view_mode)
+	var err := cfg.save(VIEW_CONFIG_PATH)
+	if err != OK:
+		push_warning("view mode: save failed %s" % err)
+
+
+## While jacked, FPV/overlay should raycast from lattice avatar — not street body at J.
+func _ascii_paint_state(state: Dictionary) -> Dictionary:
+	if state.is_empty() or not Street3D.ice_active(state):
+		return state
+	var xy := Street3D.ice_avatar_xy(state)
+	var patched := state.duplicate(true)
+	var player = patched.get("player", {})
+	if typeof(player) != TYPE_DICTIONARY:
+		player = {}
+	else:
+		player = player.duplicate(true)
+	player["x"] = xy.x
+	player["y"] = xy.y
+	patched["player"] = player
+	return patched
 
 
 func _on_use_pressed() -> void:
@@ -494,14 +556,26 @@ func _paint_view(state: Dictionary) -> void:
 		street.apply_snapshot(state)
 	_sync_street_vp()
 	_paint_globe_overlay(state)
+	var ascii_state := _ascii_paint_state(state)
 	if _view_mode == "3d":
+		if ascii_overlay:
+			ascii_overlay.text = ""
 		return
+	if _view_mode == "3d_ascii":
+		var frame := FpvAscii.render(ascii_state, 56, 18)
+		var compass := FpvAscii.compass_line(ascii_state.get("player", {}))
+		if ascii_overlay:
+			ascii_overlay.text = "[3D+ASCII] %s\n%s" % [compass, frame]
+		return
+	if ascii_overlay:
+		ascii_overlay.text = ""
 	if _view_mode == "fpv":
-		var frame := FpvAscii.render(state, 56, 18)
-		var compass := FpvAscii.compass_line(state.get("player", {}))
-		view_label.text = "[FPV] %s\n%s" % [compass, frame]
+		var frame2 := FpvAscii.render(ascii_state, 56, 18)
+		var compass2 := FpvAscii.compass_line(ascii_state.get("player", {}))
+		view_label.text = "[FPV] %s\n%s" % [compass2, frame2]
 	else:
-		view_label.text = FpvAscii.map_crop(state, 14)
+		view_label.text = FpvAscii.map_crop(ascii_state, 14)
+
 
 
 func _paint_inventory(state: Dictionary) -> void:
@@ -738,7 +812,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# View cycle: 3D / FPV / map
+	# View cycle: 3D / 3D+ASCII / FPV / map
 	if keycode == KEY_V:
 		_on_view_toggle()
 		get_viewport().set_input_as_handled()

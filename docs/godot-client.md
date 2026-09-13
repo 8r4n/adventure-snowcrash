@@ -388,11 +388,11 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Snapshot glyphs → Node3D meshes (walls/floor/props, Catppuccin neon) | Done — `street_3d.gd` + `scenes/street.tscn` |
 | Courier camera (close 3rd / 1st) + existing WS intents + gamepad look | Done — `V` view cycle, `C` / R3 cam, right-stick turn |
 | Other entities as meshes/billboards; highlight J / U | Done |
-| Control HUD / docks / ASCII overlay or toggle (ASCII path kept) | Done — default **3D** |
+| Control HUD / docks / ASCII overlay or toggle (ASCII path kept) | Done — default **3D**; **V** includes **3D+ASCII** hybrid |
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
-Remaining #141 slices (do **not** close the issue): optional ASCII overlay (slice 6). Street = #142 · Entities = #143 · ICE = #144 · Globe = #145 · Lighting/particles/quality = this PR (slice 5 — see [godot-3d.md](godot-3d.md)).
+Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps / Deck QA / exports / HUD soup) — see [godot-3d.md](godot-3d.md). Slices 1–6 shipped: Street #142 · Entities #143 · ICE #144 · Globe #145 · Polish #146 · ASCII overlay **this PR**.
 
 ### Remaining epic items (later slices)
 
@@ -413,12 +413,13 @@ Remaining #141 slices (do **not** close the issue): optional ASCII overlay (slic
 
 - [x] ICE probes (+ list; heists UX still thin) (**#127**)
 - [x] Cyberspace jack-in / jack-out control (**#127**)
-- [x] Cyberspace / ICE **3D lattice** while jacked (**#141** slice 3; web overlay still exists)
+- [x] Cyberspace / ICE 3D lattice while jacked (**#141** slice 3; web overlay still exists)
 - [x] Globe / teleport (**#127**; schematic Earth SVG left to later)
 - [x] Primer, Jaunte, Sleeves, Forecast, Ecology, Empathy (**#127**)
 - [x] Hello Courier / mod `ui_panel` host (**#127**)
 - [ ] Catppuccin theme throughout (Theme resource, not just consts)
 - [x] ICE heists 3D layer indicators + lattice (**#141** slice 3; dock UX still thin)
+- [x] Optional ASCII overlay on 3D (**#141** slice 6)
 
 **Polish & ship**
 
@@ -430,7 +431,7 @@ Remaining #141 slices (do **not** close the issue): optional ASCII overlay (slic
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
 - [ ] Optional: Steam packaging path (#67 / #130) using Godot export
 
-Suggested next slice: **#141 optional ASCII overlay** (slice 6), or GPS minimap + death UX, or desktop export toward Steam (#130).
+Suggested next: GPS minimap + death UX, Deck hardware fps pass, or desktop export toward Steam (#130). #141 ASCII overlay (slice 6) shipped.
 
 ---
 ## Related
