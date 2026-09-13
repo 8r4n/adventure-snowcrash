@@ -794,6 +794,7 @@ class GameWorld(YearFeaturesMixin):
             agent.name = name
             self.name_index[name.lower()] = agent.id
             self._restore_last_good(agent, reason="reconnect-id")
+            self._respawn_stale_session(agent, reason="reconnect-id")
             self.system_chat("%s reconnected." % name)
             agent.log("Rejacked — same pad (%d,%d,z=%d)." % (
                 agent.actor.x, agent.actor.y, int(getattr(agent.actor, "z", 0) or 0)
@@ -806,6 +807,7 @@ class GameWorld(YearFeaturesMixin):
             agent = self.players[existing]
             agent.connected = True
             self._restore_last_good(agent, reason="reconnect-name")
+            self._respawn_stale_session(agent, reason="reconnect-name")
             self.system_chat("%s reconnected." % name)
             agent.log("Rejacked — same pad (%d,%d,z=%d)." % (
                 agent.actor.x, agent.actor.y, int(getattr(agent.actor, "z", 0) or 0)
@@ -885,10 +887,28 @@ class GameWorld(YearFeaturesMixin):
         self._force_set_pos(agent, x, y, C.PLANE_STREET, "%s fallback spawn (no last_good)" % reason)
         self._bind_agent_fog(agent, C.PLANE_STREET)
 
+    def _respawn_stale_session(self, agent: PlayerAgent, reason: str = "reconnect") -> None:
+        """Same-name / same-id rejoin after death or win — clear the stale slot so play continues."""
+        terminal = (
+            agent.mode in ("dead", "won")
+            or bool(getattr(agent, "dead", False))
+            or bool(agent.lost)
+            or bool(agent.won)
+            or not agent.actor.alive
+        )
+        if not terminal:
+            return
+        if agent.mode == "dead" and hasattr(self, "_year_respawn"):
+            self._year_respawn(agent, "safe_pad")
+        else:
+            agent.dead = False
+            self._respawn(agent)
+        agent.log("Stale session cleared (%s) — back on the streets." % reason)
+
     def reconnect_parked(self, agent: PlayerAgent) -> None:
-        """Safe reconnect hook — restores last_good, never random teleport while alive."""
+        """Safe reconnect hook — restores last_good; revives terminal dead/won slots."""
         self._restore_last_good(agent, reason="reconnect_parked")
-        # Do not auto-revive / re-invuln here — that is explicit respawn only
+        self._respawn_stale_session(agent, reason="reconnect_parked")
 
     # ---- FOV ----
     def update_fov(self, agent: PlayerAgent) -> None:
@@ -1353,7 +1373,7 @@ class GameWorld(YearFeaturesMixin):
     def _handle_action_bound(self, agent: PlayerAgent, action: str, arg: Optional[str] = None) -> None:
         action = (action or "").strip()
         now = time.time()
-        if action not in ("noop", "look", "?", "help", "escape", "Esc", "i", "inventory"):
+        if action not in ("noop", "look", "?", "help", "escape", "Esc", "i", "inventory", "inv_select", "select_inv"):
             if now - agent.last_action_ts < 1.0 / ACTION_RATE_HZ:
                 return
             agent.last_action_ts = now
@@ -1406,8 +1426,14 @@ class GameWorld(YearFeaturesMixin):
 
         if action in ("i", "inventory"):
             agent.mode = "inventory"
-            agent.selected_inv = 0
-            agent.log("Inventory — numbers select, e equip, u use, d drop, Esc back.")
+            agent.selected_inv = max(0, min(agent.selected_inv, max(0, len(agent.actor.inventory) - 1)))
+            agent.log(
+                "Inventory — digits/letters/arrows select, e equip, u use, d drop, Esc back."
+            )
+            return
+
+        if action in ("inv_select", "select_inv"):
+            self._select_inventory_index(agent, arg, open_inventory=True)
             return
 
         if action in ("turn_left", "tl", ","):
@@ -1457,11 +1483,14 @@ class GameWorld(YearFeaturesMixin):
                 self.update_fov(agent)
             return
 
-        if action == "u" and arg:
-            try:
-                self._use_item(agent, int(arg))
-            except ValueError:
-                agent.log("Usage: u <index>")
+        if action == "u":
+            if arg is not None and str(arg).strip() != "":
+                try:
+                    self._use_item(agent, int(arg))
+                except ValueError:
+                    agent.log("Usage: u <index>")
+            else:
+                self._use_item(agent, agent.selected_inv)
             return
 
         if action == "look":
@@ -1476,8 +1505,10 @@ class GameWorld(YearFeaturesMixin):
     def _respawn(self, agent: PlayerAgent) -> None:
         agent.won = False
         agent.lost = False
+        agent.dead = False
         agent.mode = "play"
         agent.death_cause = None
+        agent.respawn_options = []
         agent.actor.alive = True
         agent.actor.hp = agent.actor.max_hp
         agent.actor.focus = agent.actor.max_focus
@@ -1699,25 +1730,80 @@ class GameWorld(YearFeaturesMixin):
             on_sk(agent, fi.item)
         self.update_fov(agent)
 
+    def _select_inventory_index(
+        self, agent: PlayerAgent, raw: Optional[str], open_inventory: bool = False
+    ) -> bool:
+        """Select inventory slot by decimal index (supports 10+)."""
+        inv = agent.actor.inventory
+        if not inv:
+            agent.log("Inventory empty.")
+            return False
+        token = ("" if raw is None else str(raw)).strip().lower()
+        idx = None
+        if token.isdigit():
+            idx = int(token)
+        elif len(token) == 1 and "a" <= token <= "z":
+            # Letter keys a=10 … (client also sends inv_select). Skip move/verb keys.
+            reserved = set("wasdeudiqhjklnyb")
+            if token in reserved:
+                return False
+            letters = [c for c in "abcdefghijklmnopqrstuvwxyz" if c not in reserved]
+            if token in letters:
+                idx = 10 + letters.index(token)
+        if idx is None:
+            return False
+        if not (0 <= idx < len(inv)):
+            agent.log("No item at index %s." % token)
+            return True
+        if open_inventory:
+            agent.mode = "inventory"
+        agent.selected_inv = idx
+        agent.log("Selected [%d] %s" % (idx, inv[idx].name))
+        return True
+
     def _handle_inventory(self, agent: PlayerAgent, action: str, arg: Optional[str]) -> None:
         inv = agent.actor.inventory
         if action in ("escape", "Esc", "i", "q"):
             agent.mode = "play"
             return
-        if action.isdigit():
-            idx = int(action)
-            if 0 <= idx < len(inv):
-                agent.selected_inv = idx
-                agent.log("Selected [%d] %s" % (idx, inv[idx].name))
+        if action in ("inv_select", "select_inv"):
+            self._select_inventory_index(agent, arg, open_inventory=False)
             return
         if action == "u":
-            self._use_item(agent, agent.selected_inv)
+            if arg is not None and str(arg).strip() != "":
+                try:
+                    self._use_item(agent, int(arg))
+                except ValueError:
+                    self._use_item(agent, agent.selected_inv)
+            else:
+                self._use_item(agent, agent.selected_inv)
             return
         if action == "e":
             self._equip_item(agent, agent.selected_inv)
             return
         if action == "d":
             self._drop_item(agent, agent.selected_inv)
+            return
+        # Arrows / WASD / vi / relative forward-back nudge selection before letter indices
+        dy = 0
+        if action in C.MOVE_KEYS:
+            dy = C.MOVE_KEYS[action][1]
+        elif action in ("w", "forward"):
+            dy = -1
+        elif action in ("s", "back"):
+            dy = 1
+        elif action in C.REL_MOVE_ACTIONS:
+            _dx, rdy = _relative_delta(agent.actor.facing, action)
+            if rdy < 0:
+                dy = -1
+            elif rdy > 0:
+                dy = 1
+        if dy != 0 and inv:
+            agent.selected_inv = max(0, min(len(inv) - 1, agent.selected_inv + (1 if dy > 0 else -1)))
+            agent.log("Selected [%d] %s" % (agent.selected_inv, inv[agent.selected_inv].name))
+            return
+        if action.isdigit() or (len(action) == 1 and action.isalpha()):
+            self._select_inventory_index(agent, action, open_inventory=False)
             return
 
     def _use_item(self, agent: PlayerAgent, idx: int) -> None:

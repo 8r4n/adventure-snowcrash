@@ -186,13 +186,14 @@ python scripts/gen_cutscene_videos.py  # short jack-in MP4s (same ASCII pipeline
 | `WASD` / arrows / `hjkl` (TUI) | Absolute move |
 | `g` | Get / pick up |
 | `i` | Inventory |
+| `0`-`9` / multi-digit / `a`+ | Select inventory index (10+ via multi-digit, letters, or arrows) |
 | `e` | Equip / unequip (in inventory) |
-| `u` | Use item (inventory selection, or click item on web) |
+| `u` / Enter (inv) | Use **selected** item (web: click selects; double-click uses) |
 | `d` | Drop (inventory) |
 | `f` | Ranged pulse (if pistol equipped) or **hack** attack |
 | `.` / Space | Wait |
 | `?` | Help |
-| `r` | Restart (after death/win) |
+| `r` | Respawn after death/win (same name / same session) |
 | `q` | Quit (TUI) |
 | `m` (web) | Mute / unmute SFX |
 | `j` (web) | Jack in at jackpoint `J` / jack out in cyberspace (else absolute south) |

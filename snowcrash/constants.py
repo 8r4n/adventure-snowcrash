@@ -172,7 +172,7 @@ CONTROLS — 8-WAY + MULTIPLANE
   t / [ / PgUp      — ascend plane (street→air, under→street)
   b / ] / PgDn      — descend plane (street→under, air→street)
   g                 — get / pick up item
-  i                 — inventory
+  i                 — inventory (digits/letters/arrows select; u use; click=select)
   f                 — ranged / hack attack
   ice_probe <type>  — Focus ICE probe: stun | reveal | scramble (#46)
   (web) z/x/c       — stun / reveal / scramble probes · ICE dock

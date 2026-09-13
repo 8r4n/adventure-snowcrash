@@ -352,7 +352,7 @@ def handle_action(gs: GameState, action: str, arg: Optional[str] = None) -> Dict
     if action in ("i", "inventory"):
         gs.mode = "inventory"
         gs.selected_inv = 0
-        gs.log("Inventory — numbers select, e equip/unequip, u use, d drop, Esc back.")
+        gs.log("Inventory — digits/letters/arrows select, e equip, u use, d drop, Esc back.")
         return snapshot(gs)
 
     if action in ("turn_left", "tl", ","):
@@ -390,13 +390,26 @@ def handle_action(gs: GameState, action: str, arg: Optional[str] = None) -> Dict
             end_player_turn(gs)
         return snapshot(gs)
 
-    if action == "u" and arg:
-        # use inventory index
+    if action in ("inv_select", "select_inv"):
+        inv = gs.player.inventory
         try:
-            idx = int(arg)
-            _use_item(gs, idx)
-        except ValueError:
-            gs.log("Usage: u <index>")
+            idx = int(str(arg).strip())
+        except (TypeError, ValueError):
+            idx = -1
+        if inv and 0 <= idx < len(inv):
+            gs.mode = "inventory"
+            gs.selected_inv = idx
+            gs.log(f"Selected [{idx}] {inv[idx].name}")
+        return snapshot(gs)
+
+    if action == "u":
+        if arg is not None and str(arg).strip() != "":
+            try:
+                _use_item(gs, int(arg))
+            except ValueError:
+                gs.log("Usage: u <index>")
+        else:
+            _use_item(gs, gs.selected_inv)
         return snapshot(gs)
 
     if action == "look":
@@ -527,14 +540,24 @@ def _handle_inventory(gs: GameState, action: str, arg: Optional[str]) -> Dict[st
     if action in ("escape", "Esc", "i", "q"):
         gs.mode = "play"
         return snapshot(gs)
-    if action.isdigit():
-        idx = int(action)
+    if action in ("inv_select", "select_inv") or action.isdigit():
+        token = arg if action in ("inv_select", "select_inv") else action
+        try:
+            idx = int(str(token).strip())
+        except (TypeError, ValueError):
+            idx = -1
         if 0 <= idx < len(inv):
             gs.selected_inv = idx
             gs.log(f"Selected [{idx}] {inv[idx].name}")
         return snapshot(gs)
     if action == "u":
-        _use_item(gs, gs.selected_inv)
+        if arg is not None and str(arg).strip() != "":
+            try:
+                _use_item(gs, int(arg))
+            except ValueError:
+                _use_item(gs, gs.selected_inv)
+        else:
+            _use_item(gs, gs.selected_inv)
         return snapshot(gs)
     if action == "e":
         _equip_item(gs, gs.selected_inv)
@@ -542,11 +565,17 @@ def _handle_inventory(gs: GameState, action: str, arg: Optional[str]) -> Dict[st
     if action == "d":
         _drop_item(gs, gs.selected_inv)
         return snapshot(gs)
-    if action in C.MOVE_KEYS:
-        # allow navigating selection with j/k
-        dx, dy = C.MOVE_KEYS[action]
+    if action in C.MOVE_KEYS or action in ("w", "s", "forward", "back"):
+        # allow navigating selection with j/k / arrows / wasd
+        dy = 0
+        if action in C.MOVE_KEYS:
+            dy = C.MOVE_KEYS[action][1]
+        elif action in ("w", "forward"):
+            dy = -1
+        elif action in ("s", "back"):
+            dy = 1
         if dy != 0 and inv:
-            gs.selected_inv = max(0, min(len(inv) - 1, gs.selected_inv + dy))
+            gs.selected_inv = max(0, min(len(inv) - 1, gs.selected_inv + (1 if dy > 0 else -1)))
         return snapshot(gs)
     return snapshot(gs)
 

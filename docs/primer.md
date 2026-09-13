@@ -14,7 +14,7 @@ Source of truth: `snowcrash/systems/primer.py` (`PrimerMixin`), mixed into `Year
 | Glyph | `▣` |
 | Grant | Auto-sleeved on join / bootstrap |
 
-**Use** the item from inventory (`u` / web click), or action `primer` / dock **Primer**.
+**Use** the item from inventory (`u` / web: select then `u`, or double-click), or action `primer` / dock **Primer**.
 
 ## Teaching quests (≥3)
 
