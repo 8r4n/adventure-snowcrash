@@ -86,3 +86,31 @@ def test_issue_141_must_not_be_closed_by_docs():
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert "Closes #141" not in text
         assert "closes #141" not in text
+
+
+def test_slice2_entity_polish_meshes_and_landmarks():
+    """Slice 2: distinct silhouettes, facing, vendors, pickups — Refs #141."""
+    src = (GODOT / "scripts" / "street_3d.gd").read_text(encoding="utf-8")
+    assert '"$": "vendor"' in src
+    assert '"B": "boss"' in src
+    assert "MAX_POOLED_ENTITIES" in src
+    assert "_spawn_vendor" in src
+    assert "_spawn_jack_uplink" in src
+    assert "_spawn_pickup_beacon" in src
+    assert "_ensure_courier_parts" in src
+    assert 'name = "Facing"' in src or 'Facing"' in src
+    assert "_mats[\"vendor\"]" in src or '_mats["vendor"]' in src
+    assert "landmarks" in src
+    assert "facing_other" in src or "facing" in src
+    # Must not claim to close the epic
+    assert "Closes #141" not in src
+
+
+def test_docs_slice2_progress():
+    d3d = (DOCS / "godot-3d.md").read_text(encoding="utf-8")
+    assert "Entities polish" in d3d
+    assert "This PR" in d3d
+    assert "vendor" in d3d.lower()
+    assert "Facing" in d3d or "facing" in d3d
+    assert "pooled" in d3d.lower() or "MAX_POOLED" in d3d or "pool" in d3d.lower()
+    assert "Refs #141" in d3d and "stays OPEN" in d3d

@@ -53,19 +53,23 @@ HUD, inventory, year docks, and StreetNet stay as Control overlay. ASCII path is
 | `+` | door | yellow frame | Yellow emission |
 | `o` | manhole | disc | Overlay 0 |
 | `<` `>` | stairs | stepped box | Lavender |
-| `J` | jackpoint | teal pillar + pulse Omni + Label3D | Sky |
-| `U` | uplink | peach beacon + pulse Omni + Label3D | Peach |
-| `@` | self | teal capsule (hidden in 1st) | Teal |
-| `&` | NPC | lavender capsule + billboard | Lavender |
-| `i` `t` `d` | hostiles | box / hovering sphere | Green / Peach / Mauve |
-| `c` | street cam | small red box | Red |
-| `*` | loot / shaft | yellow spark | Yellow |
-| letter glyphs | other couriers | sky capsule + nameplate | Blue |
+| `J` | jackpoint | tall plinth + pillar + crown + pulse Omni + Label3D | Sky |
+| `U` | uplink | taller peach beacon + ring + pulse Omni + Label3D | Peach |
+| `$` | vendor | emissive kiosk + canopy + `$` billboard (from `landmarks`) | Yellow / Peach |
+| `@` | self | teal capsule + head + facing chevron (hidden in 1st) | Teal |
+| letter / `players` | other couriers | tall blue capsule + head + sky facing chevron + nameplate | Blue / Sky |
+| `&` | NPC | short lavender capsule + larger head | Lavender |
+| `i` | infected | hunched green box + offset head | Green |
+| `t` | thug | wide peach slab + disc head | Peach |
+| `d` | drone | hovering mauve sphere + torus ring | Mauve |
+| `B` | boss | oversized red capsule + ring | Red |
+| `c` | street cam | red box on prop pole | Red |
+| `*` | loot / pickup | yellow spark + disc (map `*` + signal-key landmarks) | Yellow |
 | ` ` | void / fog | skipped | — |
 
-Landmarks **J** / **U** also spawn from `state.jackpoint` / `state.uplink` (readable without HUD soup). Other `state.entities` / `state.players` are simple meshes + `Label3D` billboards.
+Landmarks **J** / **U** spawn from `state.jackpoint` / `state.uplink`. **Vendors** and signal-key loot also read `state.landmarks` (`glyph` `$` / `*`). Other `state.entities` / `state.players` use pooled multi-part meshes + `Label3D` billboards. **Facing chevrons** use snapshot `facing` for self + other couriers (agents).
 
-Map rebuild is **AOI-cropped** (`BUILD_RADIUS` 18) and hashed so a 200×120 city does not instantiate every tile.
+Map rebuild is **AOI-cropped** (`BUILD_RADIUS` 18) and hashed so a 200×120 city does not instantiate every tile. Entities are **pooled** (cap `MAX_POOLED_ENTITIES` 48) with shared `PrimitiveMesh` + materials — no per-snap alloc, no per-vendor Omni (Deck light budget stays courier + J + U).
 
 ---
 
@@ -95,7 +99,7 @@ Right stick X is mapped to `look_left` / `look_right` and sent as **`turn_left` 
 | Device | Goal | Budget knobs |
 |--------|------|----------------|
 | Mid PC (1080p) | **60 fps** comfortable, **30 fps** floor | MSAA 2x on the street SubViewport; Forward+ glow on |
-| Steam Deck (800p) | **30 fps** floor | Mobile renderer; `BUILD_RADIUS` 18; **shadows off**; max ~3 Omni (courier + J + U); SubViewport `UPDATE_WHEN_VISIBLE`; no per-tile lights |
+| Steam Deck (800p) | **30 fps** floor | Mobile renderer; `BUILD_RADIUS` 18; **shadows off**; max ~3 Omni (courier + J + U); entity pool ≤48; vendor emissive-only (no Omni); SubViewport `UPDATE_WHEN_VISIBLE`; no per-tile lights |
 | Low | 30 fps | Drop MSAA; shrink radius to 14; disable glow in a later quality setting |
 
 Honesty: **no Deck hardware pass yet** (same gate as [steam-deck.md](steam-deck.md)). Do not claim Verified from this slice.
@@ -108,14 +112,14 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 
 | # | Slice | Status |
 |---|-------|--------|
-| 1 | **3D street vertical slice** — glyphs → meshes, courier camera, WS intents, J/U, ASCII toggle | **This PR** |
-| 2 | Entities polish — better player/NPC/enemy meshes, nameplates, vendor `$` | Open (#141) |
+| 1 | **3D street vertical slice** — glyphs → meshes, courier camera, WS intents, J/U, ASCII toggle | Done (#142) |
+| 2 | **Entities polish** — distinct silhouettes, facing chevrons, vendors `$`, pickups, landmark billboards | **This PR** |
 | 3 | Cyberspace / ICE — distinct 3D visual language for jack-in layers | Open |
 | 4 | Globe — 3D Earth / region picker or hybrid UI | Open |
 | 5 | Polish — lighting, particles, materials, Deck device QA | Open |
 | 6 | Optional ASCII overlay (hybrid look on top of 3D) | Open |
 
-**#141 stays OPEN** until the Steam-ready 3D loop (acceptance on the issue). This PR is `Refs #141` only.
+**#141 stays OPEN** until the Steam-ready 3D loop (acceptance on the issue). This PR is `Refs #141` only (do not close the epic).
 
 ### Slice 1 acceptance (partial)
 
@@ -127,6 +131,15 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 - [ ] 30 fps+ mid-PC / Deck **measured** (documented budget only)
 - [ ] Landmark / vendor pass without any HUD soup (onboarding still uses Control chrome)
 
+### Slice 2 acceptance (this PR)
+
+- [x] Other players / NPCs / enemies as **distinct** multi-part meshes (silhouette + Catppuccin), not identical boxes
+- [x] Vendors (`$`), jackpoint **J**, uplink **U** as readable emissive landmarks + billboards
+- [x] Items / pickups when map or `landmarks` expose `*`
+- [x] Facing indicators for agents (self + other couriers from snapshot `facing`)
+- [x] Deck-conscious pooling / shared meshes; no extra Omni lights for vendors
+- [x] `docs/godot-3d.md` slice 2 progress updated
+
 ---
 
 ## Files
@@ -134,7 +147,7 @@ Quality toggles (later polish slice): radius, MSAA, glow, landmark lights.
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / camera |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / pooled entities / landmarks / facing / camera |
 | `godot_client/scenes/main.tscn` | Street SubViewport inside the view pane + HUD overlay |
 | `godot_client/scripts/main.gd` | View cycle, cam toggle, right-stick look |
 | `godot_client/scripts/fpv_ascii.gd` | ASCII FPV / map (kept) |

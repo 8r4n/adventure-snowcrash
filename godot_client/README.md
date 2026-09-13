@@ -100,7 +100,7 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 - Objective (peach; green on win, red on death)
 - Inventory `ItemList` (click select, double-click use)
 - Scrolling log from `state.messages`
-- **3D street** (default): snapshot glyphs → neon meshes; courier camera; J/U beacons — [godot-3d.md](../docs/godot-3d.md)
+- **3D street** (default): snapshot glyphs → neon meshes; courier camera; J/U/`$` landmarks; distinct entity silhouettes + facing — [godot-3d.md](../docs/godot-3d.md)
 - **FPV** text view (TUI-style raycast from snapshot map) or cropped ASCII overhead with facing glyph (V toggle; path not deleted)
 - Year dock body + StreetNet channel list / nick list / chat log
 
@@ -148,4 +148,4 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street slice 1 (#141, epic open)** are in-tree.
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street (#141 slices 1–2, epic open)** are in-tree.

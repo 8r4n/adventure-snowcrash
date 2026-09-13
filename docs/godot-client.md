@@ -392,7 +392,7 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
-Remaining #141 slices (do **not** close the issue): entities polish, cyberspace 3D, globe 3D, lighting/particles/Deck QA, optional ASCII overlay.
+Remaining #141 slices (do **not** close the issue): cyberspace 3D, globe 3D, lighting/particles/Deck QA, optional ASCII overlay. Entities polish = slice 2 (see [godot-3d.md](godot-3d.md)).
 
 ### Remaining epic items (later slices)
 
