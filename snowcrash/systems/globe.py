@@ -422,6 +422,13 @@ class GlobeMixin:
                 "Unknown region. Open globe and pick an id (e.g. neo_tokyo, cont_eu)."
             )
             return True
+        if reg.get("metadata_only") or reg.get("mod_overlay") or reg.get("teleport") is False:
+            agent.log(
+                "%s is mod metadata only — pin visible on globe, not a hop target."
+                % reg.get("name", rid)
+            )
+            agent.globe["panel_open"] = True
+            return True
         cur = self._globe_agent_region(agent)
         if rid == cur and not force:
             agent.log("Already sleeved in %s." % reg.get("name", rid))
@@ -684,6 +691,11 @@ class GlobeMixin:
                 else []
             ),
             "hint": hints.get(zoom, hints["globe"]),
+            **(
+                self._mod_globe_snapshot_extras()
+                if hasattr(self, "_mod_globe_snapshot_extras")
+                else {"mod_pins": [], "mod_regions": []}
+            ),
         }
 
     def _globe_enemy_tick_all(self) -> None:

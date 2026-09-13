@@ -205,3 +205,87 @@ def test_disable_mods_env(monkeypatch):
     assert discover_mod_dirs() == []
     reg = load_all_mods()
     assert reg.mods == {}
+
+
+def test_hello_courier_slice2_hooks():
+    reg = ModRegistry()
+    loaded = load_mod(EXAMPLE, reg)
+    assert loaded is not None
+    assert loaded.api_version.startswith("1.")
+    assert any(a["id"] == "hello_courier.delivery" for a in reg.journal_arcs)
+    assert any(b["id"] == "hello_courier.welcome" for b in reg.journal_beats)
+    assert any(b["id"] == "hello_courier.streetnet_hello" for b in reg.streetnet_broadcasts)
+    assert "hello_courier.ping_probe" in reg.ice_probes
+    assert reg.ice_probes["hello_courier.ping_probe"]["effect"] == "reveal"
+    assert any(n["id"] == "hello_courier.tutorial_node" for n in reg.cyber_nodes)
+    assert any(p["id"] == "hello_courier.drop_pin" for p in reg.globe_pins)
+    assert any(r["id"] == "hello_courier.rim_cache" for r in reg.globe_regions)
+
+
+def test_world_journal_and_streetnet_and_globe(monkeypatch):
+    monkeypatch.delenv("SNOWCRASH_DISABLE_MODS", raising=False)
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "1")
+    w = GameWorld(72011)
+    assert "hello_courier.ping_probe" in w._all_ice_probes()
+    assert any(p["id"] == "hello_courier.drop_pin" for p in w.mod_globe_pins)
+    # fire_on_load StreetNet should have landed in the ticker
+    texts = [e.get("text") or "" for e in w.event_ticker]
+    assert any("HELLO_COURIER" in t or "Hello Courier" in t for t in texts)
+    a = _join(w)
+    j = a.journal
+    assert any(arc.get("id") == "hello_courier.delivery" for arc in (j.get("mod_arcs") or []))
+    assert "hello_courier.welcome" in (j.get("mod_beats_seen") or [])
+    snap = w._globe_snapshot(a)
+    assert any(p.get("id") == "hello_courier.drop_pin" for p in (snap.get("mod_pins") or []))
+    # metadata region rejects teleport
+    assert w._globe_teleport(a, "hello_courier.rim_cache") is True
+    assert w._globe_agent_region(a) != "hello_courier.rim_cache"
+
+
+def test_mod_ice_probe_listed(monkeypatch):
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "1")
+    w = GameWorld(72012)
+    a = _join(w)
+    a.actor.focus = 20
+    assert w.handle_year_action(a, "ice_probe", "list")
+    cat = w._ice_probe_catalog(a)
+    assert any(p["id"] == "hello_courier.ping_probe" for p in cat)
+
+
+def test_fail_closed_bad_cyber_grid(tmp_path):
+    mod = tmp_path / "bad_grid"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "bad_grid",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["ice_nodes"],
+                "entry": {"ice_nodes": "ice_nodes.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (mod / "ice_nodes.json").write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {
+                        "id": "bad_grid.node",
+                        "grid": ["####", "#@.#", "####"],  # missing X
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert any("X exit" in e.message for e in reg.errors)
+
+
+def test_plugin_api_is_1_1():
+    parts = PLUGIN_API_VERSION.split(".")
+    assert int(parts[0]) == 1
+    assert int(parts[1]) >= 1

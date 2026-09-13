@@ -1,7 +1,8 @@
 """Modder / plugin framework (#72) — data-driven JSON mods, fail-closed.
 
-v1 loads manifests from ``mods/`` and ``examples/plugins/`` and registers
-JSON-defined items + street events only. No arbitrary Python/WASM exec.
+Loads manifests from ``mods/`` and ``examples/plugins/`` and registers
+JSON-defined items, street events, journal beats, StreetNet broadcasts,
+ICE probes / light cyberspace nodes, and globe pins. No arbitrary Python/WASM exec.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from ..items import Item
 log = logging.getLogger("snowcrash.modding")
 
 # Public plugin API semver — bump minor for additive hooks, major for breaks.
-PLUGIN_API_VERSION = "1.0.0"
+PLUGIN_API_VERSION = "1.1.0"
 
 MANIFEST_NAMES = ("mod.json", "manifest.json")
 
@@ -36,7 +37,14 @@ KNOWN_PERMISSIONS: Set[str] = {
 
 # Implemented in this slice — others may appear in manifests but are ignored
 # with a clear warning until a later phase hooks them.
-IMPLEMENTED_PERMISSIONS: Set[str] = {"items", "street_events"}
+IMPLEMENTED_PERMISSIONS: Set[str] = {
+    "items",
+    "street_events",
+    "journal",
+    "streetnet",
+    "ice_nodes",
+    "globe_regions",
+}
 
 # Dangerous / never granted in v1 without explicit future design.
 DENIED_PERMISSIONS: Set[str] = {
@@ -67,6 +75,10 @@ _CORE_ITEM_IDS: Set[str] = {
 
 _ITEM_KINDS = {"misc", "med", "weapon", "armor", "datachip", "quest", "trinket"}
 _EVENT_KINDS = {"broadcast", "job", "street", "ambush", "mod"}
+_JOURNAL_TRIGGERS = {"join", "payload", "manual", "always"}
+_PROBE_EFFECTS = {"stun", "reveal", "scramble"}
+_NODE_TYPES = {"maze", "ice_gate", "custom"}
+_REGION_KINDS = {"city", "continent", "poi", "pin", "mod_pin", "region", "hub"}
 
 
 def _parse_semver(v: str) -> Optional[Tuple[int, int, int]]:
@@ -170,6 +182,13 @@ class LoadedMod:
     root: Path
     items: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     street_events: List[Dict[str, Any]] = field(default_factory=list)
+    journal_arcs: List[Dict[str, Any]] = field(default_factory=list)
+    journal_beats: List[Dict[str, Any]] = field(default_factory=list)
+    streetnet_broadcasts: List[Dict[str, Any]] = field(default_factory=list)
+    ice_probes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    cyber_nodes: List[Dict[str, Any]] = field(default_factory=list)
+    globe_pins: List[Dict[str, Any]] = field(default_factory=list)
+    globe_regions: List[Dict[str, Any]] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
     def summary(self) -> Dict[str, Any]:
@@ -184,6 +203,13 @@ class LoadedMod:
             "permissions": list(self.permissions),
             "items": sorted(self.items.keys()),
             "street_events": [e.get("id") for e in self.street_events],
+            "journal_arcs": [a.get("id") for a in self.journal_arcs],
+            "journal_beats": [b.get("id") for b in self.journal_beats],
+            "streetnet_broadcasts": [b.get("id") for b in self.streetnet_broadcasts],
+            "ice_probes": sorted(self.ice_probes.keys()),
+            "cyber_nodes": [n.get("id") for n in self.cyber_nodes],
+            "globe_pins": [p.get("id") for p in self.globe_pins],
+            "globe_regions": [r.get("id") for r in self.globe_regions],
             "warnings": list(self.warnings),
             "path": str(self.root),
         }
@@ -196,6 +222,13 @@ class ModRegistry:
     items: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # item_id -> def
     item_owners: Dict[str, str] = field(default_factory=dict)  # item_id -> mod_id
     street_events: List[Dict[str, Any]] = field(default_factory=list)
+    journal_arcs: List[Dict[str, Any]] = field(default_factory=list)
+    journal_beats: List[Dict[str, Any]] = field(default_factory=list)
+    streetnet_broadcasts: List[Dict[str, Any]] = field(default_factory=list)
+    ice_probes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    cyber_nodes: List[Dict[str, Any]] = field(default_factory=list)
+    globe_pins: List[Dict[str, Any]] = field(default_factory=list)
+    globe_regions: List[Dict[str, Any]] = field(default_factory=list)
     errors: List[ModLoadError] = field(default_factory=list)
     skipped: List[Dict[str, str]] = field(default_factory=list)
 
@@ -204,6 +237,13 @@ class ModRegistry:
         self.items.clear()
         self.item_owners.clear()
         self.street_events.clear()
+        self.journal_arcs.clear()
+        self.journal_beats.clear()
+        self.streetnet_broadcasts.clear()
+        self.ice_probes.clear()
+        self.cyber_nodes.clear()
+        self.globe_pins.clear()
+        self.globe_regions.clear()
         self.errors.clear()
         self.skipped.clear()
 
@@ -214,6 +254,13 @@ class ModRegistry:
             "mod_count": len(self.mods),
             "item_count": len(self.items),
             "street_event_count": len(self.street_events),
+            "journal_arc_count": len(self.journal_arcs),
+            "journal_beat_count": len(self.journal_beats),
+            "streetnet_count": len(self.streetnet_broadcasts),
+            "ice_probe_count": len(self.ice_probes),
+            "cyber_node_count": len(self.cyber_nodes),
+            "globe_pin_count": len(self.globe_pins),
+            "globe_region_count": len(self.globe_regions),
             "mods": [m.summary() for m in self.mods.values()],
             "errors": [
                 {"mod_id": e.mod_id, "path": e.path, "message": e.message}
@@ -310,6 +357,247 @@ def _validate_event_def(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]]
         "messages": clean_msgs,
         "player_log": str(raw.get("player_log") or "")[:240] or None,
         "weight": weight,
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_journal_arc(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "journal arc must be an object"
+    aid = raw.get("id")
+    if not isinstance(aid, str) or not _ID_RE.match(aid):
+        return None, "invalid journal arc id"
+    steps_raw = raw.get("steps") or []
+    if not isinstance(steps_raw, list) or not steps_raw:
+        return None, "journal arc needs steps[]"
+    steps: List[Dict[str, Any]] = []
+    for s in steps_raw:
+        if not isinstance(s, dict):
+            return None, "journal step must be an object"
+        sid = s.get("id")
+        if not isinstance(sid, str) or not sid.strip():
+            return None, "journal step needs id"
+        text = s.get("text") or s.get("summary")
+        if not isinstance(text, str) or not text.strip():
+            return None, "journal step needs text"
+        steps.append({
+            "id": sid.strip()[:64],
+            "text": text.strip()[:240],
+            "hint": str(s.get("hint") or "")[:160] or None,
+        })
+    return {
+        "id": aid,
+        "title": str(raw.get("title") or aid)[:80],
+        "auto_offer": bool(raw.get("auto_offer", True)),
+        "steps": steps,
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_journal_beat(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "journal beat must be an object"
+    bid = raw.get("id")
+    if not isinstance(bid, str) or not _ID_RE.match(bid):
+        return None, "invalid journal beat id"
+    text = raw.get("text") or raw.get("summary")
+    if not isinstance(text, str) or not text.strip():
+        return None, "journal beat needs text"
+    trigger = str(raw.get("trigger") or "join").strip().lower()
+    if trigger not in _JOURNAL_TRIGGERS:
+        return None, "invalid journal beat trigger %r" % trigger
+    return {
+        "id": bid,
+        "text": text.strip()[:240],
+        "trigger": trigger,
+        "headline": str(raw.get("headline") or "")[:80] or None,
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_streetnet_broadcast(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "streetnet broadcast must be an object"
+    bid = raw.get("id")
+    if not isinstance(bid, str) or not _ID_RE.match(bid):
+        return None, "invalid streetnet broadcast id"
+    messages = raw.get("messages") or raw.get("text")
+    if isinstance(messages, str):
+        messages = [messages]
+    if not isinstance(messages, list) or not messages:
+        return None, "streetnet broadcast needs messages[]"
+    clean_msgs = [str(m).strip()[:240] for m in messages if str(m).strip()]
+    if not clean_msgs:
+        return None, "streetnet messages empty after sanitize"
+    weight = float(raw.get("weight") or 1.0)
+    if weight <= 0 or weight > 100:
+        return None, "streetnet weight out of range"
+    return {
+        "id": bid,
+        "channel": str(raw.get("channel") or "streetnet")[:32],
+        "messages": clean_msgs,
+        "player_log": str(raw.get("player_log") or "")[:240] or None,
+        "weight": weight,
+        "fire_on_load": bool(raw.get("fire_on_load") or False),
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_ice_probe(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "ice probe must be an object"
+    pid = raw.get("id")
+    if not isinstance(pid, str) or not _ID_RE.match(pid):
+        return None, "invalid ice probe id"
+    # Core probes are reserved short names
+    if pid in ("stun", "reveal", "scramble"):
+        return None, "ice probe id conflicts with core probe %r" % pid
+    effect = str(raw.get("effect") or raw.get("kind") or "reveal").strip().lower()
+    if effect not in _PROBE_EFFECTS:
+        return None, "invalid ice probe effect %r" % effect
+    name = raw.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None, "ice probe needs a non-empty name"
+    return {
+        "id": pid,
+        "name": name.strip()[:64],
+        "desc": str(raw.get("desc") or raw.get("description") or "")[:200],
+        "focus_cost": max(1, min(20, int(raw.get("focus_cost") or 3))),
+        "cooldown": max(1.0, min(120.0, float(raw.get("cooldown") or 10.0))),
+        "radius": max(1, min(24, int(raw.get("radius") or 8))),
+        "duration": max(0.5, min(60.0, float(raw.get("duration") or 6.0))),
+        "effect": effect,
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_cyber_node(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "cyber node must be an object"
+    nid = raw.get("id")
+    if not isinstance(nid, str) or not _ID_RE.match(nid):
+        return None, "invalid cyber node id"
+    node_type = str(raw.get("node_type") or raw.get("type") or "maze").strip().lower()
+    if node_type not in _NODE_TYPES:
+        return None, "invalid cyber node_type %r" % node_type
+    weight = float(raw.get("weight") or 1.0)
+    if weight <= 0 or weight > 100:
+        return None, "cyber node weight out of range"
+    grid = raw.get("grid")
+    clean_grid: Optional[List[str]] = None
+    if grid is not None:
+        if not isinstance(grid, list) or not grid:
+            return None, "cyber node grid must be a non-empty string list"
+        if len(grid) > 24:
+            return None, "cyber node grid too tall (max 24)"
+        rows = []
+        width = None
+        for row in grid:
+            if not isinstance(row, str) or not row:
+                return None, "cyber node grid rows must be non-empty strings"
+            if len(row) > 24:
+                return None, "cyber node grid too wide (max 24)"
+            if width is None:
+                width = len(row)
+            elif len(row) != width:
+                return None, "cyber node grid rows must be equal width"
+            # Only allow known glyphs
+            for ch in row:
+                if ch not in "#.@I*%X":
+                    return None, "cyber node grid has invalid glyph %r" % ch
+            rows.append(row)
+        if "@" not in "".join(rows):
+            return None, "cyber node grid needs an @ start"
+        if "X" not in "".join(rows):
+            return None, "cyber node grid needs an X exit"
+        clean_grid = rows
+        node_type = "custom"
+    return {
+        "id": nid,
+        "node_type": node_type,
+        "weight": weight,
+        "hint": str(raw.get("hint") or "")[:200] or None,
+        "grid": clean_grid,
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_globe_pin(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "globe pin must be an object"
+    pid = raw.get("id")
+    if not isinstance(pid, str) or not _ID_RE.match(pid):
+        return None, "invalid globe pin id"
+    try:
+        lat = float(raw.get("lat"))
+        lon = float(raw.get("lon"))
+    except (TypeError, ValueError):
+        return None, "globe pin needs numeric lat/lon"
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None, "globe pin lat/lon out of range"
+    name = raw.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None, "globe pin needs a non-empty name"
+    return {
+        "id": pid,
+        "name": name.strip()[:80],
+        "lat": lat,
+        "lon": lon,
+        "label": str(raw.get("label") or "")[:120],
+        "region_id": str(raw.get("region_id") or "")[:64] or None,
+        "kind": str(raw.get("kind") or "mod_pin")[:32],
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_globe_region(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if not isinstance(raw, dict):
+        return None, "globe region must be an object"
+    rid = raw.get("id")
+    if not isinstance(rid, str) or not _ID_RE.match(rid):
+        return None, "invalid globe region id"
+    # Protect home / core continent ids from overwrite by requiring namespaced ids
+    # (already enforced by _ID_RE needing lowercase; still block known cores without dots)
+    if "." not in rid and rid in {
+        "fractured_la", "cont_na", "cont_sa", "cont_eu", "cont_af", "cont_me",
+        "cont_ca", "cont_as", "cont_oc", "cont_an",
+    }:
+        return None, "globe region id conflicts with core region %r" % rid
+    try:
+        lat = float(raw.get("lat"))
+        lon = float(raw.get("lon"))
+    except (TypeError, ValueError):
+        return None, "globe region needs numeric lat/lon"
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None, "globe region lat/lon out of range"
+    name = raw.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None, "globe region needs a non-empty name"
+    kind = str(raw.get("kind") or "poi").strip().lower()
+    if kind not in _REGION_KINDS:
+        return None, "invalid globe region kind %r" % kind
+    metadata_only = bool(raw.get("metadata_only", True))
+    shard_seed = raw.get("shard_seed", None)
+    if shard_seed is not None and not metadata_only:
+        try:
+            shard_seed = int(shard_seed)
+        except (TypeError, ValueError):
+            return None, "globe region shard_seed must be int or null"
+    else:
+        # Metadata overlays never become teleportable shards in this slice
+        shard_seed = None
+        metadata_only = True
+    return {
+        "id": rid,
+        "name": name.strip()[:80],
+        "kind": kind,
+        "continent": str(raw.get("continent") or "na")[:8],
+        "lat": lat,
+        "lon": lon,
+        "label": str(raw.get("label") or "")[:120],
+        "home": False,
+        "shard_seed": shard_seed,
+        "metadata_only": metadata_only,
         "mod_id": mod_id,
     }, None
 
@@ -490,6 +778,173 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
             "street_events file present but permission not granted — ignored"
         )
 
+    # --- journal beats / quest steps ---
+    if "journal" in perms:
+        j_rel = entry.get("journal") or "journal.json"
+        j_path = _safe_child(mod_dir, str(j_rel))
+        if j_path is None or not j_path.is_file():
+            registry.errors.append(
+                ModLoadError(mid, path_s, "journal permission set but file missing/unsafe")
+            )
+            return None
+        try:
+            j_doc = _read_json(j_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            registry.errors.append(ModLoadError(mid, path_s, "journal JSON error: %s" % exc))
+            return None
+        if not isinstance(j_doc, dict):
+            registry.errors.append(ModLoadError(mid, path_s, "journal.json must be an object"))
+            return None
+        for raw in j_doc.get("arcs") or []:
+            adef, aerr = _validate_journal_arc(raw, mid)
+            if aerr or not adef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad journal arc: %s" % aerr))
+                return None
+            loaded.journal_arcs.append(adef)
+            registry.journal_arcs.append(adef)
+        for raw in j_doc.get("beats") or []:
+            bdef, berr = _validate_journal_beat(raw, mid)
+            if berr or not bdef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad journal beat: %s" % berr))
+                return None
+            loaded.journal_beats.append(bdef)
+            registry.journal_beats.append(bdef)
+        if not loaded.journal_arcs and not loaded.journal_beats:
+            registry.errors.append(
+                ModLoadError(mid, path_s, "journal.json needs arcs[] and/or beats[]")
+            )
+            return None
+    elif entry.get("journal"):
+        loaded.warnings.append("journal file present but permission not granted — ignored")
+
+    # --- StreetNet / world broadcasts ---
+    if "streetnet" in perms:
+        sn_rel = entry.get("streetnet") or "streetnet.json"
+        sn_path = _safe_child(mod_dir, str(sn_rel))
+        if sn_path is None or not sn_path.is_file():
+            registry.errors.append(
+                ModLoadError(mid, path_s, "streetnet permission set but file missing/unsafe")
+            )
+            return None
+        try:
+            sn_doc = _read_json(sn_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            registry.errors.append(ModLoadError(mid, path_s, "streetnet JSON error: %s" % exc))
+            return None
+        raw_sn = sn_doc.get("broadcasts") if isinstance(sn_doc, dict) else sn_doc
+        if not isinstance(raw_sn, list):
+            registry.errors.append(
+                ModLoadError(mid, path_s, "streetnet.json must list broadcasts[]")
+            )
+            return None
+        for raw in raw_sn:
+            bdef, berr = _validate_streetnet_broadcast(raw, mid)
+            if berr or not bdef:
+                registry.errors.append(
+                    ModLoadError(mid, path_s, "bad streetnet broadcast: %s" % berr)
+                )
+                return None
+            loaded.streetnet_broadcasts.append(bdef)
+            registry.streetnet_broadcasts.append(bdef)
+    elif entry.get("streetnet"):
+        loaded.warnings.append("streetnet file present but permission not granted — ignored")
+
+    # --- ICE probes / cyberspace nodes ---
+    if "ice_nodes" in perms:
+        ice_rel = entry.get("ice_nodes") or "ice_nodes.json"
+        ice_path = _safe_child(mod_dir, str(ice_rel))
+        if ice_path is None or not ice_path.is_file():
+            registry.errors.append(
+                ModLoadError(mid, path_s, "ice_nodes permission set but file missing/unsafe")
+            )
+            return None
+        try:
+            ice_doc = _read_json(ice_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            registry.errors.append(ModLoadError(mid, path_s, "ice_nodes JSON error: %s" % exc))
+            return None
+        if not isinstance(ice_doc, dict):
+            registry.errors.append(ModLoadError(mid, path_s, "ice_nodes.json must be an object"))
+            return None
+        for raw in ice_doc.get("probes") or []:
+            pdef, perr = _validate_ice_probe(raw, mid)
+            if perr or not pdef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad ice probe: %s" % perr))
+                return None
+            pid = pdef["id"]
+            if pid in registry.ice_probes:
+                registry.errors.append(
+                    ModLoadError(mid, path_s, "ice probe id collision %r" % pid)
+                )
+                return None
+            loaded.ice_probes[pid] = pdef
+            registry.ice_probes[pid] = pdef
+        for raw in ice_doc.get("nodes") or []:
+            ndef, nerr = _validate_cyber_node(raw, mid)
+            if nerr or not ndef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad cyber node: %s" % nerr))
+                return None
+            loaded.cyber_nodes.append(ndef)
+            registry.cyber_nodes.append(ndef)
+        if not loaded.ice_probes and not loaded.cyber_nodes:
+            registry.errors.append(
+                ModLoadError(mid, path_s, "ice_nodes.json needs probes[] and/or nodes[]")
+            )
+            return None
+    elif entry.get("ice_nodes"):
+        loaded.warnings.append("ice_nodes file present but permission not granted — ignored")
+
+    # --- globe pins / region metadata ---
+    if "globe_regions" in perms:
+        g_rel = entry.get("globe_regions") or "globe_regions.json"
+        g_path = _safe_child(mod_dir, str(g_rel))
+        if g_path is None or not g_path.is_file():
+            registry.errors.append(
+                ModLoadError(
+                    mid, path_s, "globe_regions permission set but file missing/unsafe"
+                )
+            )
+            return None
+        try:
+            g_doc = _read_json(g_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            registry.errors.append(ModLoadError(mid, path_s, "globe_regions JSON error: %s" % exc))
+            return None
+        if not isinstance(g_doc, dict):
+            registry.errors.append(
+                ModLoadError(mid, path_s, "globe_regions.json must be an object")
+            )
+            return None
+        for raw in g_doc.get("pins") or []:
+            pdef, perr = _validate_globe_pin(raw, mid)
+            if perr or not pdef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad globe pin: %s" % perr))
+                return None
+            loaded.globe_pins.append(pdef)
+            registry.globe_pins.append(pdef)
+        for raw in g_doc.get("regions") or []:
+            rdef, rerr = _validate_globe_region(raw, mid)
+            if rerr or not rdef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad globe region: %s" % rerr))
+                return None
+            # Collision with already-loaded core/mod regions
+            if any(r.get("id") == rdef["id"] for r in registry.globe_regions):
+                registry.errors.append(
+                    ModLoadError(mid, path_s, "globe region id collision %r" % rdef["id"])
+                )
+                return None
+            loaded.globe_regions.append(rdef)
+            registry.globe_regions.append(rdef)
+        if not loaded.globe_pins and not loaded.globe_regions:
+            registry.errors.append(
+                ModLoadError(mid, path_s, "globe_regions.json needs pins[] and/or regions[]")
+            )
+            return None
+    elif entry.get("globe_regions"):
+        loaded.warnings.append(
+            "globe_regions file present but permission not granted — ignored"
+        )
+
     # Unimplemented permissions: warn, do not fail (forward-compatible).
     for p in perms:
         if p not in IMPLEMENTED_PERMISSIONS:
@@ -499,11 +954,17 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
 
     registry.mods[mid] = loaded
     log.info(
-        "mod loaded %s v%s (%d items, %d street events)",
+        "mod loaded %s v%s (%d items, %d street events, %d journal, %d streetnet, "
+        "%d probes, %d nodes, %d pins)",
         mid,
         loaded.version,
         len(loaded.items),
         len(loaded.street_events),
+        len(loaded.journal_arcs) + len(loaded.journal_beats),
+        len(loaded.streetnet_broadcasts),
+        len(loaded.ice_probes),
+        len(loaded.cyber_nodes),
+        len(loaded.globe_pins) + len(loaded.globe_regions),
     )
     return loaded
 
@@ -515,12 +976,62 @@ def load_all_mods(roots: Optional[Sequence[Path]] = None) -> ModRegistry:
     return registry
 
 
+def _weighted_pick(rng, items: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not items:
+        return None
+    weights = [float(e.get("weight") or 1.0) for e in items]
+    total = sum(weights)
+    if total <= 0:
+        return None
+    r = rng.random() * total
+    acc = 0.0
+    for ev, w in zip(items, weights):
+        acc += w
+        if r <= acc:
+            return ev
+    return items[-1]
+
+
 class ModdingMixin:
     """Mixed into YearFeaturesMixin — call ``_modding_init()`` from year init."""
 
+    def _modding_bind_registry(self, registry: ModRegistry) -> None:
+        self.mod_registry = registry
+        self.mod_street_events = list(registry.street_events)
+        self.mod_journal_arcs = list(registry.journal_arcs)
+        self.mod_journal_beats = list(registry.journal_beats)
+        self.mod_streetnet_broadcasts = list(registry.streetnet_broadcasts)
+        self.mod_ice_probes = dict(registry.ice_probes)
+        self.mod_cyber_nodes = list(registry.cyber_nodes)
+        self.mod_globe_pins = list(registry.globe_pins)
+        self.mod_globe_regions = list(registry.globe_regions)
+        self._mod_streetnet_fired_on_load = set(
+            getattr(self, "_mod_streetnet_fired_on_load", set()) or set()
+        )
+
+    def _modding_apply_globe_overlays(self) -> None:
+        """Merge metadata-only mod regions into globe_regions (non-destructive)."""
+        if not hasattr(self, "globe_regions") or not isinstance(self.globe_regions, dict):
+            return
+        for reg in getattr(self, "mod_globe_regions", None) or []:
+            rid = str(reg.get("id") or "")
+            if not rid or rid in self.globe_regions:
+                continue
+            if reg.get("metadata_only", True):
+                overlay = dict(reg)
+                overlay["teleport"] = False
+                overlay["mod_overlay"] = True
+                self.globe_regions[rid] = overlay
+                defs = getattr(self, "globe_defs", None)
+                if isinstance(defs, dict):
+                    regions = list(defs.get("regions") or [])
+                    if not any(str(r.get("id")) == rid for r in regions):
+                        regions.append(overlay)
+                        defs["regions"] = regions
+
     def _modding_init(self) -> None:
-        self.mod_registry = load_all_mods()
-        self.mod_street_events = list(self.mod_registry.street_events)
+        self._modding_bind_registry(load_all_mods())
+        self._modding_apply_globe_overlays()
         if self.mod_registry.mods:
             names = ", ".join(sorted(self.mod_registry.mods))
             self._push_event(
@@ -529,17 +1040,20 @@ class ModdingMixin:
             )
         for err in self.mod_registry.errors:
             log.warning("mod error [%s] %s: %s", err.mod_id, err.path, err.message)
+        self._fire_mod_streetnet_on_load()
 
     def reload_mods(self) -> Dict[str, Any]:
         """Hot-reload mod defs (aligned with ``/api/reload_defs``). Fail closed per mod."""
-        self.mod_registry = load_all_mods()
-        self.mod_street_events = list(self.mod_registry.street_events)
+        self._mod_streetnet_fired_on_load = set()
+        self._modding_bind_registry(load_all_mods())
+        self._modding_apply_globe_overlays()
         snap = self.mod_registry.snapshot()
         self._push_event(
             "mod",
             "Mods reloaded — %d ok, %d errors."
             % (snap["mod_count"], len(snap["errors"])),
         )
+        self._fire_mod_streetnet_on_load()
         return snap
 
     def _mod_item(self, item_id: str) -> Optional[Item]:
@@ -551,22 +1065,18 @@ class ModdingMixin:
             return None
         return item_from_def(defn)
 
+    def _all_ice_probes(self) -> Dict[str, Dict[str, Any]]:
+        """Core ICE probes plus mod probes (mod ids are namespaced)."""
+        from .. import constants as C
+
+        out: Dict[str, Dict[str, Any]] = {k: dict(v) for k, v in C.ICE_PROBES.items()}
+        for pid, defn in (getattr(self, "mod_ice_probes", None) or {}).items():
+            merged = dict(defn)
+            merged.setdefault("effect", defn.get("effect") or "reveal")
+            out[pid] = merged
+        return out
     def _pick_mod_street_event(self) -> Optional[Dict[str, Any]]:
-        events = getattr(self, "mod_street_events", None) or []
-        if not events:
-            return None
-        # Weighted choice
-        weights = [float(e.get("weight") or 1.0) for e in events]
-        total = sum(weights)
-        if total <= 0:
-            return None
-        r = self.rng.random() * total
-        acc = 0.0
-        for ev, w in zip(events, weights):
-            acc += w
-            if r <= acc:
-                return ev
-        return events[-1]
+        return _weighted_pick(self.rng, getattr(self, "mod_street_events", None) or [])
 
     def _fire_mod_street_event(self, living: List[Any]) -> bool:
         ev = self._pick_mod_street_event()
@@ -587,6 +1097,176 @@ class ModdingMixin:
             if hasattr(self, "system_chat"):
                 self.system_chat(msg)
         return True
+
+    def _pick_mod_streetnet(self) -> Optional[Dict[str, Any]]:
+        return _weighted_pick(
+            self.rng, getattr(self, "mod_streetnet_broadcasts", None) or []
+        )
+
+    def _fire_mod_streetnet_broadcast(
+        self, living: Optional[List[Any]] = None, ev: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        ev = ev or self._pick_mod_streetnet()
+        if not ev:
+            return False
+        msg = self.rng.choice(list(ev["messages"]))
+        channel = str(ev.get("channel") or "streetnet")
+        self._push_event(
+            "broadcast",
+            msg,
+            mod_id=ev.get("mod_id"),
+            event_id=ev.get("id"),
+            channel=channel,
+        )
+        if hasattr(self, "system_chat"):
+            self.system_chat(msg)
+        plog = ev.get("player_log")
+        for p in living or []:
+            p.log(plog or ("StreetNet mod: %s" % msg))
+        return True
+
+    def _fire_mod_streetnet_on_load(self) -> None:
+        fired = getattr(self, "_mod_streetnet_fired_on_load", None)
+        if not isinstance(fired, set):
+            fired = set()
+            self._mod_streetnet_fired_on_load = fired
+        for ev in getattr(self, "mod_streetnet_broadcasts", None) or []:
+            if not ev.get("fire_on_load"):
+                continue
+            eid = str(ev.get("id") or "")
+            if not eid or eid in fired:
+                continue
+            if self._fire_mod_streetnet_broadcast(ev=ev):
+                fired.add(eid)
+
+    def _modding_offer_journal(self, agent) -> None:
+        """Attach mod journal arcs / fire join beats for a freshly bootstrapped agent."""
+        j = getattr(agent, "journal", None)
+        if not isinstance(j, dict):
+            return
+        arcs = getattr(self, "mod_journal_arcs", None) or []
+        if arcs:
+            mod_arcs = list(j.get("mod_arcs") or [])
+            known = {a.get("id") for a in mod_arcs}
+            for arc in arcs:
+                if not arc.get("auto_offer", True):
+                    continue
+                aid = arc.get("id")
+                if aid in known:
+                    continue
+                mod_arcs.append(
+                    {
+                        "id": aid,
+                        "title": arc.get("title") or aid,
+                        "step": 0,
+                        "steps": [dict(s) for s in (arc.get("steps") or [])],
+                        "completed": False,
+                        "mod_id": arc.get("mod_id"),
+                    }
+                )
+                known.add(aid)
+                agent.log("Journal (mod): %s — offered." % (arc.get("title") or aid))
+            j["mod_arcs"] = mod_arcs
+
+        seen = set(j.get("mod_beats_seen") or [])
+        for beat in getattr(self, "mod_journal_beats", None) or []:
+            if beat.get("trigger") not in ("join", "always"):
+                continue
+            bid = beat.get("id")
+            if not bid or bid in seen:
+                continue
+            seen.add(bid)
+            text = beat.get("text") or ""
+            agent.log(text)
+            self._push_event(
+                "journal",
+                text,
+                mod_id=beat.get("mod_id"),
+                event_id=bid,
+            )
+        j["mod_beats_seen"] = sorted(seen)
+        agent.journal = j
+    def _modding_update_journal(self, agent) -> None:
+        """Advance simple mod quest arcs (equip/own namespaced items)."""
+        j = getattr(agent, "journal", None)
+        if not isinstance(j, dict):
+            return
+        arcs = list(j.get("mod_arcs") or [])
+        if arcs:
+            inv_ids = {
+                getattr(it, "id", None)
+                for it in (getattr(agent.actor, "inventory", None) or [])
+            }
+            changed = False
+            for arc in arcs:
+                if arc.get("completed"):
+                    continue
+                steps = list(arc.get("steps") or [])
+                step = int(arc.get("step") or 0)
+                while step < len(steps):
+                    sid = str(steps[step].get("id") or "")
+                    matched = sid in inv_ids or any(
+                        (iid or "").endswith("." + sid) or iid == sid for iid in inv_ids
+                    )
+                    if step == 0 and sid in ("accept", "brief", "start"):
+                        matched = True
+                    if sid in ("done", "complete", "finish", "end"):
+                        matched = True
+                    if not matched:
+                        break
+                    step += 1
+                    changed = True
+                    if step < len(steps):
+                        agent.log(
+                            "Journal (mod/%s): %s"
+                            % (
+                                arc.get("id"),
+                                steps[step].get("text") or steps[step].get("id"),
+                            )
+                        )
+                arc["step"] = step
+                if step >= len(steps) and steps:
+                    arc["completed"] = True
+                    changed = True
+                    agent.log(
+                        "Journal (mod): %s complete."
+                        % (arc.get("title") or arc.get("id"))
+                    )
+            if changed:
+                j["mod_arcs"] = arcs
+                agent.journal = j
+
+        if hasattr(agent, "has_payload") and agent.has_payload():
+            seen = set(j.get("mod_beats_seen") or [])
+            for beat in getattr(self, "mod_journal_beats", None) or []:
+                if beat.get("trigger") != "payload":
+                    continue
+                bid = beat.get("id")
+                if not bid or bid in seen:
+                    continue
+                seen.add(bid)
+                agent.log(beat.get("text") or "")
+                self._push_event(
+                    "journal",
+                    beat.get("text") or "",
+                    mod_id=beat.get("mod_id"),
+                    event_id=bid,
+                )
+            j["mod_beats_seen"] = sorted(seen)
+            agent.journal = j
+
+    def _pick_mod_cyber_node(self) -> Optional[Dict[str, Any]]:
+        return _weighted_pick(self.rng, getattr(self, "mod_cyber_nodes", None) or [])
+
+    def _mod_globe_snapshot_extras(self) -> Dict[str, Any]:
+        return {
+            "mod_pins": list(getattr(self, "mod_globe_pins", None) or []),
+            "mod_regions": [
+                r
+                for r in (getattr(self, "mod_globe_regions", None) or [])
+                if r.get("metadata_only", True)
+            ],
+        }
 
     def _modding_snapshot(self, agent=None) -> Dict[str, Any]:
         reg = getattr(self, "mod_registry", None)

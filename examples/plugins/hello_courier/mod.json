@@ -1,15 +1,26 @@
 {
   "id": "hello_courier",
   "name": "Hello Courier",
-  "version": "1.0.0",
-  "api_version": "1.0.0",
-  "description": "Example data-driven mod: one original item and one street broadcast. Original StreetNet fiction only.",
+  "version": "1.1.0",
+  "api_version": "1.1.0",
+  "description": "Example data-driven mod: item, street event, journal arc, StreetNet broadcast, ICE probe/node, and globe pin. Original StreetNet fiction only.",
   "author": "8r4n",
   "license": "MIT",
   "attribution": "Bundled first-party example for adventure-snowcrash #72. No third-party assets.",
-  "permissions": ["items", "street_events"],
+  "permissions": [
+    "items",
+    "street_events",
+    "journal",
+    "streetnet",
+    "ice_nodes",
+    "globe_regions"
+  ],
   "entry": {
     "items": "items.json",
-    "street_events": "street_events.json"
+    "street_events": "street_events.json",
+    "journal": "journal.json",
+    "streetnet": "streetnet.json",
+    "ice_nodes": "ice_nodes.json",
+    "globe_regions": "globe_regions.json"
   }
 }

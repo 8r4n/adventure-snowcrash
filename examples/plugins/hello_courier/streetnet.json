@@ -1,0 +1,15 @@
+{
+  "broadcasts": [
+    {
+      "id": "hello_courier.streetnet_hello",
+      "channel": "streetnet",
+      "weight": 2.0,
+      "fire_on_load": true,
+      "messages": [
+        "StreetNet // HELLO_COURIER: example mod uplink is live on the rim.",
+        "StreetNet flash: Hello Courier Faraday pins ping the commons mesh."
+      ],
+      "player_log": "StreetNet mod (hello_courier): uplink hello."
+    }
+  ]
+}
