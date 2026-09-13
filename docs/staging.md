@@ -44,3 +44,12 @@ TUI (`snowcrash/tui` + `engine.py`) completes Payload-Zero (jackpoint → uplink
 - Workflow template: `docs/ci-github-actions.yml`.
 - Copy to `.github/workflows/ci.yml` when the pushing credential has the `workflow` scope (OAuth apps often lack it).
 - Locally: `PYTHONPATH=. pytest -q`
+
+## Default branch & issue auto-close (#125)
+
+Repository **default branch is `dev`** (integration branch for day-to-day PRs).
+
+- Prefer opening PRs **into `dev`**.
+- `Closes #N` / `Fixes #N` in the PR body auto-closes the issue when the PR **merges into `dev`**.
+- `main` remains a release/stable pointer when used; do not assume merges to `main` are required for issue closeout.
+
