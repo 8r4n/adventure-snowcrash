@@ -120,6 +120,11 @@ func materials_use_normal() -> bool:
 	return is_high()
 
 
+func kit_scatter() -> bool:
+	## #158: Low skips debris / foliage / extra neon (AOI mesh count).
+	return is_high()
+
+
 func fog_density_street() -> float:
 	return 0.012 if is_low() else 0.022
 

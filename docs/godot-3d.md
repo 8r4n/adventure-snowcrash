@@ -54,7 +54,7 @@ Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs
 
 - [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
 - [ ] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
-- [ ] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
+- [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
 - [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
 - [ ] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
@@ -212,6 +212,7 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | MSAA 3D (SubViewport) | off | 2× |
 | Rim Directional | off | on |
 | Materials (#156) | albedo + procedural trim (no normal/ORM) | trim albedo + normal + ORM |
+| Kit scatter (#158) | off (AOI mesh headroom) | crates / pipes / foliage / vents |
 
 ### Particles (slice 5)
 
@@ -451,7 +452,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; lighting #157; kit #158; ground #159; diegesis #160; camera #161)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; lighting #157; ground #159; diegesis #160; camera #161)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -484,6 +485,40 @@ J / U / $ silhouettes from #150 stay (taller shafts + glyph billboards).
 
 ---
 
+## Modular corridor + prop kit (#158)
+
+Keep **glyph → instance** from live `/ws` snapshots. Swap many `BoxMesh` terrain roles for an **original** modular kit under `godot_client/models/` (parsed by `MeshKit` — no Godot import step required).
+
+| Role | Kit piece |
+|------|-----------|
+| `#` wall | `wall_panel.obj` — unit panel with inset plates + mid rail |
+| `.` / `=` / `,` floors | `floor_tile.obj` — rim + corner studs (street also `neon_strip`) |
+| `+` door | `door_frame.obj` — jambs / lintel / threshold (two facings) |
+| scatter (High) | `crate` / `pipe` / `foliage` / `vent` — hash-stable, AOI-local |
+| J / U / `$` | **unchanged** #150 silhouettes (not replaced) |
+
+**AOI / Deck:** scatter is **High only** (`GraphicsSettings.kit_scatter()`). Low keeps kit walls/floors/doors but drops debris so #148 pool/radius knobs still hold. No extra Omni.
+
+**Not shipped:** Abandoned Spaceship GLBs / vegetation. Kit is original OBJ (CC0-style, in-tree).
+
+### Screenshot comparison
+
+Live street stills still **TBD** (no Godot / Deck in CI — same honesty as #148 fps rows). Catalog of kit silhouettes (isometric wire of the eight authored pieces):
+
+![#158 original kit catalog](screenshots/kit-158-catalog.png)
+
+| Before (#156 materials, BoxMesh) | After (#158 kit) |
+|----------------------------------|------------------|
+| Walls = scaled `BoxMesh` | `wall_panel` inset plates + rail, same tile occupancy |
+| Floors = thin `BoxMesh` slab | `floor_tile` rim / studs; street neon strip mesh |
+| Doors = two crossing boxes | `door_frame` jamb + lintel |
+| Empty walkable tiles | High: sparse crate / pipe / foliage / vent |
+| J / U / `$` | Same #150 shafts + glyph billboards |
+
+`Refs #163` · `Refs #141` — epics stay open.
+
+---
+
 ## Landmark readability (#150)
 
 
@@ -508,6 +543,8 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
 | `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats |
 | `godot_client/materials/` | Shared trim / PBR library (#156): `recolor_trim.gdshader`, `library.gd`, `.tres`, generated textures |
+| `godot_client/models/` | #158 original OBJ kit (wall panel, floor tile, door frame, crate, pipe, neon, foliage, vent) |
+| `godot_client/scripts/mesh_kit.gd` | OBJ → ArrayMesh loader + role catalog (`MeshKit`) |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
 | `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload |
