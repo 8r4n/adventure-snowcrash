@@ -97,6 +97,8 @@
         <button type="button" class="dock-btn" data-panel="empathy" title="Empathy audit + synth bounties (Shift+E)">Empathy</button>
         <button type="button" class="dock-btn" data-panel="forecast" title="Season forecasts / street trends (Shift+F)">Forecast</button>
         <button type="button" class="dock-btn" data-panel="ecology" title="Scarce resource ecology wars (Shift+R)">Ecology</button>
+        <!-- mod dock buttons (#72 ui_panel) injected here by YearUI -->
+        <span id="mod-dock-host" class="mod-dock-host" aria-label="Mod panels"></span>
         <button type="button" id="btn-cyber-jack" class="dock-btn" title="Jack into cyberspace at J (j)" disabled>Jack</button>
         <button type="button" id="btn-collapse-irc" class="dock-btn" title="Collapse StreetNet">IRC</button>
       </div>
@@ -261,6 +263,8 @@
           <summary>Ecology · Scarce Resources</summary>
           <div id="ecology-body" class="panel-body"></div>
         </details>
+
+        <div id="mod-panels-host" class="mod-panels-host" aria-live="polite"></div>
 
         <details id="raid-panel" class="side-fold year-panel" data-panel="raid">
           <summary>Raid lobby</summary>

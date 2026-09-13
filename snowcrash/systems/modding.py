@@ -2,7 +2,8 @@
 
 Loads manifests from ``mods/`` and ``examples/plugins/`` and registers
 JSON-defined items, street events, journal beats, StreetNet broadcasts,
-ICE probes / light cyberspace nodes, and globe pins. No arbitrary Python/WASM exec.
+ICE probes / light cyberspace nodes, globe pins, and CSP-friendly UI panels.
+No arbitrary Python/WASM/mod-JS exec.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from ..items import Item
 log = logging.getLogger("snowcrash.modding")
 
 # Public plugin API semver — bump minor for additive hooks, major for breaks.
-PLUGIN_API_VERSION = "1.1.0"
+PLUGIN_API_VERSION = "1.2.0"
 
 MANIFEST_NAMES = ("mod.json", "manifest.json")
 
@@ -44,6 +45,7 @@ IMPLEMENTED_PERMISSIONS: Set[str] = {
     "streetnet",
     "ice_nodes",
     "globe_regions",
+    "ui_panel",
 }
 
 # Dangerous / never granted in v1 without explicit future design.
@@ -79,6 +81,24 @@ _JOURNAL_TRIGGERS = {"join", "payload", "manual", "always"}
 _PROBE_EFFECTS = {"stun", "reveal", "scramble"}
 _NODE_TYPES = {"maze", "ice_gate", "custom"}
 _REGION_KINDS = {"city", "continent", "poi", "pin", "mod_pin", "region", "hub"}
+_UI_BODY_FORMATS = {"text", "markdown", "md"}
+# Buttons may only fire these existing game actions (no arbitrary / host commands).
+_ALLOWED_UI_ACTIONS: Set[str] = {
+    "mods", "mod_list", "plugins", "list_mods",
+    "mod_item", "grant_mod_item", "mod_grant",
+    "mod_reload", "reload_mods",
+    "globe", "open_globe", "globe_open", "close_globe", "globe_close",
+    "globe_zoom", "globe_recall", "teleport", "tp",
+    "sleeves", "sleeve", "sleeve_list", "sleeve_hop", "sleeve_rent",
+    "primer", "jaunte", "empathy", "forecast", "ecology",
+    "ice_probe", "ice", "jack_in", "jack_out",
+    "journal", "look", "help", "status", "inventory", "inv",
+    "shop", "party", "crew", "contracts", "craft", "stash",
+    "season", "raid", "contest_patrol",
+}
+_UI_ACTION_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
+_UI_ARG_RE = re.compile(r"^[A-Za-z0-9_./:-]{0,64}$")
+_UI_DOCK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _./+-]{0,23}$")
 
 
 def _parse_semver(v: str) -> Optional[Tuple[int, int, int]]:
@@ -189,6 +209,7 @@ class LoadedMod:
     cyber_nodes: List[Dict[str, Any]] = field(default_factory=list)
     globe_pins: List[Dict[str, Any]] = field(default_factory=list)
     globe_regions: List[Dict[str, Any]] = field(default_factory=list)
+    ui_panels: List[Dict[str, Any]] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
     def summary(self) -> Dict[str, Any]:
@@ -210,6 +231,7 @@ class LoadedMod:
             "cyber_nodes": [n.get("id") for n in self.cyber_nodes],
             "globe_pins": [p.get("id") for p in self.globe_pins],
             "globe_regions": [r.get("id") for r in self.globe_regions],
+            "ui_panels": [p.get("id") for p in self.ui_panels],
             "warnings": list(self.warnings),
             "path": str(self.root),
         }
@@ -229,6 +251,7 @@ class ModRegistry:
     cyber_nodes: List[Dict[str, Any]] = field(default_factory=list)
     globe_pins: List[Dict[str, Any]] = field(default_factory=list)
     globe_regions: List[Dict[str, Any]] = field(default_factory=list)
+    ui_panels: List[Dict[str, Any]] = field(default_factory=list)
     errors: List[ModLoadError] = field(default_factory=list)
     skipped: List[Dict[str, str]] = field(default_factory=list)
 
@@ -244,6 +267,7 @@ class ModRegistry:
         self.cyber_nodes.clear()
         self.globe_pins.clear()
         self.globe_regions.clear()
+        self.ui_panels.clear()
         self.errors.clear()
         self.skipped.clear()
 
@@ -261,6 +285,8 @@ class ModRegistry:
             "cyber_node_count": len(self.cyber_nodes),
             "globe_pin_count": len(self.globe_pins),
             "globe_region_count": len(self.globe_regions),
+            "ui_panel_count": len(self.ui_panels),
+            "panels": [dict(p) for p in self.ui_panels],
             "mods": [m.summary() for m in self.mods.values()],
             "errors": [
                 {"mod_id": e.mod_id, "path": e.path, "message": e.message}
@@ -598,6 +624,82 @@ def _validate_globe_region(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, An
         "home": False,
         "shard_seed": shard_seed,
         "metadata_only": metadata_only,
+        "mod_id": mod_id,
+    }, None
+
+
+def _validate_ui_panel(raw: Any, mod_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """CSP-friendly dock panel — title + text/markdown body + allowlisted actions only."""
+    if not isinstance(raw, dict):
+        return None, "ui panel must be an object"
+    pid = raw.get("id")
+    if not isinstance(pid, str) or not _ID_RE.match(pid):
+        return None, "invalid ui panel id"
+    title = raw.get("title") or raw.get("name")
+    if not isinstance(title, str) or not title.strip():
+        return None, "ui panel needs a non-empty title"
+    body = raw.get("body") or raw.get("text") or raw.get("markdown") or ""
+    if not isinstance(body, str):
+        return None, "ui panel body must be a string"
+    body = body.strip()
+    if not body:
+        return None, "ui panel needs a non-empty body"
+    if len(body) > 4000:
+        return None, "ui panel body too long (max 4000)"
+    fmt = str(raw.get("body_format") or raw.get("format") or "markdown").strip().lower()
+    if fmt not in _UI_BODY_FORMATS:
+        return None, "invalid ui panel body_format %r" % fmt
+    if fmt == "md":
+        fmt = "markdown"
+    dock = raw.get("dock_label") or raw.get("dock") or raw.get("label")
+    if dock is None or dock == "":
+        dock = title.strip()[:12]
+    else:
+        if not isinstance(dock, str) or not _UI_DOCK_RE.match(dock.strip()):
+            return None, "invalid ui panel dock_label"
+        dock = dock.strip()[:24]
+    actions_raw = raw.get("actions") or raw.get("buttons") or []
+    if actions_raw is None:
+        actions_raw = []
+    if not isinstance(actions_raw, list):
+        return None, "ui panel actions must be a list"
+    if len(actions_raw) > 8:
+        return None, "ui panel actions max 8"
+    actions: List[Dict[str, Any]] = []
+    for a in actions_raw:
+        if not isinstance(a, dict):
+            return None, "ui panel action must be an object"
+        label = a.get("label") or a.get("name") or a.get("text")
+        if not isinstance(label, str) or not label.strip():
+            return None, "ui panel action needs label"
+        action = a.get("action") or a.get("cmd") or a.get("command")
+        if not isinstance(action, str) or not _UI_ACTION_RE.match(action.strip().lower()):
+            return None, "invalid ui panel action name"
+        action = action.strip().lower()
+        if action not in _ALLOWED_UI_ACTIONS:
+            return None, "ui panel action %r not allowlisted (existing game actions only)" % action
+        arg = a.get("arg")
+        if arg is None or arg == "":
+            arg_s = None
+        else:
+            if not isinstance(arg, (str, int, float)):
+                return None, "ui panel action arg must be string/number"
+            arg_s = str(arg).strip()
+            if not _UI_ARG_RE.match(arg_s):
+                return None, "ui panel action arg failed sanitize"
+            arg_s = arg_s[:64]
+        actions.append({
+            "label": label.strip()[:40],
+            "action": action,
+            "arg": arg_s,
+        })
+    return {
+        "id": pid,
+        "title": title.strip()[:80],
+        "dock_label": dock,
+        "body": body,
+        "body_format": fmt,
+        "actions": actions,
         "mod_id": mod_id,
     }, None
 
@@ -945,6 +1047,46 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
             "globe_regions file present but permission not granted — ignored"
         )
 
+    # --- CSP-friendly web UI panels ---
+    if "ui_panel" in perms:
+        ui_rel = entry.get("ui_panel") or entry.get("ui_panels") or "ui_panel.json"
+        ui_path = _safe_child(mod_dir, str(ui_rel))
+        if ui_path is None or not ui_path.is_file():
+            registry.errors.append(
+                ModLoadError(mid, path_s, "ui_panel permission set but file missing/unsafe")
+            )
+            return None
+        try:
+            ui_doc = _read_json(ui_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            registry.errors.append(ModLoadError(mid, path_s, "ui_panel JSON error: %s" % exc))
+            return None
+        raw_panels = ui_doc.get("panels") if isinstance(ui_doc, dict) else ui_doc
+        if not isinstance(raw_panels, list):
+            registry.errors.append(
+                ModLoadError(mid, path_s, "ui_panel.json must list panels[]")
+            )
+            return None
+        if not raw_panels:
+            registry.errors.append(
+                ModLoadError(mid, path_s, "ui_panel.json needs at least one panel")
+            )
+            return None
+        for raw in raw_panels:
+            pdef, perr = _validate_ui_panel(raw, mid)
+            if perr or not pdef:
+                registry.errors.append(ModLoadError(mid, path_s, "bad ui panel: %s" % perr))
+                return None
+            if any(p.get("id") == pdef["id"] for p in registry.ui_panels):
+                registry.errors.append(
+                    ModLoadError(mid, path_s, "ui panel id collision %r" % pdef["id"])
+                )
+                return None
+            loaded.ui_panels.append(pdef)
+            registry.ui_panels.append(pdef)
+    elif entry.get("ui_panel") or entry.get("ui_panels"):
+        loaded.warnings.append("ui_panel file present but permission not granted — ignored")
+
     # Unimplemented permissions: warn, do not fail (forward-compatible).
     for p in perms:
         if p not in IMPLEMENTED_PERMISSIONS:
@@ -955,7 +1097,7 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
     registry.mods[mid] = loaded
     log.info(
         "mod loaded %s v%s (%d items, %d street events, %d journal, %d streetnet, "
-        "%d probes, %d nodes, %d pins)",
+        "%d probes, %d nodes, %d pins, %d ui panels)",
         mid,
         loaded.version,
         len(loaded.items),
@@ -965,6 +1107,7 @@ def load_mod(mod_dir: Path, registry: ModRegistry) -> Optional[LoadedMod]:
         len(loaded.ice_probes),
         len(loaded.cyber_nodes),
         len(loaded.globe_pins) + len(loaded.globe_regions),
+        len(loaded.ui_panels),
     )
     return loaded
 
@@ -1005,6 +1148,7 @@ class ModdingMixin:
         self.mod_cyber_nodes = list(registry.cyber_nodes)
         self.mod_globe_pins = list(registry.globe_pins)
         self.mod_globe_regions = list(registry.globe_regions)
+        self.mod_ui_panels = list(registry.ui_panels)
         self._mod_streetnet_fired_on_load = set(
             getattr(self, "_mod_streetnet_fired_on_load", set()) or set()
         )

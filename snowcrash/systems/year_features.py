@@ -1228,7 +1228,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                 for m in snap.get("mods") or []:
                     agent.log(
                         "  · %s v%s (items=%d events=%d journal=%d streetnet=%d "
-                        "ice=%d pins=%d) [%s]"
+                        "ice=%d pins=%d ui=%d) [%s]"
                         % (
                             m.get("id"),
                             m.get("version"),
@@ -1238,6 +1238,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
                             len(m.get("streetnet_broadcasts") or []),
                             len(m.get("ice_probes") or []) + len(m.get("cyber_nodes") or []),
                             len(m.get("globe_pins") or []) + len(m.get("globe_regions") or []),
+                            len(m.get("ui_panels") or []),
                             ",".join(m.get("permissions") or []) or "none",
                         )
                     )
