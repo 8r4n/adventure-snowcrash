@@ -152,7 +152,7 @@ Steamworks API is **not required** to ship, but recommended for overlay, achieve
 | **Friends / Rich Presence** | Later | “On the street / in ICE heist” strings; invites need a join story (lobby → dedicated or listen server). |
 | **Multiplayer networking** | **Do not replace WS with Steam Networking for v1** | Keep authoritative FastAPI + WebSocket. Optional: Steam auth ticket → server validates `ISteamUser.GetAuthSessionTicket` so Steam accounts map to courier nicks. Dedicated server can use Game Server API later. |
 | **DRM / VAC** | Optional | Steam’s custom DRM wrapper is available; not required. VAC is for anti-cheat genres — low value for ASCII courier sim. |
-| **Workshop** | Later (#72) | JSON mods are Workshop-friendly once we add signed download + path jail (already fail-closed). |
+| **Workshop** | Notes now (#72) · upload later | Pack contract + no-unsigned-auto-download: [modding-workshop.md](modding-workshop.md). JSON mods + path jail already fail-closed. Steam Subscribe → unpack → `reload_mods()`. |
 
 ### SteamworksPy note
 

@@ -139,7 +139,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **StreetNet Primer (#60)** — inventory teaching tablet with adaptive mini-quests (ICE / globe / crews); cosmetics + soft skills, no P2W wall. See [docs/primer.md](docs/primer.md).
 - **Uplink Hop / Street Jaunt (#62)** — learned short → district → globe hops with rank gates, Focus cost, and misfire/cooldown feedback. See [docs/jaunte.md](docs/jaunte.md).
 - **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
-- **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; hooks for items, street events, journal, StreetNet, ICE/cyber nodes, globe pins, CSP-safe UI panels (API 1.2). Example Hello Courier. See [docs/modding.md](docs/modding.md).
+- **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; hooks for items, street events, journal, StreetNet broadcasts + slash cmds, ICE/cyber nodes, globe pins, CSP-safe UI panels (API 1.3). Example Hello Courier. See [docs/modding.md](docs/modding.md) and [docs/modding-workshop.md](docs/modding-workshop.md).
 - **QA automation (#112)** — env-gated bot/CI playtest harness (`ADVENTURE_QA=1` → `/qa/*` + WS `qa_snapshot`); off by default. See [docs/qa-automation.md](docs/qa-automation.md).
 - **Godot thin client (#109)** — research recommends Godot **4.x** as an additive native UI talking to the same `/ws` server (not a rewrite). Spike: [godot_client/](godot_client/). See [docs/godot-client.md](docs/godot-client.md).
 - **Scarce resource ecology (#57)** — bandwidth / condensate water / uplink spectrum wars on globe regions; claim or raid nodes; weather shifts with control. See [docs/ecology.md](docs/ecology.md).
@@ -291,6 +291,7 @@ Shipped on **`dev`** (MMORPG web). Player-facing notes:
 | Canticle Pilgrimage (multi-courier arcs) | [docs/pilgrimage.md](docs/pilgrimage.md) | #61 · parent #42 · related #15/#35 |
 | Scarce resource ecology wars | [docs/ecology.md](docs/ecology.md) | #57 · parent #42 · related #54/#27/#35 |
 | Mobile playability (PWA / touch) | [docs/mobile.md](docs/mobile.md) | #75 · parent #42 |
+| Modder plugin framework (JSON packs) | [docs/modding.md](docs/modding.md) · [docs/modding-workshop.md](docs/modding-workshop.md) | #72 · related #67 |
 | Year backend actions / snapshot fields | [docs/year_backend_actions.md](docs/year_backend_actions.md) | year roadmap |
 | Staging / migrations | [docs/staging.md](docs/staging.md) | — |
 | Steam packaging research | [docs/steam-packaging.md](docs/steam-packaging.md) | #67 · parent #42 · related #72 |
@@ -324,6 +325,7 @@ adventure/
   scripts/fixtures/tiny_downtown.osm.xml
   docs/osm-procedural-globe.md
   docs/modding.md
+  docs/modding-workshop.md  # #72 Workshop-style pack notes (pair #67)
   docs/steam-packaging.md  # #67 Steam Direct / packaging research
   docs/godot-client.md      # #109 Godot 4 thin-client research
   godot_client/             # #109 Godot 4 WebSocket spike (open in editor)

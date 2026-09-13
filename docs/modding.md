@@ -2,11 +2,11 @@
 
 Issue **#72** (related **#37** editor/map tools · **#67** Steam packaging · **#42** campaign). External developers can extend adventure-snowcrash with **data-driven** content without forking core.
 
-**Stack:** JSON manifests + defs loaded by a Python registry. **No arbitrary Python, Lua, WASM, or mod JavaScript** — justified below. Workshop distribution remains later (issue stays open).
+**Stack:** JSON manifests + defs loaded by a Python registry. **No arbitrary Python, Lua, WASM, or mod JavaScript** — justified below. Distribution notes: [modding-workshop.md](modding-workshop.md) (pair with **#67**).
 
 Source: `snowcrash/systems/modding.py` (`ModdingMixin`), discovery roots `mods/` and `examples/plugins/`, example `examples/plugins/hello_courier/`.
 
-**Plugin API:** `1.2.0` (additive: `ui_panel` over 1.1 hooks / 1.0 items).
+**Plugin API:** `1.3.0` (additive: StreetNet slash commands over 1.2 `ui_panel` / 1.1 hooks / 1.0 items).
 
 ## Acceptance map
 
@@ -20,10 +20,12 @@ Source: `snowcrash/systems/modding.py` (`ModdingMixin`), discovery roots `mods/`
 | Hooks: ICE probes + lightweight cyberspace nodes | **Implemented (API 1.1)** |
 | Hooks: globe pins / region metadata | **Implemented (API 1.1)** |
 | Hooks: web UI dock panels | **Implemented (API 1.2)** |
-| Hot-reload aligned with `/api/reload_defs` | `reload_mods()` inside reload path |
-| Example `hello_courier` | Items + street events + journal + StreetNet + ICE + globe pin + **UI panel** |
-| Semver + broken mods fail closed | `api_version` + hard errors skip the mod |
+| Hooks: StreetNet slash commands | **Implemented (API 1.3)** — `streetnet.json` `commands[]` |
+| Hot-reload aligned with `/api/reload_defs` | `reload_mods()` inside reload path; stale globe overlays cleared; journal re-offered |
+| Example `hello_courier` | Items + street events + journal + StreetNet + `/hello` + ICE + globe pin + UI panel |
+| Semver + broken mods fail closed | `api_version` major match + required ≤ host; one bad def skips the **whole** pack |
 | Web UI dock (`ui_panel`) | **Implemented (API 1.2)** — CSP-safe markdown + allowlisted actions |
+| Workshop-style distribution notes | **[modding-workshop.md](modding-workshop.md)** — local packs; no unsigned auto-download |
 | WASM / Lua | **Not in this slice** — remains on #72 |
 
 ## Why JSON-first (not Lua/WASM yet)
@@ -41,7 +43,7 @@ Declarative content only for now. Scripted hooks can be added later behind expli
 1. **No code execution.** Only `json.load` of files under the mod directory. Web `ui_panel` bodies are escaped/sanitized markdown — **no mod JavaScript**.
 2. **Path jail.** Entry paths must be relative; `..` and absolute paths rejected.
 3. **Permissions allowlist.** Manifest must list capabilities. Unknown or denied permissions (`network`, `fs_write`, `exec`, `python`, `wasm`, …) **reject the whole mod**.
-4. **API semver.** `api_version` major must match host `PLUGIN_API_VERSION` (`1.1.0`); required version must be `<=` host. Incompatible → skip mod, record error.
+4. **API semver.** `api_version` major must match host `PLUGIN_API_VERSION` (`1.3.0`); required version must be `<=` host. Missing / unparseable / future-minor / other-major → skip mod with a specific error (see Compatibility).
 5. **Validation.** Ids, kinds, grids, lat/lon, and numeric ranges are sanitized; invalid defs reject the mod (not partial apply).
 6. **No core overwrite.** Item / probe / region ids cannot collide with core factories or other mods. Globe metadata overlays are non-teleportable by default.
 7. **Defaults.** No unsigned auto-download. No host FS/network. Mods must use **original** prose (no novel text).
@@ -67,8 +69,8 @@ Each immediate subdirectory with `mod.json` (or `manifest.json`) is a candidate.
 {
   "id": "hello_courier",
   "name": "Hello Courier",
-  "version": "1.2.0",
-  "api_version": "1.2.0",
+  "version": "1.3.0",
+  "api_version": "1.3.0",
   "description": "…",
   "author": "you",
   "license": "MIT",
@@ -202,6 +204,27 @@ When the year street-event ticker fires, weighted mod street events / StreetNet 
 
 `fire_on_load` pushes once at init / `reload_mods`. Weighted picks also compete on the street ticker.
 
+Optional **slash commands** (API **1.3**) live in the same file:
+
+```json
+{
+  "commands": [
+    {
+      "id": "hello_courier.slash_hello",
+      "slash": "hello",
+      "help": "Ping the Hello Courier mesh.",
+      "replies": ["Hello Courier — mesh ack. Faraday pin online."],
+      "player_log": "You pinged Hello Courier.",
+      "broadcast": false
+    }
+  ]
+}
+```
+
+Type `/hello` in StreetNet IRC. Replies are notices to the player (optional `broadcast` also `system_chat`s). Optional `action` + `arg` must be **allowlisted** existing game actions (same list as `ui_panel`). Reserved verbs (`help`, `join`, `msg`, `mods`, …) reject the whole pack. `/help` lists loaded mod cmds.
+
+A pack may ship `broadcasts[]`, `commands[]`, or both.
+
 ### ICE / cyberspace (`ice_nodes.json`) — API 1.1
 
 ```json
@@ -303,7 +326,7 @@ Snapshot: `mods.panels` (+ `mods.ui_panel_count`). YearUI injects dock buttons i
 | Hook | Behavior |
 |------|----------|
 | `_year_init` → `_modding_init` | Discover + load + StreetNet `fire_on_load` + globe overlays |
-| `reload_district_defs` / `POST /api/reload_defs` | Also `reload_mods()` |
+| `reload_district_defs` / `POST /api/reload_defs` | Also `reload_mods()` (clears stale globe overlays, re-offers journal) |
 | Agent bootstrap | `_modding_offer_journal` |
 | `_year_update_journal` | `_modding_update_journal` |
 | `_item_from_shop_id` / `mod_item` | Resolve mod items |
@@ -314,13 +337,26 @@ Snapshot: `mods.panels` (+ `mods.ui_panel_count`). YearUI injects dock buttons i
 | Snapshot `mods` | Registry summary + `panels` + errors |
 | YearUI dock | Renders `mods.panels` (CSP markdown + action buttons) |
 | Actions `mods`, `mod_item <id>`, `mod_reload` | List / grant / reload |
+| StreetNet `/<slash>` | Mod commands from `streetnet.json` |
 
 ### Compatibility policy
 
-- **Host** `PLUGIN_API_VERSION` is the contract (`1.2.0`).
-- **Additive** hooks → bump **minor**; mods on older minors keep working (`1.0.0` still loads).
+- **Host** `PLUGIN_API_VERSION` is the contract (`1.3.0`).
+- **Additive** hooks → bump **minor**; mods on older minors keep working (`1.0.0` / `1.1.0` / `1.2.0` still load).
 - **Breaking** manifest/fields → bump **major**; old mods fail closed with a clear error.
-- Partial apply of a single mod is never done: one bad def skips that mod entirely.
+- Partial apply of a single mod is never done: one bad def skips that **entire pack** (nothing is committed to the registry until every def validates).
+- Fail-closed reasons (recorded in `mods.errors` + `mods.skipped`):
+
+| Condition | Error (contains) |
+|-----------|------------------|
+| Missing / junk `api_version` | `unparseable api_version` |
+| `2.x` on host `1.x` | `major mismatch` |
+| `1.9.0` on host `1.3.0` | `requires newer host` |
+| Denied perm (`network`, `wasm`, …) | `denied permission` |
+| Unknown perm | `unknown permission` |
+| Bad def / collision / path jail | specific validator message |
+
+`api_compatible()` / `api_incompatibility_reason()` implement the table. The world stays up; only that pack is skipped.
 
 ## How to write a mod
 
@@ -329,7 +365,7 @@ Snapshot: `mods.panels` (+ `mods.ui_panel_count`). YearUI injects dock buttons i
 3. Add original JSON for the hooks you need (no copyrighted novel text).
 4. Run the web server; confirm snapshot `mods.mod_count` and `mods` action.
 5. Grant test items with `mod_item <id>`; try `ice_probe`, `globe`, journal on join.
-6. Iterate with `POST /api/reload_defs` or `mod_reload`.
+6. Iterate with `POST /api/reload_defs` or `mod_reload` (see [modding-workshop.md](modding-workshop.md)).
 
 ## Enable the example
 
@@ -356,6 +392,7 @@ globe
 ```
 
 Open the **Hello** button on the YearUI panel dock (injected from `hello_courier.desk`) to try the sample `ui_panel`.
+In StreetNet IRC type `/hello` (API 1.3 command) or `/help` to see mod cmds.
 
 ## Attribution
 
@@ -367,4 +404,4 @@ Open the **Hello** button on the YearUI panel dock (injected from `hello_courier
 
 - Optional sandboxed WASM/Lua if JSON is insufficient
 - Teleportable mod regions with shard packs (beyond metadata pins)
-- Steam Workshop-style distribution notes under #67
+- Live Steam Workshop Subscribe / upload (notes are in [modding-workshop.md](modding-workshop.md); implementation rides #67)

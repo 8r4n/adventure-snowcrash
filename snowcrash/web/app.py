@@ -226,11 +226,23 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
         async with lock:
             world.reload_district_defs()
             mods = getattr(world, "mod_registry", None)
-            mod_snap = mods.snapshot() if mods is not None else {"mod_count": 0, "errors": []}
+            mod_snap = mods.snapshot() if mods is not None else {
+                "mod_count": 0, "errors": [], "api_version": None,
+            }
             return JSONResponse({
                 "ok": True,
                 "districts": len(world.district_defs.get("districts", [])),
                 "mods": mod_snap,
+                "reload": {
+                    "districts": True,
+                    "recipes": True,
+                    "season": True,
+                    "mods": True,
+                    "api_version": mod_snap.get("api_version"),
+                    "fail_closed": True,
+                    "note": "JSON mods remapped from mods/ + examples/plugins/; "
+                            "broken packs skipped (see mods.errors / mods.skipped).",
+                },
             })
 
     @app.get("/health")

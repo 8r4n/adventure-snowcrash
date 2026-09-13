@@ -9,6 +9,7 @@ from snowcrash.mmorpg import GameWorld
 from snowcrash.systems.modding import (
     PLUGIN_API_VERSION,
     api_compatible,
+    api_incompatibility_reason,
     discover_mod_dirs,
     load_all_mods,
     load_mod,
@@ -29,10 +30,19 @@ def _join(w: GameWorld, name: str = "ModCourier"):
 
 def test_api_semver_compatible():
     assert api_compatible("1.0.0", "1.0.0")
-    assert api_compatible("1.0.0", "1.2.0")
+    assert api_compatible("1.0.0", "1.3.0")
+    assert api_compatible("1.2.0", "1.3.0")
     assert not api_compatible("2.0.0", "1.0.0")
     assert not api_compatible("1.9.0", "1.0.0")
     assert not api_compatible("nope", "1.0.0")
+    assert not api_compatible("", "1.3.0")
+    r = api_incompatibility_reason("2.0.0", "1.3.0")
+    assert r and "major mismatch" in r
+    r = api_incompatibility_reason("1.9.0", "1.3.0")
+    assert r and "requires newer host" in r
+    r = api_incompatibility_reason("nope", "1.3.0")
+    assert r and "unparseable" in r
+    assert api_incompatibility_reason("1.1.0", "1.3.0") is None
 
 
 def test_discover_includes_hello_courier(tmp_path, monkeypatch):
@@ -98,6 +108,34 @@ def test_fail_closed_path_traversal(tmp_path):
     assert any("missing/unsafe" in e.message for e in reg.errors)
 
 
+def test_fail_closed_incompatible_api_reasons(tmp_path):
+    def _mod(name, api):
+        mod = tmp_path / name
+        mod.mkdir()
+        (mod / "mod.json").write_text(
+            json.dumps(
+                {
+                    "id": name,
+                    "version": "1.0.0",
+                    "api_version": api,
+                    "permissions": ["items"],
+                    "entry": {"items": "items.json"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (mod / "items.json").write_text('{"items": []}', encoding="utf-8")
+        return mod
+
+    reg = ModRegistry()
+    assert load_mod(_mod("future_minor", "1.9.0"), reg) is None
+    assert any("requires newer host" in e.message for e in reg.errors)
+    assert load_mod(_mod("other_major", "2.0.0"), reg) is None
+    assert any("major mismatch" in e.message for e in reg.errors)
+    assert load_mod(_mod("junk_api", "banana"), reg) is None
+    assert any("unparseable" in e.message for e in reg.errors)
+
+
 def test_fail_closed_incompatible_api(tmp_path):
     mod = tmp_path / "old_api"
     mod.mkdir()
@@ -116,7 +154,7 @@ def test_fail_closed_incompatible_api(tmp_path):
     (mod / "items.json").write_text('{"items": []}', encoding="utf-8")
     reg = ModRegistry()
     assert load_mod(mod, reg) is None
-    assert any("incompatible" in e.message for e in reg.errors)
+    assert any("major mismatch" in e.message or "incompatible" in e.message for e in reg.errors)
 
 
 def test_fail_closed_core_item_collision(tmp_path):
@@ -285,10 +323,10 @@ def test_fail_closed_bad_cyber_grid(tmp_path):
     assert any("X exit" in e.message for e in reg.errors)
 
 
-def test_plugin_api_is_1_2():
+def test_plugin_api_is_1_3():
     parts = PLUGIN_API_VERSION.split(".")
     assert int(parts[0]) == 1
-    assert int(parts[1]) >= 2
+    assert int(parts[1]) >= 3
 
 
 def test_hello_courier_ui_panel():
@@ -389,3 +427,189 @@ def test_fail_closed_ui_panel_html_not_required_but_body_ok(tmp_path):
     loaded = load_mod(mod, reg)
     assert loaded is not None
     assert "<script>" in reg.ui_panels[0]["body"]
+
+
+def test_hello_courier_streetnet_command():
+    reg = ModRegistry()
+    loaded = load_mod(EXAMPLE, reg)
+    assert loaded is not None
+    slashes = [c["slash"] for c in reg.streetnet_commands]
+    assert "hello" in slashes
+    snap = reg.snapshot()
+    assert snap["streetnet_command_count"] >= 1
+    assert any(c.get("slash") == "hello" for c in snap["streetnet_commands"])
+
+
+def test_world_streetnet_slash_hello(monkeypatch):
+    monkeypatch.delenv("SNOWCRASH_DISABLE_MODS", raising=False)
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "1")
+    w = GameWorld(72031)
+    a = _join(w)
+    a.last_chat_ts = 0
+    assert w.say(a, "/hello") is None
+    notices = [ln.text for ln in a.private_chat]
+    assert any("Hello Courier" in t or "HELLO_COURIER" in t or "Faraday" in t for t in notices)
+    assert any("pinged Hello Courier" in m for m in a.messages)
+    a.last_chat_ts = 0
+    assert w.say(a, "/help") is None
+    help_txt = " ".join(ln.text for ln in a.private_chat)
+    assert "/hello" in help_txt
+
+
+def test_fail_closed_reserved_streetnet_slash(tmp_path):
+    mod = tmp_path / "reserved_slash"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "reserved_slash",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["streetnet"],
+                "entry": {"streetnet": "streetnet.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (mod / "streetnet.json").write_text(
+        json.dumps(
+            {
+                "commands": [
+                    {
+                        "id": "reserved_slash.help",
+                        "slash": "help",
+                        "replies": ["nope"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert any("reserved" in e.message for e in reg.errors)
+    assert "reserved_slash" not in reg.mods
+
+
+def test_fail_closed_no_partial_apply(tmp_path):
+    """A later bad def must not leave earlier items in the registry."""
+    mod = tmp_path / "partial"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "partial",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["items", "street_events"],
+                "entry": {"items": "items.json", "street_events": "street_events.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (mod / "items.json").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "id": "partial.ok_item",
+                        "name": "Should Not Land",
+                        "kind": "trinket",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (mod / "street_events.json").write_text(
+        json.dumps({"events": [{"id": "not a valid id!!!", "messages": ["x"]}]}),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert "partial.ok_item" not in reg.items
+    assert "partial" not in reg.mods
+
+
+def test_api_reload_defs_includes_mods(monkeypatch):
+    from fastapi.testclient import TestClient
+    from snowcrash.web.app import create_app
+
+    monkeypatch.delenv("SNOWCRASH_DISABLE_MODS", raising=False)
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "1")
+    monkeypatch.delenv("ADVENTURE_QA", raising=False)
+    app = create_app(default_seed=72040, deploy_env="dev")
+    with TestClient(app) as client:
+        r = client.post("/api/reload_defs")
+        assert r.status_code == 200
+        body = r.json()
+        assert body.get("ok") is True
+        assert body.get("reload", {}).get("mods") is True
+        assert body.get("reload", {}).get("fail_closed") is True
+        mods = body.get("mods") or {}
+        assert mods.get("mod_count", 0) >= 1
+        assert str(mods.get("api_version") or "").startswith("1.")
+        assert any(
+            (m.get("id") == "hello_courier") for m in (mods.get("mods") or [])
+        )
+
+
+def test_reload_clears_stale_globe_overlay(monkeypatch, tmp_path):
+    monkeypatch.delenv("SNOWCRASH_DISABLE_MODS", raising=False)
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "0")
+    extra = tmp_path / "packs"
+    extra.mkdir()
+    pack = extra / "temp_pin"
+    pack.mkdir()
+    (pack / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "temp_pin",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["globe_regions"],
+                "entry": {"globe_regions": "globe_regions.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (pack / "globe_regions.json").write_text(
+        json.dumps(
+            {
+                "pins": [
+                    {
+                        "id": "temp_pin.here",
+                        "name": "Temp",
+                        "lat": 10.0,
+                        "lon": 10.0,
+                    }
+                ],
+                "regions": [
+                    {
+                        "id": "temp_pin.rim",
+                        "name": "Temp Rim",
+                        "kind": "poi",
+                        "lat": 11.0,
+                        "lon": 11.0,
+                        "metadata_only": True
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SNOWCRASH_MODS_PATH", str(extra))
+    w = GameWorld(72041)
+    assert any(p["id"] == "temp_pin.here" for p in w.mod_globe_pins)
+    assert "temp_pin.rim" in (getattr(w, "globe_regions", {}) or {})
+    # Remove the pack and reload — overlay must not linger.
+    (pack / "mod.json").unlink()
+    (pack / "globe_regions.json").unlink()
+    pack.rmdir()
+    w.reload_mods()
+    assert not any(p.get("id") == "temp_pin.here" for p in w.mod_globe_pins)
+    assert "temp_pin.rim" not in (getattr(w, "globe_regions", {}) or {})
+    assert not any(
+        isinstance(r, dict) and r.get("id") == "temp_pin.here"
+        for r in (getattr(w, "globe_regions", {}) or {}).values()
+    )
