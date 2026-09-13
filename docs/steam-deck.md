@@ -195,6 +195,7 @@ Light code: `godot_client/scripts/net_client.gd` handles `NOTIFICATION_APPLICATI
 - [ ] Keyboard courier loop + dock accordion still work
 - [ ] Gamepad (Xbox pad) moves / turns / get / fire / docks via InputMap
 - [ ] **F8 / Quality** toggles Low ↔ High; Low kills particles + MSAA
+- [ ] **F7 / Bob** stays off on Low (camera juice #161; cosmetic only)
 - [ ] **F3** FPS overlay; **Shift+F3** appends `user://fps_samples.log` (see #148 protocol)
 - [ ] Street neon rim visible on High; Omni count still courier + J + U only
 - [ ] Kill Wi-Fi mid-session → reconnect recovers with same `id`

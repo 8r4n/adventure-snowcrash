@@ -151,12 +151,17 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Quality: High"
 
+[node name="BobBtn" type="Button" parent="Margin/VBox/ViewBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Bob: Off"
+
 [node name="ViewHint" type="Label" parent="Margin/VBox/ViewBar"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.65098, 0.678431, 0.784314, 1)
 theme_override_font_sizes/font_size = 11
-text = "V 3D/3D+ASCII/FPV/map · C camera · F8 quality · Globe dock = 3D Earth · StreetNet"
+text = "V 3D/3D+ASCII/FPV/map · C camera · F8 quality · F7 bob · Globe dock = 3D Earth · StreetNet"
 
 [node name="MuteBtn" type="Button" parent="Margin/VBox/ViewBar"]
 unique_name_in_owner = true

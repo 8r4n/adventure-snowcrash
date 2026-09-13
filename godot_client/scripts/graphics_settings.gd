@@ -1,6 +1,7 @@
 extends Node
 ## Low / High 3D quality preset (#141 slice 5). Persists in ConfigFile with onboarding/audio.
 ## Omni budget is documented in docs/godot-3d.md — this autoload never adds lights.
+## #161 camera juice (look smooth / head bob) is cosmetic only — no client position authority.
 
 const CONFIG_PATH := "user://snowcrash_client.cfg"
 const CONFIG_SECTION := "graphics"
@@ -12,6 +13,9 @@ signal quality_changed(level: int)
 
 var _cfg := ConfigFile.new()
 var _quality: int = Quality.HIGH
+## #161 camera juice (cosmetic). Bob stays off on Low even if pref true.
+var _look_smooth: bool = true
+var _head_bob: bool = false
 
 
 func _ready() -> void:
@@ -125,6 +129,59 @@ func kit_scatter() -> bool:
 	return is_high()
 
 
+## Camera juice (#161) — cosmetic only. /ws grid + intents stay authority.
+func look_smoothing() -> bool:
+	return _look_smooth
+
+
+func set_look_smoothing(on: bool) -> void:
+	var v := bool(on)
+	if v == _look_smooth:
+		return
+	_look_smooth = v
+	_save()
+
+
+func toggle_look_smoothing() -> bool:
+	set_look_smoothing(not _look_smooth)
+	return _look_smooth
+
+
+func head_bob() -> bool:
+	## Deck / Low: off by default (never auto-on when quality is Low).
+	if is_low():
+		return false
+	return _head_bob
+
+
+func head_bob_user() -> bool:
+	## Raw persisted preference (ignores Low override) — for HUD label.
+	return _head_bob
+
+
+func set_head_bob(on: bool) -> void:
+	var v := bool(on)
+	if v == _head_bob:
+		return
+	_head_bob = v
+	_save()
+
+
+func toggle_head_bob() -> bool:
+	set_head_bob(not _head_bob)
+	return _head_bob  # persisted pref; Low still forces bob off via head_bob()
+
+
+func look_yaw_rate() -> float:
+	## Higher = snappier turn follow. Smooth = softer cosmetic yaw.
+	return 14.0 if not _look_smooth else 7.2
+
+
+func look_pos_rate() -> float:
+	## Cosmetic grid-cell mesh lerp (courier + entities). Not prediction.
+	return 14.0 if not _look_smooth else 9.5
+
+
 func fog_density_street() -> float:
 	return 0.012 if is_low() else 0.022
 
@@ -148,10 +205,15 @@ func _load() -> void:
 		push_warning("graphics_settings: load failed %s" % err)
 	var raw := str(_cfg.get_value(CONFIG_SECTION, "quality", "high")).to_lower()
 	_quality = Quality.LOW if raw == "low" or raw == "0" else Quality.HIGH
+	_look_smooth = bool(_cfg.get_value(CONFIG_SECTION, "look_smooth", true))
+	# Deck/Low: bob off by default — missing key ⇒ false.
+	_head_bob = bool(_cfg.get_value(CONFIG_SECTION, "head_bob", false))
 
 
 func _save() -> void:
 	_cfg.set_value(CONFIG_SECTION, "quality", "low" if is_low() else "high")
+	_cfg.set_value(CONFIG_SECTION, "look_smooth", _look_smooth)
+	_cfg.set_value(CONFIG_SECTION, "head_bob", _head_bob)
 	var err := _cfg.save(CONFIG_PATH)
 	if err != OK:
 		push_warning("graphics_settings: save failed %s" % err)

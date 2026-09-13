@@ -71,7 +71,7 @@ Biggest remaining Steam-screenshot gaps vs that bar: lighting / kit / ground / d
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (snapshot-placed)
 - [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend materials
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens
-- [ ] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (cosmetic only; `/ws` grid stays authority)
+- [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (cosmetic only; `/ws` grid stays authority)
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: cite this bar here + in [godot-3d.md](godot-3d.md) (this PR)
 
 ---

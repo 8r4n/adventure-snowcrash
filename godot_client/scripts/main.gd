@@ -1,5 +1,6 @@
 extends Control
 ## Core play loop + 3D street + ASCII overlay + docks + onboarding + audio + Deck pad + quality + FPS meter (#141 / #148 / #118 / #127 / #132 / #133 / #134).
+## #161 camera juice: F7 head bob toggle (cosmetic; Low forces bob off).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -29,6 +30,7 @@ extends Control
 @onready var view_scroll: ScrollContainer = %ViewScroll
 @onready var cam_btn: Button = %CamBtn
 @onready var quality_btn: Button = %QualityBtn
+@onready var bob_btn: Button = %BobBtn
 @onready var ice_banner: Label = %IceBanner
 @onready var ice_flash: ColorRect = %IceFlash
 @onready var globe: Globe3D = %Globe3D
@@ -73,6 +75,9 @@ func _ready() -> void:
 	if quality_btn:
 		quality_btn.pressed.connect(_on_quality_toggle)
 		_sync_quality_btn()
+	if bob_btn:
+		bob_btn.pressed.connect(_on_bob_toggle)
+		_sync_bob_btn()
 	if GraphicsSettings and not GraphicsSettings.quality_changed.is_connected(_on_graphics_quality):
 		GraphicsSettings.quality_changed.connect(_on_graphics_quality)
 	_apply_viewport_quality()
@@ -200,7 +205,7 @@ func _apply_theme_hints() -> void:
 	hint_label.text = (
 		"WASD / stick move · Q/E / L1 R1 / R-stick turn · G / A get · F / X fire · "
 		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/3D+ASCII/FPV/map · C camera · Start docks · "
-		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · F8 quality · F3 fps · Audio "
+		+ "J jack in/out · Z stun · X reveal · StreetNet · M mute · F8 quality · F7 bob · F3 fps · Audio "
 		+ "(Deck: docs/steam-deck.md · 3D: docs/godot-3d.md)"
 	)
 
@@ -257,6 +262,7 @@ func _on_quality_toggle() -> void:
 
 func _on_graphics_quality(_level: int) -> void:
 	_sync_quality_btn()
+	_sync_bob_btn()
 	_apply_viewport_quality()
 
 
@@ -264,6 +270,26 @@ func _sync_quality_btn() -> void:
 	if quality_btn == null or GraphicsSettings == null:
 		return
 	quality_btn.text = "Quality: %s" % GraphicsSettings.quality_name()
+
+
+func _on_bob_toggle() -> void:
+	if GraphicsSettings == null:
+		return
+	var pref := GraphicsSettings.toggle_head_bob()
+	_sync_bob_btn()
+	var effective := GraphicsSettings.head_bob()
+	var note := "on" if effective else ("pref on · Low forces off" if pref else "off")
+	_append_log("Head bob %s (cosmetic; /ws authority unchanged)" % note)
+
+
+func _sync_bob_btn() -> void:
+	if bob_btn == null or GraphicsSettings == null:
+		return
+	var pref := GraphicsSettings.head_bob_user()
+	if GraphicsSettings.is_low() and pref:
+		bob_btn.text = "Bob: Low-off"
+	else:
+		bob_btn.text = "Bob: On" if pref else "Bob: Off"
 
 
 func _apply_viewport_quality() -> void:
@@ -897,6 +923,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if keycode == KEY_F8:
 		_on_quality_toggle()
+	if keycode == KEY_F7:
+		_on_bob_toggle()
 		get_viewport().set_input_as_handled()
 		return
 	# F3 / Shift+F3 FPS overlay + sample log — FpsMeter autoload (#148).

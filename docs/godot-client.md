@@ -392,6 +392,18 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
+### Camera juice (#161) — cosmetic vs authority
+
+The Godot courier **feels** continuous (look smoothing, optional head bob, mesh lerp between grid cells, landing FOV), but:
+
+- Movement / turns still send the same `/ws` intents (`forward`, `turn_left`, …)
+- Server snapshot `player.x/y` + `facing` (ICE: avatar `px/py`) remains **source of truth**
+- Mesh lerp + bob are **render-only** — no client-side position cheating
+
+Toggle bob with **F7** / HUD **Bob**. Low / Deck forces bob off. Details: [godot-3d.md § Camera juice](godot-3d.md#camera-juice-161--cosmetic-vs-authority).
+
+`Refs #163` · `Refs #141`
+
 Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps / Deck QA / HUD soup) — see [godot-3d.md](godot-3d.md). Desktop export presets landed in **#149**. Slices 1–6 shipped: Street #142 · Entities #143 · ICE #144 · Globe #145 · Polish #146 · ASCII overlay **this PR**.
 
 ### Remaining epic items (later slices)

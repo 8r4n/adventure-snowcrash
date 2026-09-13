@@ -159,6 +159,8 @@ func _quality_bits() -> Dictionary:
 	var ent_r := 0
 	var pool := 0
 	var glow := false
+	var bob := false
+	var smooth := true
 	if GraphicsSettings:
 		qname = GraphicsSettings.quality_name()
 		msaa = GraphicsSettings.msaa_3d()
@@ -167,6 +169,8 @@ func _quality_bits() -> Dictionary:
 		ent_r = GraphicsSettings.entity_radius()
 		pool = GraphicsSettings.max_pooled_entities()
 		glow = GraphicsSettings.glow_enabled()
+		bob = GraphicsSettings.head_bob()
+		smooth = GraphicsSettings.look_smoothing()
 	return {
 		"quality": qname,
 		"msaa": msaa,
@@ -175,6 +179,8 @@ func _quality_bits() -> Dictionary:
 		"entity_radius": ent_r,
 		"max_pooled": pool,
 		"glow": glow,
+		"bob": bob,
+		"smooth": smooth,
 	}
 
 
@@ -196,6 +202,11 @@ func _refresh_label() -> void:
 		]
 		+ "AOI build %d · entity %d · pool ≤%d\n" % [
 			bits["build_radius"], bits["entity_radius"], bits["max_pooled"]
+		]
+		+ "Cam juice · smooth %s · bob %s (#161 cosmetic)\n"
+		% [
+			"on" if bits.get("smooth", true) else "off",
+			"on" if bits.get("bob", false) else "off",
 		]
 		+ "F3 toggle · Shift+F3 log → user://fps_samples.log"
 	)
