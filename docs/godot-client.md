@@ -392,7 +392,7 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
-Remaining #141 slices (do **not** close the issue): lighting/particles/Deck QA, optional ASCII overlay. Street = slice 1 (#142). Entities = slice 2 (#143). Cyberspace / ICE 3D = slice 3 (#144). Globe 3D hybrid = slice 4 (this PR — see [godot-3d.md](godot-3d.md)).
+Remaining #141 slices (do **not** close the issue): optional ASCII overlay (slice 6). Street = #142 · Entities = #143 · ICE = #144 · Globe = #145 · Lighting/particles/quality = this PR (slice 5 — see [godot-3d.md](godot-3d.md)).
 
 ### Remaining epic items (later slices)
 
@@ -430,7 +430,7 @@ Remaining #141 slices (do **not** close the issue): lighting/particles/Deck QA, 
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
 - [ ] Optional: Steam packaging path (#67 / #130) using Godot export
 
-Suggested next slice: **#141 lighting/particles/Deck QA**, or optional ASCII overlay, or GPS minimap + death UX, or desktop export toward Steam (#130).
+Suggested next slice: **#141 optional ASCII overlay** (slice 6), or GPS minimap + death UX, or desktop export toward Steam (#130).
 
 ---
 ## Related

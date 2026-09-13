@@ -69,7 +69,7 @@ Production server default is port **8765** — change the URL if you point at th
 | R3 | camera 1st ↔ 3rd |
 | Start | cycle year docks |
 
-Default viewport **1280×800** (`keep` aspect). Linux export preset: `export_presets.cfg.example`. Suspend/resume nudges WS reconnect in `net_client.gd`. **Device QA not yet run on hardware.**
+Default viewport **1280×800** (`keep` aspect). Linux export preset: `export_presets.cfg.example`. Suspend/resume nudges WS reconnect in `net_client.gd`. **Device QA not yet run on hardware.** Prefer **Quality: Low** on Deck until measured.
 
 ## StreetNet + year docks (#127)
 
@@ -115,6 +115,7 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 | `scenes/main.tscn` | Name gate, HUD, 3D SubViewport + FPV/map, inventory, log, docks, StreetNet |
 | `scenes/street.tscn` | Node3D street world + courier camera (#141) |
 | `scenes/globe.tscn` | Stylized 3D Earth + region pins (#141 slice 4) |
+| `scripts/graphics_settings.gd` | Low/High quality ConfigFile autoload (#141 slice 5) |
 | `scripts/street_3d.gd` | Snapshot glyphs → meshes / entities / landmarks |
 | `scripts/net_client.gd` | `WebSocketPeer` — join/rejoin by id, action, chat, ping, backoff reconnect |
 | `scripts/main.gd` | UI + hold-to-move + inventory digits + docks wiring |
@@ -148,6 +149,7 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 - Music: street bed on the Street; ICE bed while `cyberspace` / `heist`.
 - **ICE 3D (#141 slice 3):** jack-in swaps the 3D world to a neon lattice (not street brick). Trigger: `mode` / `cyberspace.active` / `ice_heist.active`. Avatar uses `px/py` on the node. Layer plate + flash juice. See [`docs/godot-3d.md`](../docs/godot-3d.md).
 - **Globe 3D (#141 slice 4):** opening the **Globe** dock overlays a Catppuccin neon Earth (pins from `globe.regions`). Click/dbl-click pin or Teleport → existing `teleport` intent; cost/cooldown on `GlobeBanner`. Street/ICE intact.
+- **Lighting / particles (#141 slice 5):** neon rim DirectionalLights (not Omni), rain/dust/uplink spark on **Quality: High**; **F8** / Quality button toggles Low (Deck floor — particles/MSAA/glow off). Omni budget still courier + J + U. See `docs/godot-3d.md`.
 - Regenerate: `python scripts/gen_sfx.py && python scripts/gen_music.py`
 - Attribution: [docs/audio.md](../docs/audio.md)
 

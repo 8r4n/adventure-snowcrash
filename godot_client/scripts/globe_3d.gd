@@ -1,8 +1,9 @@
 extends Node3D
 class_name Globe3D
-## Stylized Catppuccin neon Earth + region pins for uplink hop (#141 slice 4).
+## Stylized Catppuccin neon Earth + region pins for uplink hop (#141 slice 4/5).
 ## Driven by snapshot `globe` / `regions` — no client simulation. Pins call existing
 ## `teleport` / dock selection; Street + ICE SubViewports stay separate.
+## Slice 5: rim DirectionalLight + optional orbit dust; Omni budget = FillLight only.
 
 signal pin_selected(region_id: String)
 signal pin_activated(region_id: String)  # double-click / confirm hop
@@ -20,6 +21,9 @@ const PIN_POOL := 48
 @onready var cam_pivot: Node3D = $CameraPivot
 @onready var select_label: Label3D = $SelectLabel
 @onready var hud_plate: Label3D = $HudPlate
+@onready var world_env: WorldEnvironment = $WorldEnvironment
+@onready var rim: DirectionalLight3D = get_node_or_null("Rim")
+@onready var fill_light: OmniLight3D = get_node_or_null("FillLight")
 
 var _pins: Array = []  # {id, node: Node3D, mesh: MeshInstance3D, area: Area3D, data: Dictionary}
 var _selected_id: String = ""
@@ -47,15 +51,79 @@ var _mat_pin_dim: StandardMaterial3D
 var _sphere_mesh: SphereMesh
 var _pin_mesh: SphereMesh
 var _built_mats := false
+var _orbit_dust: GPUParticles3D
 
 
 func _ready() -> void:
 	_ensure_mats()
 	_build_earth()
+	_ensure_orbit_dust()
+	_apply_quality()
+	if GraphicsSettings and not GraphicsSettings.quality_changed.is_connected(_on_quality_changed):
+		GraphicsSettings.quality_changed.connect(_on_quality_changed)
 	_yaw = cam_pivot.rotation.y
 	_pitch = cam_pivot.rotation.x
 	set_process(true)
 	set_process_unhandled_input(true)
+
+
+func _on_quality_changed(_level: int) -> void:
+	_apply_quality()
+
+
+func _apply_quality() -> void:
+	var env: Environment = world_env.environment if world_env else null
+	if env:
+		env.glow_enabled = GraphicsSettings.glow_enabled() if GraphicsSettings else true
+		env.glow_intensity = GraphicsSettings.glow_intensity_globe() if GraphicsSettings else 0.62
+		env.glow_bloom = GraphicsSettings.glow_bloom_globe() if GraphicsSettings else 0.14
+	if rim:
+		rim.visible = GraphicsSettings.rim_enabled() if GraphicsSettings else true
+		rim.light_energy = 0.48 if (GraphicsSettings == null or GraphicsSettings.is_high()) else 0.0
+	if fill_light:
+		# Single Omni on globe — keep on Low but dimmer.
+		fill_light.light_energy = 1.2 if (GraphicsSettings == null or GraphicsSettings.is_high()) else 0.75
+	if _orbit_dust:
+		var on := GraphicsSettings.particles_enabled() if GraphicsSettings else true
+		_orbit_dust.emitting = on
+		_orbit_dust.visible = on
+
+
+func _ensure_orbit_dust() -> void:
+	if _orbit_dust:
+		return
+	_orbit_dust = GPUParticles3D.new()
+	_orbit_dust.name = "OrbitDust"
+	_orbit_dust.amount = 40
+	_orbit_dust.lifetime = 4.5
+	_orbit_dust.preprocess = 1.5
+	_orbit_dust.visibility_aabb = AABB(Vector3(-8, -8, -8), Vector3(16, 16, 16))
+	_orbit_dust.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 3.2
+	mat.direction = Vector3(0, 1, 0)
+	mat.spread = 180.0
+	mat.initial_velocity_min = 0.05
+	mat.initial_velocity_max = 0.25
+	mat.gravity = Vector3.ZERO
+	mat.scale_min = 0.02
+	mat.scale_max = 0.06
+	mat.color = Color(0.55, 0.85, 1.0, 0.55)
+	_orbit_dust.process_material = mat
+	var dm := SphereMesh.new()
+	dm.radius = 0.035
+	dm.height = 0.07
+	var draw := StandardMaterial3D.new()
+	draw.albedo_color = Color(0.55, 0.85, 1.0, 0.6)
+	draw.emission_enabled = true
+	draw.emission = Catppuccin.SKY
+	draw.emission_energy_multiplier = 1.2
+	draw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	draw.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_orbit_dust.draw_pass_1 = dm
+	_orbit_dust.material_override = draw
+	add_child(_orbit_dust)
 
 
 func is_globe_visible() -> bool:
@@ -400,14 +468,14 @@ func _ensure_mats() -> void:
 	_mat_earth.roughness = 0.55
 	_mat_earth.emission_enabled = true
 	_mat_earth.emission = Catppuccin.SURFACE0
-	_mat_earth.emission_energy_multiplier = 0.35
+	_mat_earth.emission_energy_multiplier = 0.48
 
 	_mat_grid = StandardMaterial3D.new()
 	_mat_grid.albedo_color = Color(Catppuccin.TEAL.r, Catppuccin.TEAL.g, Catppuccin.TEAL.b, 0.22)
 	_mat_grid.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat_grid.emission_enabled = true
 	_mat_grid.emission = Catppuccin.TEAL
-	_mat_grid.emission_energy_multiplier = 0.55
+	_mat_grid.emission_energy_multiplier = 0.72
 	_mat_grid.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_mat_grid.cull_mode = BaseMaterial3D.CULL_DISABLED
 

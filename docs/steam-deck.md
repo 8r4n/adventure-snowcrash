@@ -64,7 +64,7 @@ Valve’s customer-facing “four boxes” and the Steamworks checklist map as f
 | Valve criterion | Our Godot plan | Status |
 |-----------------|----------------|--------|
 | Native resolution **1280×800** (preferred) or 1280×720 | `project.godot` viewport **1280×800**; stretch `canvas_items` + `keep` aspect | Done (stub) |
-| Playable default performance (≥ **30 fps @ 800p**) | **Mobile** renderer on Deck; 3D street budget in [godot-3d.md](godot-3d.md) (AOI radius, no shadows, 3 Omnis); ASCII FPV still cheap | Device QA pending |
+| Playable default performance (≥ **30 fps @ 800p**) | **Mobile** renderer; prefer **Quality: Low** (no particles/MSAA/glow, AOI 14); Omni ≤3 + rim Directional; see [godot-3d.md](godot-3d.md) | Device QA pending |
 | Text ≥ **9 px** tall @ 1280×800 (aim **12 px**) | HUD / FPV / docks use ≥12 px mono / UI fonts; Catppuccin contrast | Guidance in § Display; device QA pending |
 | Good defaults (no manual resolution tweak) | Export fullscreen / borderless; no launcher resolution dialog | Export preset notes |
 
@@ -87,7 +87,7 @@ Valve note: if a Linux build exists they test it first; only fall back to Window
 
 ### Performance (checklist sibling)
 
-Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and three Omni lights — see [godot-3d.md](godot-3d.md). ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
+Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and **≤3 Omni lights** (courier + J + U). Neon rim is a **DirectionalLight** (not Omni). Slice 5 adds a **Low/High** quality preset (`GraphicsSettings` / F8) — **Low** disables particles, MSAA, glow, and shrinks AOI to 14. Prefer Low on Deck until hardware QA. ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
 
 ---
 
@@ -186,7 +186,7 @@ Light code: `godot_client/scripts/net_client.gd` handles `NOTIFICATION_APPLICATI
 
 ## Device QA (Deck pass)
 
-**Status: not yet run on hardware.** No Steam Deck (LCD/OLED) or SteamOS device was available for this ticket. Do not mark Verified.
+**Status: not yet run on hardware.** No Steam Deck (LCD/OLED) or SteamOS device was available for this agent / #141 slice 5. Budgets and Low/High presets are **documented only** — do not mark Verified or claim measured fps.
 
 ### Pre-hardware smoke (desktop stand-in)
 
@@ -194,6 +194,8 @@ Light code: `godot_client/scripts/net_client.gd` handles `NOTIFICATION_APPLICATI
 - [ ] Jack in to local `ws://127.0.0.1:8766/ws` and hosted realm
 - [ ] Keyboard courier loop + dock accordion still work
 - [ ] Gamepad (Xbox pad) moves / turns / get / fire / docks via InputMap
+- [ ] **F8 / Quality** toggles Low ↔ High; Low kills particles + MSAA
+- [ ] Street neon rim visible on High; Omni count still courier + J + U only
 - [ ] Kill Wi-Fi mid-session → reconnect recovers with same `id`
 - [ ] Simulate suspend: `kill -STOP` / continue or laptop lid — reconnect nudge fires
 
@@ -203,7 +205,10 @@ Light code: `godot_client/scripts/net_client.gd` handles `NOTIFICATION_APPLICATI
 - [ ] Default config: no keyboard required for move / interact / docks / jack-in name (OSK or soft entry)
 - [ ] Glyphs: no stuck KBM icons when using Deck controls
 - [ ] 1280×800 default; text ≥12 px readable at ~30 cm
-- [ ] Sustained ≥30 fps on street + ICE jack-in music bed
+- [ ] Sustained ≥30 fps on street with **Quality: Low** (rain/dust off)
+- [ ] Spot-check High preset fps (expect heavier; optional)
+- [ ] ICE jack-in music bed + lattice dust (High) still ≥30 floor on Low with dust off
+- [ ] Globe dock Earth overlay: Fill Omni only; orbit dust off on Low
 - [ ] Sleep 60s+ → resume → HUD reconnects without manual Disconnect/Jack-in
 - [ ] Steam overlay (with GodotSteam) open/close does not brick input
 - [ ] Battery / thermal: 30–40 min courier loop acceptable
@@ -215,7 +220,7 @@ File results under this doc (§ Device QA results) or a linked issue comment bef
 
 | Date | Device | Build | Outcome | Notes |
 |------|--------|-------|---------|-------|
-| — | — | — | **Not run** | #132 docs/code only |
+| — | — | — | **Not run** | #132 / #141 slice 5: docs + Low/High knobs only; no Deck in CI |
 
 ---
 
@@ -240,6 +245,7 @@ Tracked honestly so Verified is not claimed early:
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 theme 8 / child #132
 - [steam-packaging.md](steam-packaging.md) — Direct fee, depots, store assets; Deck section points here
 - [godot-client.md](godot-client.md) — thin client architecture + packaging
+- [godot-3d.md](godot-3d.md) — #141 3D street / Omni budget / quality preset
 - [godot-onboarding.md](godot-onboarding.md) — first 10 minutes (#133)
 - [audio.md](audio.md) — audio buses (#134)
 - [mobile.md](mobile.md) — PWA suspend/WS notes (pattern source, not Steam SKU)

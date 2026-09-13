@@ -1,14 +1,15 @@
 extends Node3D
 class_name Street3D
 ## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
+## Slice 5: lighting / particles / Low-High quality (GraphicsSettings) — Omni budget unchanged.
 ## Slice 3: jack-in visual language — grid/node lattice, neon ICE walls, layer plates.
 ## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
 ## Glyphs become PrimitiveMesh instances + Catppuccin emission materials.
 
 const TILE := 1.0
 const WALL_H := 2.55
-const BUILD_RADIUS := 18
-const ENTITY_RADIUS := 16
+const BUILD_RADIUS_DEFAULT := 18
+const ENTITY_RADIUS_DEFAULT := 16
 const REBUILD_STEP := 3
 const LERP_POS := 11.0
 const LERP_YAW := 9.0
@@ -68,8 +69,18 @@ enum CamMode { FIRST, THIRD }
 @onready var nameplate: Label3D = $Courier/Nameplate
 @onready var world_env: WorldEnvironment = $WorldEnvironment
 @onready var moon: DirectionalLight3D = $Moon
+@onready var rim: DirectionalLight3D = $Rim
+@onready var fx_root: Node3D = $FxRoot
 
 var cam_mode: int = CamMode.THIRD
+var _build_radius: int = BUILD_RADIUS_DEFAULT
+var _entity_radius: int = ENTITY_RADIUS_DEFAULT
+var _max_pooled: int = 48
+var _rain: GPUParticles3D
+var _dust: GPUParticles3D
+var _spark: GPUParticles3D
+var _fx_ready: bool = false
+var _quality_dirty: bool = true
 var _mats: Dictionary = {}
 var _meshes: Dictionary = {}
 var _entity_pool: Array = []
@@ -94,15 +105,45 @@ const ICE_TRANS_SEC := 0.55
 const HEIST_LAYER_NAMES := ["", "Perimeter Scrub", "Honeycomb Lattice", "Core Sanctum"]
 ## Street WorldEnvironment defaults (street.tscn Env_neon) — restored on jack-out.
 const STREET_BG := Color(0.0666667, 0.0666667, 0.105882, 1)
-const STREET_AMB := Color(0.180392, 0.188235, 0.278431, 1)
-const STREET_FOG := Color(0.117647, 0.117647, 0.180392, 1)
+const STREET_AMB := Color(0.22, 0.2, 0.35, 1)
+const STREET_FOG := Color(0.14, 0.12, 0.22, 1)
 
 
 func _ready() -> void:
 	_ensure_resources()
 	_ensure_courier_parts()
+	_ensure_fx()
 	_apply_cam_rig()
+	_apply_quality(true)
+	if GraphicsSettings:
+		if not GraphicsSettings.quality_changed.is_connected(_on_quality_changed):
+			GraphicsSettings.quality_changed.connect(_on_quality_changed)
 	set_process(true)
+
+
+func _on_quality_changed(_level: int) -> void:
+	_apply_quality(true)
+
+
+func _apply_quality(force_rebuild: bool = false) -> void:
+	## Knobs from GraphicsSettings. Omni count stays ≤3 (courier + J + U).
+	if GraphicsSettings:
+		_build_radius = GraphicsSettings.build_radius()
+		_entity_radius = GraphicsSettings.entity_radius()
+		_max_pooled = GraphicsSettings.max_pooled_entities()
+	else:
+		_build_radius = BUILD_RADIUS_DEFAULT
+		_entity_radius = ENTITY_RADIUS_DEFAULT
+		_max_pooled = MAX_POOLED_ENTITIES
+	_apply_environment_quality()
+	_sync_particles()
+	if rim:
+		rim.visible = GraphicsSettings.rim_enabled() if GraphicsSettings else true
+		rim.light_energy = GraphicsSettings.rim_energy() if GraphicsSettings else 0.42
+	if force_rebuild:
+		_last_map_fp = ""
+		_last_landmark_fp = ""
+		_quality_dirty = true
 
 
 func camera_mode_name() -> String:
@@ -242,6 +283,7 @@ func _process(delta: float) -> void:
 		_jack_light.light_energy = 2.4 * pulse
 	if _uplink_light:
 		_uplink_light.light_energy = 2.6 * pulse
+	_follow_fx()
 	if _ice_mode:
 		var ice_e := 1.2 + 0.55 * sin(_pulse * 4.2)
 		_pulse_mat("ice_barrier", ice_e)
@@ -285,10 +327,10 @@ func _apply_cam_rig() -> void:
 func _ensure_resources() -> void:
 	if not _mats.is_empty():
 		return
-	_mats["wall"] = _mat(Catppuccin.TEAL.darkened(0.35), 0.55, 0.15)
-	_mats["wall_hi"] = _mat(Catppuccin.SKY.darkened(0.2), 0.85, 0.2)
-	_mats["floor"] = _mat(Catppuccin.SURFACE0, 0.0, 0.05)
-	_mats["street"] = _mat(Catppuccin.MANTLE.lightened(0.08), 0.08, 0.25)
+	_mats["wall"] = _mat(Catppuccin.TEAL.darkened(0.32), 0.72, 0.22)
+	_mats["wall_hi"] = _mat(Catppuccin.SKY.darkened(0.15), 1.05, 0.28)
+	_mats["floor"] = _mat(Catppuccin.SURFACE0, 0.04, 0.08)
+	_mats["street"] = _mat(Catppuccin.MANTLE.lightened(0.1), 0.14, 0.32)
 	_mats["grass"] = _mat(Catppuccin.GREEN.darkened(0.55), 0.05, 0.0)
 	_mats["water"] = _mat(Color(0.29, 0.56, 0.85, 0.72), 0.35, 0.4)
 	_mats["door"] = _mat(Catppuccin.YELLOW, 0.7, 0.2)
@@ -381,7 +423,7 @@ func _ensure_resources() -> void:
 	ring.outer_radius = 0.38
 	_meshes["ring"] = ring
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(float(BUILD_RADIUS * 2 + 6), float(BUILD_RADIUS * 2 + 6))
+	plane.size = Vector2(float(_build_radius * 2 + 6), float(_build_radius * 2 + 6))
 	_meshes["ground"] = plane
 
 
@@ -428,13 +470,13 @@ func _map_fingerprint(state: Dictionary, px: int, py: int) -> String:
 	if typeof(rows) != TYPE_ARRAY:
 		return "nomap"
 	var bits: PackedStringArray = PackedStringArray()
-	bits.append("%d:%d" % [int(px / REBUILD_STEP), int(py / REBUILD_STEP)])
-	var y0 := maxi(0, py - BUILD_RADIUS)
-	var y1 := mini(rows.size(), py + BUILD_RADIUS + 1)
+	bits.append("%d:%d:r%d" % [int(px / REBUILD_STEP), int(py / REBUILD_STEP), _build_radius])
+	var y0 := maxi(0, py - _build_radius)
+	var y1 := mini(rows.size(), py + _build_radius + 1)
 	for y in range(y0, y1):
 		var row := str(rows[y])
-		var x0 := maxi(0, px - BUILD_RADIUS)
-		var x1 := mini(row.length(), px + BUILD_RADIUS + 1)
+		var x0 := maxi(0, px - _build_radius)
+		var x1 := mini(row.length(), px + _build_radius + 1)
 		bits.append(row.substr(x0, x1 - x0))
 	bits.append(str(state.get("jackpoint", [])))
 	bits.append(str(state.get("uplink", [])))
@@ -464,12 +506,12 @@ func _rebuild_map(state: Dictionary, px: int, py: int) -> void:
 	ground.position = Vector3(float(px) + 0.5, -0.05, float(py) + 0.5)
 	map_root.add_child(ground)
 
-	var y0 := maxi(0, py - BUILD_RADIUS)
-	var y1 := mini(rows.size(), py + BUILD_RADIUS + 1)
+	var y0 := maxi(0, py - _build_radius)
+	var y1 := mini(rows.size(), py + _build_radius + 1)
 	for y in range(y0, y1):
 		var row := str(rows[y])
-		var x0 := maxi(0, px - BUILD_RADIUS)
-		var x1 := mini(row.length(), px + BUILD_RADIUS + 1)
+		var x0 := maxi(0, px - _build_radius)
+		var x1 := mini(row.length(), px + _build_radius + 1)
 		for x in range(x0, x1):
 			var ch := row.substr(x, 1)
 			if ch == " ":
@@ -524,6 +566,7 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
 	if _ice_mode:
 		_paint_ice_layer_plate(state, px, py)
+		_sync_particles()
 		return
 	var jack = state.get("jackpoint", [])
 	var uplink = state.get("uplink", [])
@@ -560,10 +603,11 @@ func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
 			elif g == "*" or str(m.get("id", "")).begins_with("signal"):
 				_spawn_pickup_beacon(mx, my, px, py, nm if nm else "Loot")
 				seen[key] = true
+	_sync_particles()
 
 
 func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
-	if maxi(absi(x - px), absi(y - py)) > BUILD_RADIUS + 8:
+	if maxi(absi(x - px), absi(y - py)) > _build_radius + 8:
 		return
 	var origin := Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
 	var holder := Node3D.new()
@@ -624,7 +668,7 @@ func _spawn_vendor(x: int, y: int, px: int, py: int, label: String) -> void:
 
 
 func _spawn_pickup_beacon(x: int, y: int, px: int, py: int, label: String) -> void:
-	if maxi(absi(x - px), absi(y - py)) > ENTITY_RADIUS + 4:
+	if maxi(absi(x - px), absi(y - py)) > _entity_radius + 4:
 		return
 	var holder := Node3D.new()
 	holder.position = Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
@@ -662,7 +706,7 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 				continue
 			var ex := int(p.get("x", -999))
 			var ey := int(p.get("y", -999))
-			if maxi(absi(ex - px), absi(ey - py)) > ENTITY_RADIUS:
+			if maxi(absi(ex - px), absi(ey - py)) > _entity_radius:
 				continue
 			occupied["%d:%d" % [ex, ey]] = true
 			needed.append({
@@ -679,7 +723,7 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 				continue
 			var ex2 := int(e.get("x", -999))
 			var ey2 := int(e.get("y", -999))
-			if maxi(absi(ex2 - px), absi(ey2 - py)) > ENTITY_RADIUS:
+			if maxi(absi(ex2 - px), absi(ey2 - py)) > _entity_radius:
 				continue
 			var g := str(e.get("glyph", "?"))
 			var role := str(GLYPH_ROLE.get(g, "prop"))
@@ -705,12 +749,12 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 	# Map-glyph pickups (*) when snapshot overlays loot but landmarks omit it.
 	var rows = state.get("map", [])
 	if typeof(rows) == TYPE_ARRAY:
-		var y0 := maxi(0, py - ENTITY_RADIUS)
-		var y1 := mini(rows.size(), py + ENTITY_RADIUS + 1)
+		var y0 := maxi(0, py - _entity_radius)
+		var y1 := mini(rows.size(), py + _entity_radius + 1)
 		for y in range(y0, y1):
 			var row := str(rows[y])
-			var x0 := maxi(0, px - ENTITY_RADIUS)
-			var x1 := mini(row.length(), px + ENTITY_RADIUS + 1)
+			var x0 := maxi(0, px - _entity_radius)
+			var x1 := mini(row.length(), px + _entity_radius + 1)
 			for x in range(x0, x1):
 				if row.substr(x, 1) != "*":
 					continue
@@ -726,8 +770,8 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 					"facing": false,
 				})
 
-	if needed.size() > MAX_POOLED_ENTITIES:
-		needed = needed.slice(0, MAX_POOLED_ENTITIES)
+	if needed.size() > _max_pooled:
+		needed = needed.slice(0, _max_pooled)
 
 	while _entity_pool.size() < needed.size():
 		_entity_pool.append(_make_entity_node())
@@ -919,31 +963,24 @@ func _begin_ice_transition(entering: bool) -> void:
 
 
 func _apply_ice_environment(on: bool) -> void:
-	var env: Environment = world_env.environment if world_env else null
-	if env:
-		if on:
-			env.background_color = Color(0.02, 0.035, 0.07)
-			env.ambient_light_color = Color(0.18, 0.42, 0.62)
-			env.ambient_light_energy = 0.62
-			env.fog_light_color = Color(0.18, 0.5, 0.72)
-			env.fog_density = 0.04
-			env.glow_intensity = 0.88
-			env.glow_bloom = 0.22
-		else:
-			env.background_color = STREET_BG
-			env.ambient_light_color = STREET_AMB
-			env.ambient_light_energy = 0.42
-			env.fog_light_color = STREET_FOG
-			env.fog_density = 0.018
-			env.glow_intensity = 0.55
-			env.glow_bloom = 0.12
+	_ice_mode = on  # ensure quality helpers see mode; apply_snapshot also sets this
+	_apply_environment_quality()
 	if moon:
 		if on:
 			moon.light_color = Color(0.55, 0.82, 1.0)
-			moon.light_energy = 0.48
+			moon.light_energy = 0.55 if (GraphicsSettings and GraphicsSettings.is_high()) else 0.4
 		else:
 			moon.light_color = Color(0.705882, 0.745098, 0.964706, 1)
-			moon.light_energy = 0.28
+			moon.light_energy = 0.32 if (GraphicsSettings and GraphicsSettings.is_high()) else 0.22
+	if rim:
+		if on:
+			rim.light_color = Catppuccin.MAUVE
+			rim.visible = GraphicsSettings.rim_enabled() if GraphicsSettings else true
+			rim.light_energy = (0.55 if GraphicsSettings.is_high() else 0.0) if GraphicsSettings else 0.55
+		else:
+			rim.light_color = Catppuccin.SKY
+			rim.visible = GraphicsSettings.rim_enabled() if GraphicsSettings else true
+			rim.light_energy = GraphicsSettings.rim_energy() if GraphicsSettings else 0.42
 	if eye_light:
 		if on:
 			eye_light.light_color = Catppuccin.SKY
@@ -951,8 +988,9 @@ func _apply_ice_environment(on: bool) -> void:
 			eye_light.omni_range = 10.5
 		else:
 			eye_light.light_color = Catppuccin.TEAL
-			eye_light.light_energy = 1.6
-			eye_light.omni_range = 9.0
+			eye_light.light_energy = 1.75
+			eye_light.omni_range = 9.5
+	_sync_particles()
 
 
 func _place_ice_tile(ch: String, origin: Vector3, alt: bool) -> void:
@@ -1065,3 +1103,179 @@ func _add_ice_label(pos: Vector3, text: String, color: Color) -> void:
 	lab.outline_modulate = Catppuccin.CRUST
 	lab.pixel_size = 0.008
 	map_root.add_child(lab)
+
+
+func _apply_environment_quality() -> void:
+	var env: Environment = world_env.environment if world_env else null
+	if env == null:
+		return
+	var high := true if GraphicsSettings == null else GraphicsSettings.is_high()
+	env.glow_enabled = high if GraphicsSettings == null else GraphicsSettings.glow_enabled()
+	if _ice_mode:
+		env.background_color = Color(0.02, 0.035, 0.07)
+		env.ambient_light_color = Color(0.2, 0.45, 0.68)
+		env.ambient_light_energy = GraphicsSettings.ambient_energy_ice() if GraphicsSettings else 0.68
+		env.fog_light_color = Color(0.2, 0.55, 0.78)
+		env.fog_density = GraphicsSettings.fog_density_ice() if GraphicsSettings else 0.045
+		env.glow_intensity = GraphicsSettings.glow_intensity_ice() if GraphicsSettings else 0.88
+		env.glow_bloom = GraphicsSettings.glow_bloom_ice() if GraphicsSettings else 0.22
+	else:
+		env.background_color = STREET_BG
+		env.ambient_light_color = STREET_AMB
+		env.ambient_light_energy = GraphicsSettings.ambient_energy_street() if GraphicsSettings else 0.48
+		env.fog_light_color = STREET_FOG
+		env.fog_density = GraphicsSettings.fog_density_street() if GraphicsSettings else 0.022
+		env.glow_intensity = GraphicsSettings.glow_intensity_street() if GraphicsSettings else 0.55
+		env.glow_bloom = GraphicsSettings.glow_bloom_street() if GraphicsSettings else 0.12
+
+
+func _ensure_fx() -> void:
+	if _fx_ready:
+		return
+	if fx_root == null:
+		fx_root = Node3D.new()
+		fx_root.name = "FxRoot"
+		add_child(fx_root)
+	_rain = _make_rain()
+	_dust = _make_dust()
+	_spark = _make_spark()
+	fx_root.add_child(_rain)
+	fx_root.add_child(_dust)
+	fx_root.add_child(_spark)
+	_fx_ready = true
+	_sync_particles()
+
+
+func _make_rain() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.name = "Rain"
+	p.amount = 64
+	p.lifetime = 0.85
+	p.preprocess = 0.4
+	p.visibility_aabb = AABB(Vector3(-12, -2, -12), Vector3(24, 16, 24))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3(0.08, -1.0, 0.04)
+	mat.spread = 6.0
+	mat.initial_velocity_min = 6.0
+	mat.initial_velocity_max = 9.5
+	mat.gravity = Vector3(0, -2.0, 0)
+	mat.scale_min = 0.04
+	mat.scale_max = 0.09
+	mat.color = Color(0.55, 0.72, 0.95, 0.55)
+	p.process_material = mat
+	var dm := BoxMesh.new()
+	dm.size = Vector3(0.02, 0.28, 0.02)
+	var draw := StandardMaterial3D.new()
+	draw.albedo_color = Color(0.55, 0.75, 1.0, 0.45)
+	draw.emission_enabled = true
+	draw.emission = Catppuccin.SKY
+	draw.emission_energy_multiplier = 0.55
+	draw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	draw.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	p.draw_pass_1 = dm
+	p.material_override = draw
+	return p
+
+
+func _make_dust() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.name = "NeonDust"
+	p.amount = 28
+	p.lifetime = 3.2
+	p.preprocess = 1.0
+	p.visibility_aabb = AABB(Vector3(-10, -1, -10), Vector3(20, 10, 20))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3(0.0, 1.0, 0.0)
+	mat.spread = 55.0
+	mat.initial_velocity_min = 0.15
+	mat.initial_velocity_max = 0.55
+	mat.gravity = Vector3(0, 0.05, 0)
+	mat.scale_min = 0.03
+	mat.scale_max = 0.08
+	mat.color = Color(0.8, 0.55, 1.0, 0.5)
+	p.process_material = mat
+	var dm := SphereMesh.new()
+	dm.radius = 0.04
+	dm.height = 0.08
+	var draw := StandardMaterial3D.new()
+	draw.albedo_color = Color(0.8, 0.55, 1.0, 0.55)
+	draw.emission_enabled = true
+	draw.emission = Catppuccin.MAUVE
+	draw.emission_energy_multiplier = 1.1
+	draw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	draw.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	p.draw_pass_1 = dm
+	p.material_override = draw
+	return p
+
+
+func _make_spark() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.name = "UplinkSpark"
+	p.amount = 18
+	p.lifetime = 0.7
+	p.emitting = false
+	p.one_shot = false
+	p.explosiveness = 0.35
+	p.visibility_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 6, 6))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3(0.0, 1.0, 0.0)
+	mat.spread = 40.0
+	mat.initial_velocity_min = 1.2
+	mat.initial_velocity_max = 2.8
+	mat.gravity = Vector3(0, -1.5, 0)
+	mat.scale_min = 0.04
+	mat.scale_max = 0.1
+	mat.color = Color(1.0, 0.72, 0.45, 0.85)
+	p.process_material = mat
+	var dm := SphereMesh.new()
+	dm.radius = 0.05
+	dm.height = 0.1
+	var draw := StandardMaterial3D.new()
+	draw.albedo_color = Catppuccin.PEACH
+	draw.emission_enabled = true
+	draw.emission = Catppuccin.PEACH
+	draw.emission_energy_multiplier = 2.2
+	draw.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	p.draw_pass_1 = dm
+	p.material_override = draw
+	return p
+
+
+func _sync_particles() -> void:
+	if not _fx_ready:
+		return
+	var on := true if GraphicsSettings == null else GraphicsSettings.particles_enabled()
+	# Rain + dust on street High only; ice gets dust-only (lattice snow feel) on High.
+	if _rain:
+		_rain.emitting = on and not _ice_mode
+		_rain.visible = _rain.emitting
+		_rain.amount = 64 if on else 1
+	if _dust:
+		_dust.emitting = on
+		_dust.visible = on
+		_dust.amount = 36 if _ice_mode else 28
+		if _dust.process_material is ParticleProcessMaterial:
+			var pm := _dust.process_material as ParticleProcessMaterial
+			pm.color = Color(0.45, 0.85, 1.0, 0.55) if _ice_mode else Color(0.8, 0.55, 1.0, 0.5)
+	if _spark:
+		var spark_on := on and (not _ice_mode) and _uplink_light != null
+		_spark.emitting = spark_on
+		_spark.visible = spark_on
+
+
+func _follow_fx() -> void:
+	if not _fx_ready or courier == null:
+		return
+	var base := courier.position
+	if _rain:
+		_rain.position = base + Vector3(0.0, 5.5, 0.0)
+	if _dust:
+		_dust.position = base + Vector3(0.0, 1.2, 0.0)
+	if _spark and _uplink_light and is_instance_valid(_uplink_light):
+		var holder := _uplink_light.get_parent() as Node3D
+		if holder:
+			_spark.global_position = holder.global_position + Vector3(0.0, 3.1, 0.0)

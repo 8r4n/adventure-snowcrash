@@ -6,21 +6,21 @@
 background_mode = 1
 background_color = Color(0.0666667, 0.0666667, 0.105882, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.180392, 0.188235, 0.278431, 1)
-ambient_light_energy = 0.42
+ambient_light_color = Color(0.22, 0.2, 0.35, 1)
+ambient_light_energy = 0.48
 reflected_light_source = 1
 tonemap_mode = 2
-tonemap_exposure = 1.05
+tonemap_exposure = 1.08
 glow_enabled = true
 glow_intensity = 0.55
 glow_bloom = 0.12
-glow_hdr_threshold = 0.8
+glow_hdr_threshold = 0.78
 fog_enabled = true
-fog_light_color = Color(0.117647, 0.117647, 0.180392, 1)
-fog_density = 0.018
-fog_aerial_perspective = 0.15
+fog_light_color = Color(0.14, 0.12, 0.22, 1)
+fog_density = 0.022
+fog_aerial_perspective = 0.18
 adjustment_enabled = true
-adjustment_saturation = 1.12
+adjustment_saturation = 1.14
 
 [sub_resource type="CapsuleMesh" id="Cap_courier"]
 radius = 0.28
@@ -43,7 +43,14 @@ environment = SubResource("Env_neon")
 [node name="Moon" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.798636, -0.334566, 0.500001, 0, 0.830958, 0.556352, -0.601807, -0.444117, 0.663638, 6, 14, 8)
 light_color = Color(0.705882, 0.745098, 0.964706, 1)
-light_energy = 0.28
+light_energy = 0.32
+shadow_enabled = false
+
+[node name="Rim" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.707107, -0.353553, -0.612372, 0, 0.866025, -0.5, 0.707107, -0.353553, -0.612372, -8, 10, -6)
+light_color = Color(0.537255, 0.862745, 0.921569, 1)
+light_energy = 0.42
+light_specular = 0.65
 shadow_enabled = false
 
 [node name="MapRoot" type="Node3D" parent="."]
@@ -51,6 +58,8 @@ shadow_enabled = false
 [node name="EntityRoot" type="Node3D" parent="."]
 
 [node name="LandmarkRoot" type="Node3D" parent="."]
+
+[node name="FxRoot" type="Node3D" parent="."]
 
 [node name="Courier" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0.5)
@@ -74,9 +83,9 @@ far = 80.0
 [node name="EyeLight" type="OmniLight3D" parent="Courier"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
 light_color = Color(0.580392, 0.886275, 0.835294, 1)
-light_energy = 1.6
-omni_range = 9.0
-omni_attenuation = 1.4
+light_energy = 1.75
+omni_range = 9.5
+omni_attenuation = 1.35
 shadow_enabled = false
 
 [node name="Nameplate" type="Label3D" parent="Courier"]
