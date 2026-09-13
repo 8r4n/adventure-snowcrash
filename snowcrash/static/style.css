@@ -382,6 +382,7 @@ header h1 {
 .mini-chrome {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.25rem 0.5rem;
   font-family: var(--mono);
   font-size: 0.6rem;
@@ -390,6 +391,35 @@ header h1 {
   background: linear-gradient(90deg, #0a1520, #0d1a14 50%, #0a1520);
   border-bottom: 1px solid #1a3038;
   text-shadow: 0 0 8px var(--accent-glow);
+}
+.mini-chrome-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.btn-gps-mini {
+  appearance: none;
+  background: transparent;
+  border: 1px solid #1e3a40;
+  color: var(--dim);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  line-height: 1;
+  padding: 0.12rem 0.28rem;
+  cursor: pointer;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+.btn-gps-mini:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(57, 197, 207, 0.2);
+}
+/* #116 — hide Street GPS without touching compass / toasts / docks */
+#app.gps-hidden #minimap-wrap,
+body.gps-hidden #minimap-wrap {
+  display: none !important;
 }
 .minimap-ascii {
   margin: 0;
@@ -2168,6 +2198,32 @@ body:not(.intro-active) {
 .btn-large-type[data-mode="off"] {
   color: #8b949e;
   opacity: 0.85;
+}
+/* Street GPS toolbar toggle (#116) — Catppuccin chrome */
+.btn-gps {
+  appearance: none;
+  background: #0a1520;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.2rem 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  min-width: 2.6rem;
+  box-shadow: 0 0 8px rgba(57, 197, 207, 0.22);
+}
+.btn-gps:hover {
+  box-shadow: 0 0 12px rgba(57, 197, 207, 0.35);
+}
+.btn-gps.gps-off,
+.btn-gps[aria-pressed="false"] {
+  color: var(--dim);
+  border-color: #1e3a40;
+  box-shadow: none;
+  opacity: 0.9;
 }
 .name-gate-share {
   display: flex;

@@ -3672,6 +3672,11 @@
 
   function renderMinimap(s) {
     if (!minimapEl || !s) return;
+    // Hidden GPS (#116): skip paint; keep other HUD / movement untouched
+    if (document.body.classList.contains("gps-hidden") ||
+        (appEl && appEl.classList.contains("gps-hidden"))) {
+      return;
+    }
     const px = s.player.x;
     const py = s.player.y;
     const facing = (s.player.facing || 0) % 4;
@@ -4139,6 +4144,12 @@
       Sound.toggleMute();
       return;
     }
+    // Street GPS hide/show (#116) — backtick (unused by movement / docks)
+    if (ev.key === "`" || ev.code === "Backquote") {
+      ev.preventDefault();
+      if (typeof toggleGpsHidden === "function") toggleGpsHidden();
+      return;
+    }
 
     // Shift+J → quest journal (avoids clash with lowercase j jack-in)
     if (ev.key === "J") {
@@ -4408,6 +4419,58 @@
       });
     } catch (_) {}
   }
+
+  // Street GPS hide/show (#116) — opt-in hide; default visible; persists in localStorage
+  const GPS_HIDDEN_KEY = "snowcrash_gps_hidden";
+  const btnGps = document.getElementById("btn-gps");
+  const btnGpsMini = document.getElementById("btn-gps-mini");
+  function gpsIsHidden() {
+    try { return localStorage.getItem(GPS_HIDDEN_KEY) === "1"; } catch (_) { return false; }
+  }
+  function applyGpsHidden() {
+    const hidden = gpsIsHidden();
+    if (appEl) appEl.classList.toggle("gps-hidden", hidden);
+    document.body.classList.toggle("gps-hidden", hidden);
+    const wrap = document.getElementById("minimap-wrap");
+    if (wrap) {
+      wrap.hidden = hidden;
+      wrap.setAttribute("aria-hidden", hidden ? "true" : "false");
+    }
+    if (btnGps) {
+      btnGps.setAttribute("aria-pressed", hidden ? "false" : "true");
+      btnGps.classList.toggle("gps-off", hidden);
+      btnGps.title = hidden ? "Show Street GPS (`)" : "Hide Street GPS (`)";
+      btnGps.textContent = hidden ? "GPS·" : "GPS";
+    }
+    if (btnGpsMini) {
+      btnGpsMini.title = hidden ? "Show Street GPS (`)" : "Hide Street GPS (`)";
+      btnGpsMini.setAttribute("aria-label", hidden ? "Show Street GPS" : "Hide Street GPS");
+    }
+  }
+  function toggleGpsHidden() {
+    const next = !gpsIsHidden();
+    try {
+      if (next) localStorage.setItem(GPS_HIDDEN_KEY, "1");
+      else localStorage.removeItem(GPS_HIDDEN_KEY);
+    } catch (_) {}
+    applyGpsHidden();
+    try { Sound.play("click"); } catch (_) {}
+  }
+  if (btnGps) {
+    btnGps.addEventListener("click", () => {
+      Sound.unlock();
+      toggleGpsHidden();
+    });
+  }
+  if (btnGpsMini) {
+    btnGpsMini.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      Sound.unlock();
+      toggleGpsHidden();
+    });
+  }
+  applyGpsHidden();
 
   // Copy / QR join helpers (#75) — share current URL with ?name=
   function buildJoinUrl() {

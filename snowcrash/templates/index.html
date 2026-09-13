@@ -67,6 +67,7 @@
       <div class="toolbar">
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute (m)">Mute</button>
         <button type="button" id="btn-large-type" class="btn-large-type" data-mode="auto" aria-pressed="false" title="FPV type size (large glyphs)">Aa</button>
+        <button type="button" id="btn-gps" class="btn-gps" aria-pressed="true" title="Hide Street GPS (`)">GPS</button>
         <label class="theme-label" for="theme-select" title="Catppuccin theme"><span class="sr-only">Theme</span>
           <select id="theme-select" aria-label="Catppuccin theme">
             <option value="mocha">Mocha</option>
@@ -145,7 +146,10 @@
         <div id="minimap-wrap" aria-label="Street GPS minimap">
           <div class="mini-chrome slim">
             <span>GPS</span>
-            <span id="mini-plane">Z0</span>
+            <span class="mini-chrome-trail">
+              <span id="mini-plane">Z0</span>
+              <button type="button" id="btn-gps-mini" class="btn-gps-mini" title="Hide Street GPS (`)" aria-label="Hide Street GPS">✕</button>
+            </span>
           </div>
           <pre id="minimap" class="minimap-ascii"></pre>
           <div id="party-pings" class="party-pings" aria-hidden="true"></div>
@@ -316,7 +320,7 @@
     <details id="legend-panel" class="legend-fold">
       <summary>Glyph key · controls</summary>
       <div id="legend"></div>
-      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>z</kbd>/<kbd>x</kbd>/<kbd>c</kbd> ICE Stun/Reveal/Scramble · <kbd>j</kbd> jack-in at J · <kbd>Shift+J</kbd> journal · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute · dock opens year panels · <kbd>G</kbd> globe teleport · <kbd>Shift+P</kbd> StreetNet Primer · <kbd>Shift+U</kbd> Uplink Hop · <kbd>Shift+F</kbd> Forecasts · <kbd>Shift+R</kbd> Ecology</p>
+      <p class="help-line"><kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> turn · <kbd>t</kbd>/<kbd>b</kbd> plane · <kbd>g</kbd> get · <kbd>f</kbd> fire · <kbd>z</kbd>/<kbd>x</kbd>/<kbd>c</kbd> ICE Stun/Reveal/Scramble · <kbd>j</kbd> jack-in at J · <kbd>Shift+J</kbd> journal · <kbd>i</kbd> inv · <kbd>Enter</kbd> chat · <kbd>m</kbd> mute · <kbd>`</kbd> Street GPS · dock opens year panels · <kbd>G</kbd> globe teleport · <kbd>Shift+P</kbd> StreetNet Primer · <kbd>Shift+U</kbd> Uplink Hop · <kbd>Shift+F</kbd> Forecasts · <kbd>Shift+R</kbd> Ecology</p>
     </details>
     <div id="log" class="log-slim"></div>
 
