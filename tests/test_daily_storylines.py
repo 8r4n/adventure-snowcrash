@@ -72,3 +72,21 @@ def test_reload_does_not_double_fire():
     ]
     assert len(after_allegory) == len(allegory)
     assert len(w.event_ticker) >= before
+
+
+def test_daily_beats_always_land_with_region_geo():
+    w = GameWorld(510914)
+    w.reload_daily_storylines(fire=True, day="2026-09-13")
+    active = w.daily_storylines_active
+    assert active["beats"]
+    for b in active["beats"]:
+        assert b.get("region_id"), b
+        assert b.get("geo"), b
+        assert b["geo"].get("lat") is not None
+        assert b["geo"].get("name")
+    # Missing region_id still resolves via city hash
+    orphan = {"id": "orphan-geo-test", "text": "orphan allegory", "kind": "broadcast", "intensity": 0.01}
+    stamped = w._daily_storylines_fire_beat(orphan)
+    assert stamped.get("region_id")
+    assert orphan.get("region_id") == stamped.get("region_id")
+    assert orphan.get("geo")

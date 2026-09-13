@@ -10,11 +10,13 @@ OSM research + converter: **#83** · [osm-procedural-globe.md](osm-procedural-gl
 
 1. Open **Globe** dock (or **Shift+G** / action `globe`)
 2. Zoom ladder: **Street** → **Regions** → schematic **Globe** (`globe_zoom`)
-3. **Hop** / `teleport <region_id>` — credits + cooldown
-4. Land on a **playable street shard**:
+3. **Search** / ASCII filter in the panel (or `globe_search` / `globe_filter`)
+4. **Hop** / `teleport <region_id>` — credits + cooldown
+5. Land on a **playable street shard**:
    - Prefer prebuilt `snowcrash_ascii_shard_v1` when `regions.json` has `chunk_path` (OSM→ASCII pilots)
    - Else `generate_world(shard_seed)` mapgen
    - Home (`fractured_la`) = live shared MMORPG world
+6. StreetNet daily geo beats (#51) show on journal + retarget compass (`globe_track`)
 
 ## Actions
 
@@ -23,6 +25,9 @@ OSM research + converter: **#83** · [osm-procedural-globe.md](osm-procedural-gl
 | `globe` / `open_globe` | — | Open overlay; zoom out from street if needed |
 | `globe_close` | — | Close overlay; zoom → street |
 | `globe_zoom` / `zoom_globe` | `street` \| `region` \| `globe` | Zoom ladder |
+| `globe_search` / `region_search` | query | Filter catalog by id/name/continent/label |
+| `globe_filter` | `ascii` \| `all` | Toggle ASCII-shard pilot filter |
+| `globe_track` / `track_geo` | `region_id` \| `clear` | Point compass / journal at geo objective |
 | `globe_status` / `where` | — | Log current region + cooldown |
 | `teleport` / `tp` / `uplink_hop` | `region_id` | Hop to region shard |
 | `globe_recall` / `recall` | — | Hop home (half cost) |
@@ -37,10 +42,10 @@ Blocked while `cyberspace` / `heist` / `flotilla` / dead — jack out first.
 `regions.json` lists continents + cities with `id`, `name`, `kind`, `continent`, `lat`, `lon`, `label`, optional `home`, `shard_seed`, optional **`chunk_path`**.
 
 - **Home** (`fractured_la`): live shared MMORPG world (server seed).
-- **ASCII pilots** (v1): `neo_tokyo`, `berlin_circuit` → `shards/*.json` via `ascii_shard.try_load_region_shard`.
+- **ASCII pilots** (fixture-derived OSM schema, CI-safe): `neo_tokyo`, `berlin_circuit`, `neo_nyc`, `london_fog`, `singapore_core`, `sydney_reef` → `shards/*.json` via `ascii_shard.try_load_region_shard`.
 - **Other regions**: lazy `generate_world(shard_seed)` shards, streamed only when a courier is present.
 
-Hot-reload: `world.reload_region_defs()` (keeps loaded shards until next teleport rebuild).
+Hot-reload: `world.reload_region_defs()` reloads JSON and drops cached shards whose `chunk_path` changed; `world.reload_shard_packs(force=True)` forces a full cache drop (next hop rebuilds).
 
 ### How shards load on teleport
 
@@ -69,9 +74,17 @@ python3 scripts/osm_to_ascii_shard.py \
 
 ## Snapshot (`globe`)
 
-`panel_open`, `region_id`, `region`, `home_region_id`, `regions[]` (incl. `has_ascii_shard`), `cost_credits`, `cooldown_sec`, `cooldown_remaining`, `teleports`, `shards_loaded`, `shard_seed`, `shard_source`, `chunk_path`, `zoom`, `zoom_levels`, `news_geo_hook`, `hint`.
+`panel_open`, `region_id`, `region`, `home_region_id`, `regions[]` (incl. `has_ascii_shard`), `cost_credits`, `cooldown_sec`, `cooldown_remaining`, `teleports`, `shards_loaded`, `shard_seed`, `shard_source`, `chunk_path`, `zoom`, `zoom_levels`, `search`, `filter_ascii`, `ascii_shard_count`, `geo_objectives[]`, `tracked_geo_region`, `news_geo_hook`, `hint`.
 
 ## News geo hook (#51)
+
+Daily storylines (`DailyStorylinesMixin`) **always** resolve a `region_id` before firing:
+
+1. Explicit `beat.region_id` if it exists in `regions.json`
+2. Else nearest region from `lat` / `lon`
+3. Else stable hash of beat id across city regions
+
+Then `attach_news_arc` / `attach_news_geo` stamps `geo`, the live beat is mutated, journal gets a `geo_daily_*` side quest, and compass can retarget via `_globe_objective` / `globe_track`.
 
 ```python
 beat = world.attach_news_geo(
@@ -85,22 +98,24 @@ Nearest-region snap when only lat/lon is provided.
 
 Season forecasts (#58) prefer `world.attach_news_arc(...)` which stamps geo via this hook and bumps news-arc intensity. Geo-only stamps still soft-bump intensity when the forecast lattice is online.
 
+Ops notes: [daily-storylines.md](daily-storylines.md) — append dated `entries[]`; production agent should keep calling `reload_daily_storylines()` (already stamps geo).
+
 ## Web UI
 
-Dock **Globe** · zoom ladder **Street / Regions / Globe** · schematic SVG Earth with pins (ASCII pilots highlighted) · region list **Hop** · **Recall home**. Shift+G opens panel + `globe` action.
+Dock **Globe** · zoom ladder **Street / Regions / Globe** · **search box** + **ASCII / All** filter · StreetNet geo chips · schematic SVG Earth with pins (ASCII pilots highlighted) · region list **Hop** · **Recall home**. Shift+G opens panel + `globe` action. Touch-friendly search (`inputmode=search`, min tap height).
 
 ## Remaining (#54 — leave open)
 
 Not claimed done in this slice:
 
-- [ ] Full continent intermediate zoom / search / pin filters
-- [ ] StreetNet / journal / compass pointing at cross-region geo objectives
-- [ ] Live Geofabrik / Overpass pilot city packs (still fixture-derived ASCII for CI)
+- [ ] Full continent intermediate zoom (beyond street/region/globe ladder)
+- [ ] Live Geofabrik / Overpass city packs (pilots remain fixture-derived for CI)
 - [ ] Photoreal / licensed Earth art (explicitly out of scope)
-- [ ] Daily news pipeline (#51) consuming `attach_news_geo` in production automation
-- [ ] Full-Earth coverage of OSM shards (only pilot `chunk_path`s today)
+- [ ] Full-Earth coverage of OSM shards (six pilots today — not the whole globe)
+- [ ] Richer pin filters (ecology / faction / fog) beyond search + ASCII toggle
+- [ ] Production daily-news agent automation beyond in-server `reload_daily_storylines` hook
 
-Enough for news to attach `region_id`, players to hop onto playable shards, and OSM ASCII packs to land where wired.
+Shipped here: region search + ASCII catalog UX, more city ASCII pilots, daily beats always land with `region_id` / geo, journal + compass cross-region geo track.
 
 ## Ecology overlay (#57)
 

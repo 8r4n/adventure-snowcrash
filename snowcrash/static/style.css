@@ -2262,6 +2262,22 @@ body:not(.intro-active) {
 .globe-street-card p { margin: 0.25rem 0 0.4rem; }
 .globe-svg .pin.ascii { stroke: #a8ffc8; stroke-width: 0.7; }
 .globe-region-list-compact { max-height: 6.5rem; overflow: auto; margin-top: 0.25rem; }
+.globe-search-bar {
+  display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;
+  margin: 0.25rem 0 0.15rem;
+}
+.globe-search-bar input[type="search"] {
+  flex: 1 1 8rem; min-width: 0; min-height: 1.6rem;
+  font-size: 0.72rem; padding: 0.2rem 0.4rem;
+}
+.globe-search-bar button {
+  font-size: 0.62rem; padding: 0.18rem 0.4rem; min-height: 1.6rem;
+}
+.globe-search-bar button.active { outline: 1px solid var(--accent, #7fdbca); }
+.globe-search-meta { font-size: 0.62rem; margin-bottom: 0.15rem; }
+.globe-geo-strip { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; margin: 0.2rem 0; }
+.globe-geo-strip .chip { font-size: 0.62rem; padding: 0.12rem 0.35rem; }
+
 
 
 /* Sleeves / avatar hop (#59) */

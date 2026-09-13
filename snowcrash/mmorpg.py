@@ -995,6 +995,12 @@ class GameWorld(YearFeaturesMixin):
             alt = sk_obj(agent)
             if alt:
                 return alt
+        # Globe (#54): cross-region geo from daily news / tracked region
+        geo_obj = getattr(self, "_globe_objective", None)
+        if callable(geo_obj):
+            alt = geo_obj(agent)
+            if alt:
+                return alt
         jx, jy = self.jackpoint_pos
         ux, uy = self.uplink_pos
         px, py = agent.actor.x, agent.actor.y

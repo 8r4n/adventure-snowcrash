@@ -116,10 +116,10 @@ def test_berlin_ascii_pilot_and_mapgen_fallback():
     assert w.globe_shards["berlin_circuit"].get("shard_source") == "osm_ascii"
     a.globe["cooldown_until"] = 0
     a.last_action_ts = 0
-    # london_fog has no chunk_path → mapgen
-    assert w.handle_year_action(a, "teleport", "london_fog")
-    assert a.globe["region_id"] == "london_fog"
-    assert w.globe_shards["london_fog"].get("shard_source") == "mapgen"
+    # moscow_static has no chunk_path → mapgen
+    assert w.handle_year_action(a, "teleport", "moscow_static")
+    assert a.globe["region_id"] == "moscow_static"
+    assert w.globe_shards["moscow_static"].get("shard_source") == "mapgen"
 
 
 def test_globe_zoom_ladder():
@@ -136,3 +136,79 @@ def test_globe_zoom_ladder():
     s = w.snapshot(a)
     assert s["globe"]["zoom"] == "street"
     assert s["globe"]["panel_open"] is False
+
+
+def test_globe_search_and_ascii_filter():
+    w = GameWorld(5413)
+    a = _join(w)
+    assert w.handle_year_action(a, "globe_search", "tokyo")
+    assert a.globe["search"] == "tokyo"
+    hits = w._globe_search_regions("tokyo")
+    assert any(r["id"] == "neo_tokyo" for r in hits)
+    assert w.handle_year_action(a, "globe_filter", "ascii")
+    assert a.globe["filter_ascii"] is True
+    ascii_hits = w._globe_search_regions("", ascii_only=True)
+    assert len(ascii_hits) >= 6
+    ids = {r["id"] for r in ascii_hits}
+    for need in ("neo_tokyo", "berlin_circuit", "neo_nyc", "london_fog", "singapore_core", "sydney_reef"):
+        assert need in ids
+    s = w.snapshot(a)
+    assert s["globe"]["search"] == "tokyo"
+    assert s["globe"]["filter_ascii"] is True
+    assert s["globe"]["ascii_shard_count"] >= 6
+    # Full catalog still present in snapshot (UI filters client-side)
+    assert len(s["globe"]["regions"]) >= 30
+
+
+def test_new_ascii_pilots_load_on_teleport():
+    w = GameWorld(5414)
+    a = _join(w)
+    for rid in ("neo_nyc", "london_fog", "singapore_core", "sydney_reef"):
+        a.globe["cooldown_until"] = 0
+        a.last_action_ts = 0
+        a.credits = max(int(a.credits), 200)
+        assert w.handle_year_action(a, "teleport", rid)
+        assert a.globe["region_id"] == rid
+        assert w.globe_shards[rid].get("shard_source") == "osm_ascii"
+        assert w.globe_shards[rid].get("chunk_path")
+
+
+def test_reload_region_defs_drops_stale_shard():
+    w = GameWorld(5415)
+    a = _join(w)
+    assert w.handle_year_action(a, "teleport", "neo_tokyo")
+    assert "neo_tokyo" in w.globe_shards
+    dropped = w.reload_shard_packs(force=True)
+    assert "neo_tokyo" in dropped
+    assert "neo_tokyo" not in w.globe_shards
+    # Ensure shard rebuilds on next hop
+    a.globe["cooldown_until"] = 0
+    a.last_action_ts = 0
+    a.credits = 200
+    # Already in neo_tokyo — force via failsafe home then hop
+    w.handle_year_action(a, "globe_recall")
+    a.globe["cooldown_until"] = 0
+    a.last_action_ts = 0
+    assert w.handle_year_action(a, "teleport", "neo_tokyo")
+    assert w.globe_shards["neo_tokyo"].get("shard_source") == "osm_ascii"
+
+
+def test_geo_objective_and_track():
+    w = GameWorld(5416)
+    w.reload_daily_storylines(fire=True, day="2026-09-13")
+    a = _join(w)
+    # No payload → globe geo objective can own compass
+    objs = w._globe_geo_objectives()
+    assert objs
+    assert any(o.get("region_id") == "neo_tokyo" for o in objs)
+    assert w.handle_year_action(a, "globe_track", "neo_tokyo")
+    assert a.globe["tracked_geo_region"] == "neo_tokyo"
+    obj = w._quest_objective(a)
+    assert obj.get("geo") is True
+    assert obj.get("region_id") == "neo_tokyo"
+    assert "teleport" in (obj.get("text") or "") or obj.get("cross_region")
+    s = w.snapshot(a)
+    assert s["globe"]["tracked_geo_region"] == "neo_tokyo"
+    assert s["globe"]["geo_objectives"]
+    sides = (s.get("journal") or {}).get("side") or []
+    assert any(str(x.get("id") or "").startswith("geo_daily_") for x in sides)
