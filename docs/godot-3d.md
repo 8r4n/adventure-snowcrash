@@ -1,6 +1,6 @@
 # Godot 3D Metaverse presentation
 
-Issue **#141** (parent play loop **#118** · quality bar **#130** · Deck **#132** · onboarding **#133** · audio **#134**).
+Issue **#141** (parent play loop **#118** · quality bar **#130** · Deck **#132** · onboarding **#133** · audio **#134** · visual bar **#163**).
 
 **Steam presentation goal:** the shipped desktop SKU is a **true 3D street** (Godot `Node3D` world + courier camera), not a text HUD wrapper. Python `/ws` stays game authority. ASCII FPV / overhead map remain as overlay, accessibility, and debug — they are **not** deleted.
 
@@ -24,6 +24,41 @@ Godot **may be missing** on this box. Files under [`godot_client/`](../godot_cli
 ```
 
 Thin-client rule still holds: **Godot never simulates the street.** It paints `snapshot.state.map` / `player` / `entities` / `players` / `jackpoint` / `uplink` and sends the same named intents as web (`forward`, `turn_left`, …).
+
+---
+
+## Visual bar (#163)
+
+**Cite, do not copy.** [Abandoned Spaceship Godot Demo](https://github.com/perfoon/Abandoned-Spaceship-Godot-Demo) (Perfoon) + shipped [BLASTRONAUT](https://store.steampowered.com/app/1392650/BLASTRONAUT/) is the Godot commercial **look** bar for the Steam 3D SKU. Parent assessment: [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) · quality-bar write-up: [steam-quality-bar.md](steam-quality-bar.md#godot-commercial-look-bar-abandoned-spaceshipclass).
+
+The demo is a **tech-art showcase** (authored hangar, baked lightmaps, trim-sheet recolor, volumetrics) — not a live MMORPG. We want store screenshots to read “finished Godot product,” not untextured primitives. Python `/ws` stays sole game authority.
+
+### What we will copy (spirit)
+
+- Material / lighting / atmosphere **craft** so High-preset street + ICE stills sit closer to that density
+- Trim-sheet + recolor-shader *idea*, driven by **Catppuccin** roles (Teal / Sky / Peach / Yellow / …)
+- High-preset GI / AO / TAA / volumetric stack that still leaves Deck **Low** at the 30 fps floor (#148)
+- Diegetic in-world screens and cosmetic camera juice — presentation only
+
+### What we will not copy
+
+- Meshes, textures, lightmaps, or shaders from the Abandoned Spaceship repo (not our IP; non-goal)
+- Fully authored static levels as the only street (our city is live `/ws` snapshot → AOI `PrimitiveMesh` / later modular kit)
+- Per-prop Omni spam (Deck budget stays **courier + J + U**)
+- Dropping ASCII overlay / web / TUI companions
+- Becoming a static walkable scene
+
+### Child issues (checklist)
+
+Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs #141`.
+
+- [ ] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
+- [ ] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
+- [ ] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
+- [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
+- [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
+- [ ] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
+- [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: this section + [steam-quality-bar.md](steam-quality-bar.md) cite (this PR)
 
 ---
 
@@ -414,6 +449,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 this PR; materials #156; lighting #157; kit #158; ground #159; diegesis #160; camera #161)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -463,7 +499,7 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 ## Related
 
 - [godot-client.md](godot-client.md) — thin-client program + #118 slices
-- [steam-quality-bar.md](steam-quality-bar.md) — #130; 3D is the Steam presentation goal
+- [steam-quality-bar.md](steam-quality-bar.md) — #130; 3D is the Steam presentation goal; Abandoned Spaceship **look** bar (#163)
 - [steam-deck.md](steam-deck.md) — #132 Deck checklist
 - [godot-desktop-export.md](godot-desktop-export.md) — #149 Linux/Windows export + Steam depot layout
 - [theme-catppuccin.md](theme-catppuccin.md) — palette attribution
