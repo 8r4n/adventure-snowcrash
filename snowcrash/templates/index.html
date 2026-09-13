@@ -30,6 +30,10 @@
         <button type="submit" id="btn-jack-in">Enter streets</button>
       </form>
       <p class="name-gate-hint">Tip: open two browsers with different names to play together. Or use <code>?name=YourName</code>.</p>
+      <div class="name-gate-share" role="group" aria-label="Share join link">
+        <button type="button" id="btn-copy-join" class="btn-copy-join">Copy join link</button>
+        <span id="copy-join-status" class="copy-join-status dim" aria-live="polite"></span>
+      </div>
     </div>
   </div>
 
@@ -56,6 +60,7 @@
       </div>
       <div class="toolbar">
         <button type="button" id="btn-mute" aria-pressed="false" title="Mute (m)">Mute</button>
+        <button type="button" id="btn-large-type" class="btn-large-type" data-mode="auto" aria-pressed="false" title="FPV type size (large glyphs)">Aa</button>
         <label class="theme-label" for="theme-select" title="Catppuccin theme"><span class="sr-only">Theme</span>
           <select id="theme-select" aria-label="Catppuccin theme">
             <option value="mocha">Mocha</option>

@@ -873,11 +873,11 @@
 
     function fpvColPlan() {
       const pw = (fpvStage && fpvStage.clientWidth) || 800;
+      // Authoritative: body.large-type (Auto/Large/Compact toggle owns this class)
       const large = !!(typeof document !== "undefined" && document.body && document.body.classList.contains("large-type"));
-      const narrow = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
-      const div = large || narrow ? 7.2 : 5.5;
-      const minCols = large || narrow ? 72 : 110;
-      const maxCols = large || narrow ? 120 : 180;
+      const div = large ? 7.2 : 5.5;
+      const minCols = large ? 72 : 110;
+      const maxCols = large ? 120 : 180;
       return Math.min(maxCols, Math.max(minCols, Math.floor(pw / div)));
     }
 
@@ -3032,29 +3032,74 @@
       blockScrollBleed(els.mobileHud);
       blockScrollBleed(vjoy);
       blockScrollBleed(chord);
-      function bindTouchAct(root, attr, prefix) {
-        if (!root) return;
-        const fire = (ev) => {
-          const btn = ev.target.closest("[" + attr + "]");
-          if (!btn) return;
-          ev.preventDefault();
-          const val = btn.getAttribute(attr);
-          if (prefix === "move") send(val);
-          else send(val);
-          Sound.unlock();
-        };
-        root.addEventListener("pointerdown", fire);
-      }
-      bindTouchAct(vjoy, "data-move", "move");
-      bindTouchAct(chord, "data-act", "act");
-      // Prefer large-type FPV glyphs on narrow viewports (#75)
-      try {
-        const wantLarge = localStorage.getItem("snowcrash_large_type");
-        const narrow = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
-        if (wantLarge === "1" || (wantLarge !== "0" && narrow)) {
-          document.body.classList.add("large-type");
+
+      // Hold-to-move + pointercancel / leave cleanup (ghost-input / idle drift)
+      const touchMoveByPointer = new Map();
+      let touchMoveRepeat = null;
+      function clearTouchMoves() {
+        touchMoveByPointer.clear();
+        if (touchMoveRepeat) {
+          clearInterval(touchMoveRepeat);
+          touchMoveRepeat = null;
         }
-      } catch (_) {}
+      }
+      function pulseTouchMoves() {
+        if (!touchMoveByPointer.size) {
+          clearTouchMoves();
+          return;
+        }
+        const last = [...touchMoveByPointer.values()].pop();
+        if (last) send(last);
+      }
+      function bindTouchAct(root, attr, opts) {
+        if (!root) return;
+        const hold = !!(opts && opts.hold);
+        const onDown = (ev) => {
+          const btn = ev.target && ev.target.closest ? ev.target.closest("[" + attr + "]") : null;
+          if (!btn || btn.disabled) return;
+          // Ignore synthetic mouse after touch; prefer primary button only
+          if (ev.pointerType === "mouse" && ev.button !== 0) return;
+          ev.preventDefault();
+          try { btn.setPointerCapture(ev.pointerId); } catch (_) {}
+          const val = btn.getAttribute(attr);
+          if (!val) return;
+          Sound.unlock();
+          if (hold) {
+            touchMoveByPointer.set(ev.pointerId, val);
+            send(val);
+            if (!touchMoveRepeat) {
+              touchMoveRepeat = setInterval(pulseTouchMoves, 150);
+            }
+          } else {
+            send(val);
+          }
+        };
+        const onUp = (ev) => {
+          if (!hold) return;
+          if (touchMoveByPointer.has(ev.pointerId)) {
+            touchMoveByPointer.delete(ev.pointerId);
+            if (!touchMoveByPointer.size) clearTouchMoves();
+          }
+        };
+        root.addEventListener("pointerdown", onDown);
+        root.addEventListener("pointerup", onUp);
+        root.addEventListener("pointercancel", onUp);
+        root.addEventListener("lostpointercapture", onUp);
+        // Block ghost click after touch
+        root.addEventListener("click", (ev) => {
+          if (ev.target && ev.target.closest && ev.target.closest("[" + attr + "]")) {
+            ev.preventDefault();
+          }
+        });
+      }
+      bindTouchAct(vjoy, "data-move", { hold: true });
+      bindTouchAct(chord, "data-act", { hold: false });
+      window.addEventListener("pointercancel", () => clearTouchMoves());
+      window.addEventListener("blur", () => clearTouchMoves());
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState !== "visible") clearTouchMoves();
+      });
+      window.addEventListener("pagehide", () => clearTouchMoves());
 
       // Optional nick polish (#25)
       if (els.ircNick) {
@@ -3548,7 +3593,13 @@
     const nk = normalizeMoveKey(ev.key);
     if (nk === "w" || nk === "a" || nk === "s" || nk === "d") moveKeysHeld.delete(nk);
   });
-  window.addEventListener("blur", () => moveKeysHeld.clear());
+  function clearMoveKeysHeld() { moveKeysHeld.clear(); }
+  window.addEventListener("blur", clearMoveKeysHeld);
+  window.addEventListener("pointercancel", clearMoveKeysHeld);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") clearMoveKeysHeld();
+  });
+  window.addEventListener("pagehide", clearMoveKeysHeld);
 
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -3821,6 +3872,103 @@
     });
   }
   Sound.syncUi();
+
+  // In-UI FPV large-type toggle (#75) — cycles Auto → Large → Compact
+  const LARGE_TYPE_KEY = "snowcrash_large_type";
+  const btnLargeType = document.getElementById("btn-large-type");
+  function narrowViewport() {
+    return !!(window.matchMedia && window.matchMedia("(max-width: 720px)").matches);
+  }
+  function applyLargeType() {
+    let want = null;
+    try { want = localStorage.getItem(LARGE_TYPE_KEY); } catch (_) { want = null; }
+    const on = want === "1" || (want !== "0" && narrowViewport());
+    document.body.classList.toggle("large-type", on);
+    if (btnLargeType) {
+      const mode = want === "1" ? "on" : want === "0" ? "off" : "auto";
+      btnLargeType.dataset.mode = mode;
+      btnLargeType.setAttribute("aria-pressed", on ? "true" : "false");
+      btnLargeType.textContent = mode === "on" ? "Aa+" : mode === "off" ? "Aa−" : "Aa";
+      btnLargeType.title =
+        mode === "auto"
+          ? "FPV type: Auto (tap → Large)"
+          : mode === "on"
+            ? "FPV type: Large (tap → Compact)"
+            : "FPV type: Compact (tap → Auto)";
+    }
+    try { FpvBridge.kick(); } catch (_) {}
+  }
+  function cycleLargeType() {
+    let want = null;
+    try { want = localStorage.getItem(LARGE_TYPE_KEY); } catch (_) { want = null; }
+    const next = want == null ? "1" : want === "1" ? "0" : null;
+    try {
+      if (next == null) localStorage.removeItem(LARGE_TYPE_KEY);
+      else localStorage.setItem(LARGE_TYPE_KEY, next);
+    } catch (_) {}
+    applyLargeType();
+    Sound.play("click");
+  }
+  if (btnLargeType) {
+    btnLargeType.addEventListener("click", () => {
+      Sound.unlock();
+      cycleLargeType();
+    });
+  }
+  applyLargeType();
+  if (window.matchMedia) {
+    try {
+      window.matchMedia("(max-width: 720px)").addEventListener("change", () => {
+        let want = null;
+        try { want = localStorage.getItem(LARGE_TYPE_KEY); } catch (_) {}
+        if (want == null) applyLargeType();
+      });
+    } catch (_) {}
+  }
+
+  // Copy join link helper (#75) — shares current URL with ?name=
+  const btnCopyJoin = document.getElementById("btn-copy-join");
+  const copyJoinStatus = document.getElementById("copy-join-status");
+  if (btnCopyJoin) {
+    btnCopyJoin.addEventListener("click", async () => {
+      Sound.unlock();
+      const name = ((displayNameEl && displayNameEl.value) || "").trim() || "Courier";
+      let url;
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set("name", name);
+        url = u.toString();
+      } catch (_) {
+        url = window.location.origin + "/?name=" + encodeURIComponent(name);
+      }
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          ok = true;
+        }
+      } catch (_) {}
+      if (!ok) {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+        } catch (_) {}
+      }
+      if (copyJoinStatus) {
+        copyJoinStatus.textContent = ok ? "Copied · paste to a friend" : url;
+      }
+      if (ok) {
+        try { if (typeof YearUI !== "undefined" && YearUI.toast) YearUI.toast("Join link copied", "party", 2200); } catch (_) {}
+      }
+    });
+  }
   ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
     window.addEventListener(evt, () => Sound.unlock(), { once: true, passive: true });
   });

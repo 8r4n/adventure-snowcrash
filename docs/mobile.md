@@ -4,7 +4,9 @@ Issue **#75** (parent campaign **#42**). Make the web client **genuinely playabl
 
 This doc tracks **slice progress** — #75 stays open until the full acceptance list lands.
 
-## What’s in this slice (v1)
+## What’s shipped
+
+### Slice 1 (PR #77)
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -16,34 +18,42 @@ This doc tracks **slice progress** — #75 stays open until the full acceptance 
 | Toasts vs HP / Focus | **Partial** | Sticky stats + toasts parked under topbar (not over HUD / sticky HP row) |
 | Safe-area insets | **Done** | `#app`, mobile HUD, minimap / toast offsets use `env(safe-area-inset-*)` |
 | Joystick scroll bleed | **Done** | `touch-action: none` + non-passive `touchmove` preventDefault on pads |
-| FPV large-type / scale | **Partial** | Auto fewer cols / larger glyphs on narrow or `body.large-type`; no settings toggle UI yet |
-| One-handed portrait + landscape polish | **Open** | Needs device playtest |
-| No critical hover/keyboard-only paths | **Open** | Dock + chords cover common acts; wish / some modals still desktop-leaning |
-| Minimap / compass at small sizes | **Partial** | Existing compact minimap; more tuning TBD |
+
+### Slice 2 (this branch)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Explicit in-UI large-type toggle | **Done** | Toolbar **Aa** cycles Auto → Large (`Aa+`) → Compact (`Aa−`); persists `localStorage.snowcrash_large_type` |
+| One-handed portrait / landscape pads | **Improved** | Viewport padding reserves space for vjoy + chord pad; higher HUD z-index; tighter `#side` max-height so docks don’t bury FPV |
+| Ghost input / pointercancel | **Improved** | Hold-to-move on vjoy with `pointerup` / `pointercancel` / `lostpointercapture` / blur / `visibilitychange` / `pagehide` cleanup; WASD `moveKeysHeld` cleared the same way; ghost click blocked on pads |
+| Minimap / compass at small sizes | **Improved** | ≤420px denser GPS + ellipsis compass pills; portrait/landscape offsets clear of pads |
+| Copy join link | **Done** | Name-gate **Copy join link** copies URL with `?name=` (clipboard + fallback) |
+| QR join | **Open** | Deferred — copy-link covers the easy path |
 | Stable 30fps+ / battery / RAF | **Open** | Not measured this slice |
 | WS reconnect + background tab docs | **Open** | Document in a later pass |
-| Ghost input / touch leave | **Partial** | Scroll bleed addressed; pointer cancel / leave cleanup TBD |
-| Deep link / QR join | **Open** | Out of critical path for installability |
-| App Store / Play wrappers | **Out of scope (v1)** | Track under packaging epics |
+| No critical hover/keyboard-only paths | **Open** | Dock + chords cover common acts; wish / some modals still desktop-leaning |
+| Device test matrix fill-in | **Open** | Stub table below |
 
 ## PWA
 
 - **Manifest:** `/static/manifest.webmanifest` (also served at `/manifest.webmanifest`)
 - **Icons:** 192 / 512 / apple-touch 180 / favicon 32
 - **Display:** `standalone`, theme/background `#05080c`
-- **Service worker:** root `/sw.js` — caches HTML shell + core static CSS/JS/icons. Does **not** offline the MMORPG world (WebSocket + `/api/*` bypass the cache).
+- **Service worker:** root `/sw.js` — caches HTML shell + core static CSS/JS/icons. Does **not** offline the MMORPG world (WebSocket + `/api/*` bypass the cache). Cache name `snowcrash-shell-v2` after slice 2.
 
 Install: Chrome/Edge (Android) or “Add to Home Screen” on iOS Safari after visiting over HTTPS (or localhost).
 
 ### Large type
 
-On viewports ≤720px the client opts into larger FPV glyphs (fewer ASCII columns). Override:
+Toolbar **Aa** control (and `localStorage`):
 
-| `localStorage.snowcrash_large_type` | Effect |
-|-------------------------------------|--------|
-| `"1"` | Force large type |
-| `"0"` | Force default density |
-| unset | Auto on narrow viewports |
+| `localStorage.snowcrash_large_type` | Button | Effect |
+|-------------------------------------|--------|--------|
+| unset | `Aa` | **Auto** — large type on viewports ≤720px |
+| `"1"` | `Aa+` | Force large type (fewer ASCII columns / larger glyphs) |
+| `"0"` | `Aa−` | Force default density |
+
+Changing the toggle calls `FpvBridge.kick()` so the FPV canvas reflows immediately.
 
 ## Test matrix (stub)
 
@@ -59,13 +69,15 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 
 ### Smoke checklist
 
-1. Jack in with `?name=MobileTest`
-2. Virtual stick moves; page does not rubber-band scroll behind the pad
-3. FIRE / GET / ICE chords respond
-4. Open Jrnl + ICE from dock — one scroll surface, readable rows
-5. HP / Focus sticky row remains readable when toasts fire
-6. Notch / home-indicator devices: chrome clear of unsafe edges
-7. (Optional) Install PWA; cold start shows shell; online play still works
+1. Jack in with `?name=MobileTest` (or **Copy join link** from the gate)
+2. Virtual stick moves (hold repeats); page does not rubber-band scroll behind the pad
+3. Lift finger / rotate / background the tab — no idle drift
+4. FIRE / GET / ICE chords respond
+5. Toolbar **Aa** cycles Auto / Large / Compact and FPV density updates
+6. Open Jrnl + ICE from dock — one scroll surface; FPV + pads still reachable in portrait
+7. HP / Focus sticky row remains readable when toasts fire
+8. Notch / home-indicator devices: chrome clear of unsafe edges
+9. (Optional) Install PWA; cold start shows shell; online play still works
 
 ## Related
 
@@ -78,8 +90,7 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 
 See open checkboxes on **#75**. Highest leverage next slices:
 
-1. Device matrix playtest + chord layout for true one-handed portrait
-2. Explicit large-type toggle in UI + minimap/compass density pass
-3. Touch leave / pointercancel ghost-input cleanup
-4. Perf pass (RAF idle, battery) + document WS background behavior
-5. Optional QR / deep-link join helper
+1. Device matrix playtest + remaining hover/keyboard-only audit
+2. Perf pass (RAF idle, battery) + document WS background / reconnect behavior
+3. Optional QR join helper (copy-link already shipped)
+4. Further one-handed polish from real device feedback
