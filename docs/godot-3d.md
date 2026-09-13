@@ -53,9 +53,9 @@ HUD, inventory, year docks, and StreetNet stay as Control overlay. ASCII path is
 | `+` | door | yellow frame | Yellow emission |
 | `o` | manhole | disc | Overlay 0 |
 | `<` `>` | stairs | stepped box | Lavender |
-| `J` | jackpoint | tall plinth + pillar + crown + pulse Omni + Label3D | Sky |
-| `U` | uplink | taller peach beacon + ring + pulse Omni + Label3D | Peach |
-| `$` | vendor | emissive kiosk + canopy + `$` billboard (from `landmarks`) | Yellow / Peach |
+| `J` | jackpoint | tall plinth + pillar + emissive shaft + glyph disc + big `J` billboard + pulse Omni | Sky |
+| `U` | uplink | taller peach beacon + dual ring + emissive shaft + big `U` billboard + pulse Omni | Peach |
+| `$` | vendor | emissive kiosk + canopy + mast + `$` glyph disc (from `landmarks`; no Omni) | Yellow / Peach |
 | `@` | self | teal capsule + head + facing chevron (hidden in 1st) | Teal |
 | letter / `players` | other couriers | tall blue capsule + head + sky facing chevron + nameplate | Blue / Sky |
 | `&` | NPC | short lavender capsule + larger head | Lavender |
@@ -221,7 +221,7 @@ Honesty: **no Deck hardware pass yet** (same gate as [steam-deck.md](steam-deck.
 - [x] `docs/godot-3d.md` design + progress
 - [x] `docs/godot-client.md` + [steam-quality-bar.md](steam-quality-bar.md) state **3D is the Steam presentation goal**
 - [ ] 30 fps+ mid-PC / Deck **measured** (documented budget only)
-- [ ] Landmark / vendor pass without any HUD soup (onboarding still uses Control chrome)
+- [x] Landmark / vendor pass without any HUD soup — #150 (onboarding dock gate #133 kept)
 
 ### Slice 2 acceptance (shipped #143)
 
@@ -335,7 +335,7 @@ Overlay `AsciiOverlay` Label uses `mouse_filter = IGNORE` so year docks / Street
 Epic acceptance still unmet / not device-QA’d:
 
 - [ ] **30 fps+ measured** on mid PC and Steam Deck (budget documented only; no hardware pass)
-- [ ] Landmark / vendor readability **without HUD soup** (onboarding + docks still Control chrome)
+- [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
@@ -344,12 +344,29 @@ Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
 
 ---
 
+
+## Landmark readability (#150)
+
+Street-distance **J** / **U** / **$** language without dumping year docks:
+
+| Cue | What you see | Notes |
+|-----|--------------|-------|
+| Silhouette | Taller plinth / pillar / emissive shaft + glyph disc | Hotter Catppuccin emission; vendors stay **emissive-only** (Omni ceiling still courier + J + U) |
+| Glyph billboard | Large `J` / `U` / `$` + quiet subtitle | Readable across AOI; not a dock panel |
+| Objective marker | Soft teal beam + ring over `objective.target` | From snapshot Payload-Zero (jackpoint → uplink) / other objective ids |
+| Compass tick | Small wedge + bearing/dist above courier | World-space only; hides on tile / while ICE jacked |
+
+**HUD soup rule:** year docks stay gated by onboarding (#133). This slice does **not** open docks or add a landmark list UI — only world meshes + the existing thin Objective label.
+
+`Refs #141` — epic stays OPEN (fps / Deck hardware still unmet).
+
+---
 ## Files
 
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / particles / quality |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
 | `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload |
@@ -378,3 +395,4 @@ Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
 - [ice-heists.md](ice-heists.md) — #56 Black Lattice Vault
 - [globe.md](globe.md) — #54 region teleport / Earth pins
 - [audio.md](audio.md) — #134 ice bed + pulse
+- [godot-onboarding.md](godot-onboarding.md) — #133 dock gate (landmarks must not reintroduce HUD soup)
