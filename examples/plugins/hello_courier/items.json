@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "id": "hello_courier.badge",
+      "name": "Hello Courier Badge",
+      "glyph": "*",
+      "kind": "trinket",
+      "description": "A stamped Faraday pin that whispers 'you made it onto the street.' +1 hack when equipped. Original prop — not from any novel.",
+      "hack_bonus": 1,
+      "equippable": true,
+      "extra": {
+        "example_mod": true,
+        "slot_hint": "trinket"
+      }
+    }
+  ]
+}

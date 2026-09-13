@@ -197,7 +197,13 @@ def create_app(default_seed: Optional[int] = None, deploy_env: str = "production
     async def api_reload_defs() -> JSONResponse:
         async with lock:
             world.reload_district_defs()
-            return JSONResponse({"ok": True, "districts": len(world.district_defs.get("districts", []))})
+            mods = getattr(world, "mod_registry", None)
+            mod_snap = mods.snapshot() if mods is not None else {"mod_count": 0, "errors": []}
+            return JSONResponse({
+                "ok": True,
+                "districts": len(world.district_defs.get("districts", [])),
+                "mods": mod_snap,
+            })
 
     @app.get("/health")
     async def health() -> Dict[str, Any]:

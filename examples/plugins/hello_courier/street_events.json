@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "id": "hello_courier.ping",
+      "kind": "broadcast",
+      "weight": 2.0,
+      "messages": [
+        "Hello Courier — StreetNet example mod pings the rim.",
+        "A Faraday pin glints in the gutter: welcome to modded streets."
+      ],
+      "player_log": "Mod event (hello_courier): street ping."
+    }
+  ]
+}

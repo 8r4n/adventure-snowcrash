@@ -31,6 +31,7 @@ from .ecology import EcologyMixin
 from .daily_storylines import DailyStorylinesMixin
 from .primer import PrimerMixin
 from .sleeves import SleevesMixin
+from .modding import ModdingMixin
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -125,7 +126,7 @@ def _item_from_shop_id(item_id: str) -> Optional[Item]:
     return fn() if fn else None
 
 
-class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, EcologyMixin, DailyStorylinesMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
+class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, PrimerMixin, JaunteMixin, EmpathyMixin, ForecastMixin, EcologyMixin, DailyStorylinesMixin, SignalKeysMixin, NeonDashMixin, PilgrimageMixin, IceHeistMixin, CyberspaceMixin, GlobeMixin):
     """Mixed into GameWorld — call _year_init() at end of __init__."""
 
     def _year_init(self) -> None:
@@ -164,6 +165,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self._forecast_init()
         self._ecology_init()
         self._daily_storylines_init()
+        self._modding_init()
         self._push_event("broadcast", "StreetNet year layer online — districts, crews, contracts live.")
 
     # ----- agent field bootstrap -----
@@ -557,6 +559,9 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         self.district_defs = _load_json("districts.json")
         self.recipe_defs = _load_json("recipes.json")
         self.season_defs = _load_json("season.json")
+        # Hot-reload plugin defs alongside core JSON (#72 /api/reload_defs).
+        if hasattr(self, "reload_mods"):
+            self.reload_mods()
 
     # ----- districts / weather / time of day -----
     def _district_at(self, x: int, y: int, z: int = 0) -> Dict[str, Any]:
@@ -683,6 +688,10 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             for p in living:
                 p.log("Street job broadcast: %s" % job)
         else:
+            # Mod street events (#72) may take the broadcast band when loaded.
+            if getattr(self, "mod_street_events", None) and self.rng.random() < 0.4:
+                if self._fire_mod_street_event(living):
+                    return
             # High Flotilla pressure → prefer Flotilla-flavored broadcasts
             if flo_w >= 1.25:
                 msg = self.rng.choice([
@@ -1189,6 +1198,56 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
         ):
             return self._ecology_action(agent, a, arg or "")
 
+        # Modder plugin framework (#72)
+        if a in ("mods", "mod_list", "plugins", "list_mods"):
+            snap = self._modding_snapshot(agent)
+            if not snap.get("mod_count"):
+                agent.log("No mods loaded. Drop a mod.json under mods/ — see docs/modding.md")
+            else:
+                agent.log(
+                    "Mods API %s — %d loaded:"
+                    % (snap.get("api_version"), snap.get("mod_count", 0))
+                )
+                for m in snap.get("mods") or []:
+                    agent.log(
+                        "  · %s v%s (%d items, %d events) [%s]"
+                        % (
+                            m.get("id"),
+                            m.get("version"),
+                            len(m.get("items") or []),
+                            len(m.get("street_events") or []),
+                            ",".join(m.get("permissions") or []) or "none",
+                        )
+                    )
+            errs = snap.get("errors") or []
+            if errs:
+                agent.log("Mod errors (%d) — fail closed:" % len(errs))
+                for e in errs[:5]:
+                    agent.log("  ! %s: %s" % (e.get("mod_id"), e.get("message")))
+            return True
+
+        if a in ("mod_item", "grant_mod_item", "mod_grant"):
+            iid = (arg or "").strip()
+            if not iid:
+                ids = sorted((getattr(self, "mod_registry", None).items or {}) if getattr(self, "mod_registry", None) else {})
+                agent.log("Usage: mod_item <id>. Known: %s" % (", ".join(ids) or "(none)"))
+                return True
+            item = self._mod_item(iid)
+            if not item:
+                agent.log("Unknown mod item %r (fail closed)." % iid)
+                return True
+            agent.actor.inventory.append(item)
+            agent.log("Mod item sleeved: %s" % item.name)
+            return True
+
+        if a in ("mod_reload", "reload_mods"):
+            snap = self.reload_mods()
+            agent.log(
+                "Mods reloaded — %d ok, %d errors."
+                % (snap.get("mod_count", 0), len(snap.get("errors") or []))
+            )
+            return True
+
         return False
 
     def _near_vendor(self, agent) -> Optional[str]:
@@ -1231,7 +1290,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             if agent.credits < price:
                 agent.log("Need %d credits." % price)
                 return True
-            item = _item_from_shop_id(item_id)
+            item = _item_from_shop_id(item_id) or self._mod_item(item_id)
             if not item:
                 agent.log("Stock glitch.")
                 return True
@@ -1408,7 +1467,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
                     agent.log("Bad stash index.")
                     return True
                 row = crew["stash"].pop(idx)
-                item = _item_from_shop_id(row["id"])
+                item = _item_from_shop_id(row["id"]) or self._mod_item(row["id"])
                 if not item:
                     item = Item(id=row["id"], name=row["name"], kind=row.get("kind", "misc"),
                                 glyph=row.get("glyph", "*"), description=row.get("description", ""))
@@ -1506,7 +1565,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
                 agent.log("Bad stash index.")
                 return True
             row = stash.pop(idx)
-            item = _item_from_shop_id(row["id"]) or Item(
+            item = _item_from_shop_id(row["id"]) or self._mod_item(row["id"]) or Item(
                 id=row["id"], name=row["name"], kind=row.get("kind", "misc"),
                 glyph=row.get("glyph", "*"), description=row.get("description", ""),
             )
@@ -1781,6 +1840,7 @@ class YearFeaturesMixin(CorpPatrolMixin, SoftHardcoreMixin, SleevesMixin, Primer
             "forecast": self._forecast_snapshot(agent),
             "ecology": self._ecology_snapshot(agent),
             "daily_storylines": self._daily_storylines_snapshot(agent),
+            "mods": self._modding_snapshot(agent),
             "death_cause": getattr(agent, "death_cause", None),
         }
 

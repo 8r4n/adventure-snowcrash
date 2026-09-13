@@ -129,6 +129,7 @@ Dev deployment (`--env dev`, port **8766**) runs one shared `GameWorld`:
 - **StreetNet Primer (#60)** — inventory teaching tablet with adaptive mini-quests (ICE / globe / crews); cosmetics + soft skills, no P2W wall. See [docs/primer.md](docs/primer.md).
 - **Uplink Hop / Street Jaunt (#62)** — learned short → district → globe hops with rank gates, Focus cost, and misfire/cooldown feedback. See [docs/jaunte.md](docs/jaunte.md).
 - **Season forecasts (#58)** — psychohistory-lite street trends (ambush density / Flotilla pressure / news-arc intensity); nudge early to shift outcomes. See [docs/season-forecasts.md](docs/season-forecasts.md).
+- **Modder plugin framework (#72)** — data-driven JSON mods (`mods/` + `examples/plugins/`); fail-closed permissions; example Hello Courier item + street event. See [docs/modding.md](docs/modding.md).
 - **Scarce resource ecology (#57)** — bandwidth / condensate water / uplink spectrum wars on globe regions; claim or raid nodes; weather shifts with control. See [docs/ecology.md](docs/ecology.md).
 - **Empathy audit + synth bounties (#63)** — optional StreetNet empathy dialogue test + rogue-synth Retire/Reclaim contracts with heat/reputation swings. See [docs/empathy-bounties.md](docs/empathy-bounties.md).
 - HTTP `/api/*` remains for static assets + bootstrap fallback; live play uses the socket.
@@ -309,6 +310,9 @@ adventure/
   scripts/osm_to_ascii_shard.py  # #83 OSM→ASCII shard spike
   scripts/fixtures/tiny_downtown.osm.xml
   docs/osm-procedural-globe.md
+  docs/modding.md
+  examples/plugins/hello_courier/   # #72 example mod
+  mods/                             # user plugin drop folder
 ```
 
 ## License
