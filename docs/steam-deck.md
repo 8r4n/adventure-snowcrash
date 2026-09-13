@@ -64,7 +64,7 @@ Valve’s customer-facing “four boxes” and the Steamworks checklist map as f
 | Valve criterion | Our Godot plan | Status |
 |-----------------|----------------|--------|
 | Native resolution **1280×800** (preferred) or 1280×720 | `project.godot` viewport **1280×800**; stretch `canvas_items` + `keep` aspect | Done (stub) |
-| Playable default performance (≥ **30 fps @ 800p**) | GL Compatibility renderer; ASCII FPV is cheap; target 30–40 fps locked later | Device QA pending |
+| Playable default performance (≥ **30 fps @ 800p**) | **Mobile** renderer on Deck; 3D street budget in [godot-3d.md](godot-3d.md) (AOI radius, no shadows, 3 Omnis); ASCII FPV still cheap | Device QA pending |
 | Text ≥ **9 px** tall @ 1280×800 (aim **12 px**) | HUD / FPV / docks use ≥12 px mono / UI fonts; Catppuccin contrast | Guidance in § Display; device QA pending |
 | Good defaults (no manual resolution tweak) | Export fullscreen / borderless; no launcher resolution dialog | Export preset notes |
 
@@ -87,7 +87,7 @@ Valve note: if a Linux build exists they test it first; only fall back to Window
 
 ### Performance (checklist sibling)
 
-Default config must hold **~30 fps at 800p** on Deck. Our ASCII FPV + Control HUD is light; risk is unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
+Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and three Omni lights — see [godot-3d.md](godot-3d.md). ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
 
 ---
 
@@ -148,7 +148,7 @@ See [`godot_client/README.md`](../godot_client/README.md) — WASD, Q/E, G/F, do
 
 Steam Input: publish a **default official configuration** in Steamworks once AppID exists (recommended over community-only configs for Verified). Until GodotSteam: Godot’s built-in joypad API + InputMap is enough for self-QA.
 
-Implementation: actions declared in `godot_client/project.godot`; hold-to-move at `HOLD_HZ` (8) mirrors keyboard in `main.gd`.
+Implementation: actions declared in `godot_client/project.godot`; hold-to-move at `HOLD_HZ` (8) mirrors keyboard in `main.gd`. Right stick X → `look_left`/`look_right` (sent as turn intents); R3 toggles 1st/3rd camera (#141).
 
 ---
 
@@ -159,7 +159,7 @@ Implementation: actions declared in `godot_client/project.godot`; hold-to-move a
 | Viewport | **1280×800** | Deck native preferred |
 | Stretch mode | `canvas_items` | UI scales cleanly |
 | Stretch aspect | `keep` | No non-uniform glyph squash |
-| Renderer | `gl_compatibility` | Broader Deck/older GPU path |
+| Renderer | **Mobile** on Deck (`rendering_method.mobile`); Forward+ on desktop | 3D neon + glow; budget in [godot-3d.md](godot-3d.md) |
 | Min UI / FPV glyph height | **≥12 px** @ 800p (hard floor 9 px) | Valve text legibility |
 | HUD contrast | Catppuccin Mocha on crust/base | Readable outdoors / OLED |
 

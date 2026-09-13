@@ -1,9 +1,10 @@
-# Godot thin client (play loop + docks)
+# Godot thin client (3D street + play loop + docks)
 
 **Godot 4.3+** project that talks to the existing Snowcrash Python MMORPG server over WebSocket. It does **not** simulate the street.
 
 - Research / architecture: [`docs/godot-client.md`](../docs/godot-client.md)
 - Implementation epic: GitHub **#118**
+- **3D Metaverse street (Steam presentation):** **#141** — see [`docs/godot-3d.md`](../docs/godot-3d.md)
 - Slice 1 play loop: **#118** · Slice 2 StreetNet + year docks: **#127**
 - First 10 minutes onboarding: **#133** — see [`docs/godot-onboarding.md`](../docs/godot-onboarding.md)
 - Steam north star: **#130** (Godot is the preferred Steam SKU)
@@ -26,7 +27,7 @@ The Godot **editor/binary is not required in this repo**. These files are a vali
 4. Press **F5** (Run Project). Main scene is `scenes/main.tscn`.
 5. Leave the URL as `ws://127.0.0.1:8766/ws`, enter a courier name, **Jack in**.
 6. Status should go `connecting…` → `ONLINE · <player id> · …ms · N online`.
-7. Click the view (or anywhere that is not a LineEdit), then play. Use the **dock bar** for year panels; **StreetNet** chat is on the right.
+7. Click the view (or anywhere that is not a LineEdit), then play. Default view is the **3D street** (live snapshot meshes). **V** cycles 3D → FPV ASCII → overhead map. **C** toggles 1st/3rd camera. Use the **dock bar** for year panels; **StreetNet** chat is on the right.
 
 Production server default is port **8765** — change the URL if you point at that process.
 
@@ -45,7 +46,8 @@ Production server default is port **8765** — change the URL if you point at th
 | U / Enter (in inv) | use selected |
 | Esc | close inventory / escape |
 | R | respawn |
-| V | toggle FPV ASCII ↔ overhead map crop |
+| V | cycle **3D street** ↔ FPV ASCII ↔ overhead map crop |
+| C | toggle courier camera 1st ↔ close 3rd |
 | Disconnect | stop reconnect loop |
 
 ### Gamepad / Steam Deck (#132)
@@ -60,7 +62,9 @@ Production server default is port **8765** — change the URL if you point at th
 | Y (North) | inventory |
 | L2 | use (`u`) |
 | R2 | respawn (`r`) — confirm on device |
-| Select | FPV ↔ map |
+| Select | 3D ↔ FPV ↔ map |
+| Right stick X | turn (look) |
+| R3 | camera 1st ↔ 3rd |
 | Start | cycle year docks |
 
 Default viewport **1280×800** (`keep` aspect). Linux export preset: `export_presets.cfg.example`. Suspend/resume nudges WS reconnect in `net_client.gd`. **Device QA not yet run on hardware.**
@@ -96,16 +100,19 @@ Death during the beat opens a recap (cause + last objective + respawn). Details:
 - Objective (peach; green on win, red on death)
 - Inventory `ItemList` (click select, double-click use)
 - Scrolling log from `state.messages`
-- **FPV** text view (TUI-style raycast from snapshot map) or cropped ASCII overhead with facing glyph
+- **3D street** (default): snapshot glyphs → neon meshes; courier camera; J/U beacons — [godot-3d.md](../docs/godot-3d.md)
+- **FPV** text view (TUI-style raycast from snapshot map) or cropped ASCII overhead with facing glyph (V toggle; path not deleted)
 - Year dock body + StreetNet channel list / nick list / chat log
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `project.godot` | Godot 4.3+ config, GL Compatibility, 1280×800, Deck InputMap |
+| `project.godot` | Godot 4.3+ config, **Forward+** / Mobile, 1280×800, Deck InputMap |
 | `export_presets.cfg.example` | Linux/X11 + Windows export stub (#132) |
-| `scenes/main.tscn` | Name gate, HUD, FPV/map, inventory, log, docks, StreetNet |
+| `scenes/main.tscn` | Name gate, HUD, 3D SubViewport + FPV/map, inventory, log, docks, StreetNet |
+| `scenes/street.tscn` | Node3D street world + courier camera (#141) |
+| `scripts/street_3d.gd` | Snapshot glyphs → meshes / entities / landmarks |
 | `scripts/net_client.gd` | `WebSocketPeer` — join/rejoin by id, action, chat, ping, backoff reconnect |
 | `scripts/main.gd` | UI + hold-to-move + inventory digits + docks wiring |
 | `scripts/year_docks.gd` | StreetNet + year dock paint/actions (#127); secondary gate for #133 |
@@ -141,4 +148,4 @@ Harness covers play-loop envelopes plus dock/chat actions (`globe`, `ice_probe`,
 
 ## Out of scope (later #118 slices)
 
-GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 are in-tree.
+GPS minimap (#116), party/crew/shop/craft surfaces, desktop export, full Theme resource, Steam packaging (#67 / #130). Onboarding #133 + audio/music #134 + **3D street slice 1 (#141, epic open)** are in-tree.

@@ -1,5 +1,5 @@
 extends Control
-## Core play loop + StreetNet/year docks + onboarding + audio + Deck pad (#118 / #127 / #132 / #133 / #134).
+## Core play loop + 3D street + docks + onboarding + audio + Deck pad (#141 / #118 / #127 / #132 / #133 / #134).
 
 @onready var status_label: Label = %Status
 @onready var url_edit: LineEdit = %UrlEdit
@@ -23,6 +23,11 @@ extends Control
 @onready var master_slider: HSlider = %MasterSlider
 @onready var sfx_slider: HSlider = %SfxSlider
 @onready var music_slider: HSlider = %MusicSlider
+@onready var street: Street3D = %Street3D
+@onready var street_host: SubViewportContainer = %StreetHost
+@onready var street_vp: SubViewport = %StreetViewport
+@onready var view_scroll: ScrollContainer = %ViewScroll
+@onready var cam_btn: Button = %CamBtn
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -30,7 +35,7 @@ const INV_DIGIT_MS := 420
 var _hold_accum: float = 0.0
 var _held_action: String = ""
 var _move_keys: Dictionary = {}  # "w"/"a"/"s"/"d" -> true
-var _view_mode: String = "fpv"  # "fpv" | "map"
+var _view_mode: String = "3d"  # "3d" | "fpv" | "map"
 var _last_state: Dictionary = {}
 var _inv_digit_buf: String = ""
 var _inv_digit_accum: float = -1.0
@@ -44,6 +49,8 @@ func _ready() -> void:
 	disconnect_btn.pressed.connect(_on_disconnect_pressed)
 	name_edit.text_submitted.connect(func(_t): _on_join_pressed())
 	view_toggle_btn.pressed.connect(_on_view_toggle)
+	if cam_btn:
+		cam_btn.pressed.connect(_on_cam_toggle)
 	use_btn.pressed.connect(_on_use_pressed)
 	inv_list.item_selected.connect(_on_inv_selected)
 	inv_list.item_activated.connect(_on_inv_activated)
@@ -58,7 +65,8 @@ func _ready() -> void:
 	_on_status("disconnected — start dev server on :8766", "warn")
 	hud_label.text = "HP —  · Focus —  · XP —  · $—"
 	objective_label.text = "Objective: (jack in)"
-	view_label.text = "(FPV / map after jack-in)"
+	view_label.text = "(3D street / FPV / map after jack-in)"
+	_apply_view_visibility()
 	log_box.clear()
 	log_box.append_text("[color=#a6adc8]Log idle — connect to Python /ws[/color]\n")
 	_apply_theme_hints()
@@ -154,9 +162,9 @@ func _on_onboarding_respawn() -> void:
 
 func _apply_theme_hints() -> void:
 	hint_label.text = (
-		"WASD / stick move · Q/E / L1 R1 turn · G / A get · F / X fire · "
-		+ "B look · Y inv · L2 use · R2 respawn · Select FPV/map · Start docks · "
-		+ "StreetNet chat · M mute · Audio (Deck map: docs/steam-deck.md)"
+		"WASD / stick move · Q/E / L1 R1 / R-stick turn · G / A get · F / X fire · "
+		+ "B look · Y inv · L2 use · R2 respawn · Select 3D/FPV/map · C camera · Start docks · "
+		+ "StreetNet chat · M mute · Audio (Deck map: docs/steam-deck.md · 3D: docs/godot-3d.md)"
 	)
 
 
@@ -177,10 +185,44 @@ func _on_disconnect_pressed() -> void:
 
 
 func _on_view_toggle() -> void:
-	_view_mode = "map" if _view_mode == "fpv" else "fpv"
-	view_toggle_btn.text = "View: %s" % _view_mode.to_upper()
+	match _view_mode:
+		"3d":
+			_view_mode = "fpv"
+		"fpv":
+			_view_mode = "map"
+		_:
+			_view_mode = "3d"
+	_apply_view_visibility()
 	if not _last_state.is_empty():
 		_paint_view(_last_state)
+
+
+func _on_cam_toggle() -> void:
+	if street == null:
+		return
+	var cam_name := street.toggle_camera()
+	if cam_btn:
+		cam_btn.text = "Cam: %s" % cam_name
+	_append_log("Camera %s" % cam_name)
+
+
+func _apply_view_visibility() -> void:
+	var is_3d := _view_mode == "3d"
+	if street_host:
+		street_host.visible = is_3d
+	if view_scroll:
+		view_scroll.visible = not is_3d
+	if view_toggle_btn:
+		view_toggle_btn.text = "View: %s" % _view_mode.to_upper()
+	_sync_street_vp()
+
+
+func _sync_street_vp() -> void:
+	if street_vp == null or street_host == null:
+		return
+	var sz := street_host.size
+	if sz.x >= 8.0 and sz.y >= 8.0:
+		street_vp.size = Vector2i(sz)
 
 
 func _on_use_pressed() -> void:
@@ -307,6 +349,11 @@ func _append_death_recap_once(state: Dictionary) -> void:
 
 
 func _paint_view(state: Dictionary) -> void:
+	if street:
+		street.apply_snapshot(state)
+	_sync_street_vp()
+	if _view_mode == "3d":
+		return
 	if _view_mode == "fpv":
 		var frame := FpvAscii.render(state, 56, 18)
 		var compass := FpvAscii.compass_line(state.get("player", {}))
@@ -391,12 +438,14 @@ func _process(delta: float) -> void:
 			Input.is_physical_key_pressed(KEY_Q)
 			or Input.is_physical_key_pressed(KEY_LEFT)
 			or Input.is_action_pressed("turn_left")
+			or Input.is_action_pressed("look_left")
 		):
 			action = "turn_left"
 		elif (
 			Input.is_physical_key_pressed(KEY_E)
 			or Input.is_physical_key_pressed(KEY_RIGHT)
 			or Input.is_action_pressed("turn_right")
+			or Input.is_action_pressed("look_right")
 		):
 			action = "turn_right"
 
@@ -476,9 +525,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# View toggle
+	# View cycle: 3D / FPV / map
 	if keycode == KEY_V:
 		_on_view_toggle()
+		get_viewport().set_input_as_handled()
+		return
+	if keycode == KEY_C:
+		_on_cam_toggle()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -557,6 +610,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("toggle_view"):
 		_on_view_toggle()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("toggle_camera"):
+		_on_cam_toggle()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("toggle_docks"):
 		if year_docks != null:

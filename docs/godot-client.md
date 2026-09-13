@@ -4,6 +4,8 @@ Issue **#109** (related **#67** Steam · **#75** mobile · **#72** modding · **
 
 **Decision (this ticket):** **GO** on a **Godot 4.x thin client** (UI + WebSocket to existing `snowcrash.web` `/ws`). **NO-GO** on rewriting the Python authority server or abandoning web/TUI. Spike lives in [`godot_client/`](../godot_client/). First-10 Steam beat: [godot-onboarding.md](godot-onboarding.md) (**#133**).
 
+**Steam presentation goal (#141 / #130):** the shipped SKU is a **3D Metaverse street** (`Node3D` meshes + courier camera), not ASCII-as-product. ASCII FPV / map stay as overlay / accessibility / debug. Design + slice progress: [godot-3d.md](godot-3d.md).
+
 Godot **was not installed** on the research box (2026-09-13). Project files are still valid Godot 4.3+; open them in the editor locally (see [`godot_client/README.md`](../godot_client/README.md)).
 
 Sources checked 2026-09-13:
@@ -44,7 +46,7 @@ Sources checked 2026-09-13:
 | Steam | Older GodotSteam modules | [GodotSteam GDExtension](https://godotsteam.com/) targets **4.4+** (4.4 GDExtension is **not** compatible with 4.3) |
 | HTML5 | Possible | Possible; mixed-content forces `wss://` |
 
-Spike `project.godot` declares `config/features=PackedStringArray("4.3", "GL Compatibility")` so a 4.3 editor can open it. If you adopt GodotSteam immediately, bump the feature string to 4.4 and pin the editor.
+Spike `project.godot` declares `config/features=PackedStringArray("4.3", "Forward Plus")` (desktop) with `rendering_method.mobile=mobile` for Deck; a 4.3 editor can open it. If you adopt GodotSteam immediately, bump the feature string to 4.4 and pin the editor.
 
 **Language:** GDScript is enough for a thin client (JSON + UI). C# / GDExtension only if we later embed a sidecar or Steam helper.
 
@@ -57,7 +59,7 @@ The Python process is already the **authority**: one `GameWorld`, WebSocket `/ws
 ```
 ┌─────────────────────────────────────────┐
 │  Godot 4 thin client (this path)        │
-│  UI · FPV/ASCII · docks · input         │
+│  3D street · HUD · FPV/ASCII · docks    │
 │  WebSocketPeer  →  ws(s)://host:port/ws │
 └──────────────────┬──────────────────────┘
                    │ JSON text frames
@@ -379,6 +381,19 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Catppuccin styling consistent with play-loop | Done |
 | Docs checklist + protocol smoke for dock/chat envelopes | Done |
 
+### Slice 3D — street vertical slice (**done this PR**, #141 — epic stays OPEN)
+
+| Item | Status |
+|------|--------|
+| Snapshot glyphs → Node3D meshes (walls/floor/props, Catppuccin neon) | Done — `street_3d.gd` + `scenes/street.tscn` |
+| Courier camera (close 3rd / 1st) + existing WS intents + gamepad look | Done — `V` view cycle, `C` / R3 cam, right-stick turn |
+| Other entities as meshes/billboards; highlight J / U | Done |
+| Control HUD / docks / ASCII overlay or toggle (ASCII path kept) | Done — default **3D** |
+| Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
+| Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
+
+Remaining #141 slices (do **not** close the issue): entities polish, cyberspace 3D, globe 3D, lighting/particles/Deck QA, optional ASCII overlay.
+
 ### Remaining epic items (later slices)
 
 **Core loop leftovers**
@@ -414,13 +429,14 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
 - [ ] Optional: Steam packaging path (#67 / #130) using Godot export
 
-Suggested next slice: **GPS minimap + death UX**, or **desktop export** toward Steam (#130).
+Suggested next slice: **#141 entities / cyberspace 3D**, or GPS minimap + death UX, or desktop export toward Steam (#130).
 
 ---
 ## Related
 
 - [audio.md](audio.md) — #134 SFX/music buses + trailer bed
-- [steam-quality-bar.md](steam-quality-bar.md) — #130 Steam comps + quality bar; Godot is the **preferred** Steam SKU
+- [godot-3d.md](godot-3d.md) — #141 3D Metaverse street (Steam presentation goal)
+- [steam-quality-bar.md](steam-quality-bar.md) — #130 Steam comps + quality bar; **3D Godot** is the Steam presentation goal
 - [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / assets; Tauri = calendar fallback wrap of web
 - [mobile.md](mobile.md) — #75 PWA; Godot is store-native later
 - [modding.md](modding.md) — #72 JSON plugins; Godot only renders

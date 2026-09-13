@@ -10,9 +10,10 @@ Living doc: competitive survey (Steam / press, Sep 2026), acceptance themes for 
 
 ## North star
 
-Ship adventure-snowcrash as a **Steam-marketable** game that is **best-in-class among Godot-built titles** in its niche — Metaverse courier MMORPG + ASCII/FPV + ICE — **not** a web prototype wrapped for Steam.
+Ship adventure-snowcrash as a **Steam-marketable** game that is **best-in-class among Godot-built titles** in its niche — Metaverse courier MMORPG + **3D street** + ICE — **not** a web prototype wrapped for Steam and **not** a text HUD wrapper.
 
-- **Primary SKU** = Godot 4 desktop client talking to the Python authority over WebSocket (thin client; web remains companion / staging).
+- **Primary SKU** = Godot 4 **3D** desktop client talking to the Python authority over WebSocket (thin client; web / TUI / ASCII remain companions, accessibility, and debug).
+- **Presentation goal (#141):** live `/ws` snapshots drive a `Node3D` street (meshes, courier camera, neon Catppuccin). ASCII FPV is overlay/toggle, not the storefront look. See [godot-3d.md](godot-3d.md).
 - **Bar to beat** = genre depth (Qud / Cogmind), hacking fantasy (Grey Hack / 868-BACK), and Godot commercial polish (StS2 / Brotato-class store + juice).
 
 ---
@@ -60,7 +61,7 @@ Treat these as the bar to beat or match in our niche:
 
 | # | Theme | Target | Primary trackers |
 |---|--------|--------|------------------|
-| 1 | **Primary client = Godot 4** on Steam | Thin WS to Python OK; web is companion, not the SKU | #118 · #127 |
+| 1 | **Primary client = Godot 4 3D** on Steam | Thin WS to Python OK; **3D street** is the presentation; web/ASCII are companions | #141 · #118 · #127 |
 | 2 | **First 10 minutes sell the fantasy** | Tutorial/onboarding; no HUD soup; one clear objective | #133 |
 | 3 | **Cogmind-level information design** | Readable glyphs/FPV, tooltips, death/recap clarity | #118 · HUD polish |
 | 4 | **Qud-level world density over time** | Regions/globe/news arcs feel alive | #54 · #51 |
@@ -83,7 +84,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 |------|----------------|
 | **Web-first MMORPG** | Feature-complete street layer: WS sync, chat, Payload-Zero, year systems (ICE, globe, Primer, Jaunte, sleeves, ecology, empathy, seasons, mods). Primary play surface today. |
 | **ASCII FPV** | Web video→ASCII + TUI raycast; Catppuccin roles. Strong identity for store screenshots *as reference*, not final capsules. |
-| **Godot spike → slice 1** | `godot_client/`: join/rejoin, intents, HUD, ASCII map + TUI-style FPV, Catppuccin consts. Tracked under #118; docks/StreetNet still #127. |
+| **Godot thin client** | `godot_client/`: join/rejoin, intents, HUD, docks, onboarding, audio, **3D street slice (#141)** + ASCII FPV/map toggle. Python `/ws` authority unchanged. |
 | **Packaging research** | [#67](https://github.com/8r4n/adventure-snowcrash/issues/67) closed with [steam-packaging.md](steam-packaging.md): Steam Direct, Tauri+sidecar *fastest wrap*, store asset sizes, Deck/Proton notes. **Does not yet re-center Godot as the preferred Steam SKU** (this doc + #118 do). |
 | **Mods** | JSON plugin API + local pack contract ([modding.md](modding.md), [modding-workshop.md](modding-workshop.md)); Workshop upload not wired. |
 | **Demo / trailer source** | README montage (#111 done); live re-capture still open (#126). |
@@ -95,7 +96,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 
 | Theme | Gap |
 |-------|-----|
-| 1 Godot primary SKU | Slice 1 only; docks/StreetNet/year parity (#127), export, GodotSteam, sidecar/offline story still open. #67 still recommends Tauri wrap of *web* as fastest v1 — **reprioritize**: Godot is the marketable SKU; Tauri is fallback if calendar forces a wrap. |
+| 1 Godot primary SKU | **3D street vertical slice shipped (#141, epic open).** Remaining: entities/cyber/globe 3D, export, GodotSteam, sidecar/offline. #67 Tauri wrap of *web* is calendar fallback only. |
 | 2 First 10 minutes | **Shipped #133 (Godot):** jack-in brief → name → Payload-Zero beat with dock gate + death/win feedback + skip/remember — see [godot-onboarding.md](godot-onboarding.md). Human ≥3 cold playtest still follow-up. Primer remains deeper post-beat teaching. |
 | 3 Info design | Web HUD is dense (“HUD soup” risk); Godot HUD is minimal (good) but lacks Cogmind-grade tooltips / death recap / teach-in-place. |
 | 4 World density | Globe (#54) + news arcs (#51) still open; density exists as systems but not as a continuous living world read for new players. |
@@ -120,7 +121,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 
 Order of investment toward the north star:
 
-1. **Godot Steam SKU** — finish #118 play loop → #127 docks/StreetNet parity → export + GodotSteam (see [godot-client.md](godot-client.md)).
+1. **Godot 3D Steam SKU** — play loop + docks done; **#141** 3D street slice 1 done (epic open) → entities/cyber/globe 3D → export + GodotSteam (see [godot-3d.md](godot-3d.md)).
 2. **Onboarding / juice** — first-10-minutes fantasy beat (**#133** / [godot-onboarding.md](godot-onboarding.md)) + audio/music pass (**#134** / [audio.md](audio.md)) ✅.
 3. **Store page / trailer** — capsules + live trailer source (#126) using the Godot client when ready; asset sizes remain in [steam-packaging.md](steam-packaging.md).
 4. **Workshop** — keep JSON mods shipping (#72); Workshop when Steamworks is real.
@@ -137,8 +138,9 @@ Do **not** pay Steam Direct or upload builds without explicit approval (same gat
 | [#132](https://github.com/8r4n/adventure-snowcrash/issues/132) Steam Deck Verified checklist | 8 Performance / Deck |
 | [#133](https://github.com/8r4n/adventure-snowcrash/issues/133) First 10 minutes onboarding | 2 Onboarding |
 | [#134](https://github.com/8r4n/adventure-snowcrash/issues/134) Audio + music pass | 7 Audio + juice |
+| [#141](https://github.com/8r4n/adventure-snowcrash/issues/141) Godot 3D Metaverse client | 1 Godot 3D presentation |
 
-Still covered by existing opens: Godot SKU **#118** / **#127**, store/trailer source **#126**, Workshop **#72**, world density **#54** / **#51**, mobile companion **#75**.
+Still covered by existing opens: Godot 3D presentation **#141**, play-loop epic **#118** / **#127**, store/trailer source **#126**, Workshop **#72**, world density **#54** / **#51**, mobile companion **#75**.
 
 ---
 
@@ -146,6 +148,7 @@ Still covered by existing opens: Godot SKU **#118** / **#127**, store/trailer so
 
 - [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / store asset sizes
 - [steam-deck.md](steam-deck.md) — #132 Steam Deck Verified checklist (Godot Linux export)
+- [godot-3d.md](godot-3d.md) — #141 3D street (Steam presentation goal)
 - [godot-client.md](godot-client.md) — #109/#118 thin client + slices
 - [modding-workshop.md](modding-workshop.md) — #72 Workshop-style packs
 - [demo-video.md](demo-video.md) — #126 live re-capture
