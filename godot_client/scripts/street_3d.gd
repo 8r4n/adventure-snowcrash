@@ -1,6 +1,7 @@
 extends Node3D
 class_name Street3D
 ## Snapshot map → neon 3D street (#141). Python /ws remains authority.
+## Slice 2: distinct entity silhouettes, facing chevrons, vendor/J/U landmarks.
 ## Glyphs become PrimitiveMesh instances + Catppuccin emission materials.
 
 const TILE := 1.0
@@ -25,7 +26,7 @@ const GLYPH_ROLE := {
 	"o": "manhole",
 	"<": "stairs_up",
 	">": "stairs_down",
-	"*": "prop_loot",
+	"*": "pickup",
 	"@": "self",
 	"&": "npc",
 	"i": "infected",
@@ -35,6 +36,8 @@ const GLYPH_ROLE := {
 	"I": "ice",
 	"%": "core",
 	"X": "exit",
+	"$": "vendor",
+	"B": "boss",
 }
 
 const TERRAIN_BUILD := {
@@ -76,10 +79,15 @@ var _jack_light: OmniLight3D
 var _uplink_light: OmniLight3D
 var _pulse: float = 0.0
 var _last_landmark_fp: String = ""
+var _courier_facing: MeshInstance3D
+## Deck: reuse shared PrimitiveMesh + materials; entity nodes are pooled (no free/alloc per snap).
+const MAX_POOLED_ENTITIES := 48
+const LANDMARK_VENDOR_RADIUS := 22
 
 
 func _ready() -> void:
 	_ensure_resources()
+	_ensure_courier_parts()
 	_apply_cam_rig()
 	set_process(true)
 
@@ -139,6 +147,11 @@ func _apply_cam_rig() -> void:
 		camera.rotation_degrees = Vector3(0.0, 0.0, 0.0)
 		if courier_mesh:
 			courier_mesh.visible = false
+		var head_1st := courier.get_node_or_null("Head") as MeshInstance3D
+		if head_1st:
+			head_1st.visible = false
+		if _courier_facing:
+			_courier_facing.visible = false
 		if nameplate:
 			nameplate.visible = false
 	else:
@@ -147,6 +160,11 @@ func _apply_cam_rig() -> void:
 		camera.rotation_degrees = Vector3(-14.0, 0.0, 0.0)
 		if courier_mesh:
 			courier_mesh.visible = true
+		var head_3rd := courier.get_node_or_null("Head") as MeshInstance3D
+		if head_3rd:
+			head_3rd.visible = true
+		if _courier_facing:
+			_courier_facing.visible = true
 		if nameplate:
 			nameplate.visible = true
 	camera.current = true
@@ -178,7 +196,17 @@ func _ensure_resources() -> void:
 	_mats["core"] = _mat(Catppuccin.PINK, 1.4, 0.15)
 	_mats["exit"] = _mat(Catppuccin.GREEN, 1.0, 0.1)
 	_mats["other"] = _mat(Catppuccin.BLUE, 0.65, 0.15)
+	_mats["other_hi"] = _mat(Catppuccin.SKY, 0.95, 0.2)
+	_mats["vendor"] = _mat(Catppuccin.YELLOW, 1.7, 0.25)
+	_mats["vendor_trim"] = _mat(Catppuccin.PEACH, 1.2, 0.3)
+	_mats["pickup"] = _mat(Catppuccin.YELLOW, 1.35, 0.1)
+	_mats["boss"] = _mat(Catppuccin.RED, 1.15, 0.2)
+	_mats["facing"] = _mat(Catppuccin.TEAL, 1.4, 0.15)
+	_mats["facing_other"] = _mat(Catppuccin.SKY, 1.3, 0.15)
 	_mats["prop"] = _mat(Catppuccin.SURFACE1, 0.2, 0.2)
+	_mats["npc_head"] = _mat(Catppuccin.LAVENDER.lightened(0.12), 0.7, 0.1)
+	_mats["infected_head"] = _mat(Catppuccin.GREEN.darkened(0.15), 0.85, 0.05)
+	_mats["thug_head"] = _mat(Catppuccin.PEACH.darkened(0.1), 0.9, 0.15)
 	if _mats["water"] is StandardMaterial3D:
 		(_mats["water"] as StandardMaterial3D).transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 
@@ -206,6 +234,31 @@ func _ensure_resources() -> void:
 	cap.radius = 0.26
 	cap.height = 1.35
 	_meshes["capsule"] = cap
+	var cap_tall := CapsuleMesh.new()
+	cap_tall.radius = 0.24
+	cap_tall.height = 1.55
+	_meshes["capsule_tall"] = cap_tall
+	var cap_short := CapsuleMesh.new()
+	cap_short.radius = 0.3
+	cap_short.height = 1.05
+	_meshes["capsule_short"] = cap_short
+	var head := SphereMesh.new()
+	head.radius = 0.18
+	head.height = 0.36
+	_meshes["head"] = head
+	var wedge := PrismMesh.new()
+	wedge.size = Vector3(0.28, 0.12, 0.42)
+	_meshes["facing"] = wedge
+	var kiosk := BoxMesh.new()
+	kiosk.size = Vector3(0.7, 1.0, 0.55)
+	_meshes["kiosk"] = kiosk
+	var canopy := BoxMesh.new()
+	canopy.size = Vector3(0.95, 0.12, 0.7)
+	_meshes["canopy"] = canopy
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.22
+	ring.outer_radius = 0.38
+	_meshes["ring"] = ring
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(float(BUILD_RADIUS * 2 + 6), float(BUILD_RADIUS * 2 + 6))
 	_meshes["ground"] = plane
@@ -283,10 +336,9 @@ func _rebuild_map(state: Dictionary, px: int, py: int) -> void:
 func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 	var origin := Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
 	var role := str(TERRAIN_BUILD.get(ch, GLYPH_ROLE.get(ch, "prop")))
-	if role in ["jackpoint", "uplink", "self", "npc", "infected", "thug", "drone", "camera", "ice", "core", "exit", "prop_loot"]:
+	if role in ["jackpoint", "uplink", "self", "npc", "infected", "thug", "drone", "camera", "ice", "core", "exit", "pickup", "vendor", "boss"]:
 		_add_mesh(map_root, _meshes["floor"], _mats["floor"], origin + Vector3(0, 0.04, 0))
-		if role == "prop_loot":
-			_add_mesh(map_root, _meshes["sphere"], _mats["loot"], origin + Vector3(0, 0.35, 0), Vector3(0.55, 0.55, 0.55))
+		# Dynamic entities / landmarks own the upright mesh — floor only here.
 		return
 	if not TERRAIN_BUILD.has(ch) and ch.length() == 1:
 		# Unknown visible glyph (other courier letter, item) — walkable floor.
@@ -325,7 +377,8 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
 	var jack = state.get("jackpoint", [])
 	var uplink = state.get("uplink", [])
-	var fp := "%s|%s|%d:%d" % [str(jack), str(uplink), int(px / REBUILD_STEP), int(py / REBUILD_STEP)]
+	var marks = state.get("landmarks", [])
+	var fp := "%s|%s|%s|%d:%d" % [str(jack), str(uplink), str(marks), int(px / REBUILD_STEP), int(py / REBUILD_STEP)]
 	if fp == _last_landmark_fp and landmark_root.get_child_count() > 0:
 		return
 	_last_landmark_fp = fp
@@ -333,13 +386,33 @@ func _paint_landmarks(state: Dictionary, px: int, py: int) -> void:
 		c.free()
 	_jack_light = null
 	_uplink_light = null
+	var seen: Dictionary = {}
 	if typeof(jack) == TYPE_ARRAY and jack.size() >= 2:
-		_spawn_landmark(int(jack[0]), int(jack[1]), px, py, true)
+		_spawn_jack_uplink(int(jack[0]), int(jack[1]), px, py, true)
+		seen["%d:%d" % [int(jack[0]), int(jack[1])]] = true
 	if typeof(uplink) == TYPE_ARRAY and uplink.size() >= 2:
-		_spawn_landmark(int(uplink[0]), int(uplink[1]), px, py, false)
+		_spawn_jack_uplink(int(uplink[0]), int(uplink[1]), px, py, false)
+		seen["%d:%d" % [int(uplink[0]), int(uplink[1])]] = true
+	if typeof(marks) == TYPE_ARRAY:
+		for m in marks:
+			if typeof(m) != TYPE_DICTIONARY:
+				continue
+			var mx := int(m.get("x", -999))
+			var my := int(m.get("y", -999))
+			var key := "%d:%d" % [mx, my]
+			if seen.get(key, false):
+				continue
+			var g := str(m.get("glyph", ""))
+			var nm := str(m.get("name", g))
+			if g == "$" or str(m.get("id", "")).begins_with("vendor"):
+				_spawn_vendor(mx, my, px, py, nm)
+				seen[key] = true
+			elif g == "*" or str(m.get("id", "")).begins_with("signal"):
+				_spawn_pickup_beacon(mx, my, px, py, nm if nm else "Loot")
+				seen[key] = true
 
 
-func _spawn_landmark(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
+func _spawn_jack_uplink(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
 	if maxi(absi(x - px), absi(y - py)) > BUILD_RADIUS + 8:
 		return
 	var origin := Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
@@ -347,15 +420,19 @@ func _spawn_landmark(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
 	holder.position = origin
 	landmark_root.add_child(holder)
 	var mat: Material = _mats["jack"] if is_jack else _mats["uplink"]
-	_add_mesh(holder, _meshes["pillar"], mat, Vector3(0, 1.25, 0))
-	_add_mesh(holder, _meshes["sphere"], mat, Vector3(0, 2.55, 0), Vector3(1.15, 1.15, 1.15) if not is_jack else Vector3(0.85, 0.85, 0.85))
+	# Tall silhouette: base plinth + pillar + crown sphere (readable at distance).
+	_add_mesh(holder, _meshes["box"], mat, Vector3(0, 0.18, 0), Vector3(0.85, 0.36, 0.85))
+	_add_mesh(holder, _meshes["pillar"], mat, Vector3(0, 1.45, 0), Vector3(1.05, 1.2, 1.05) if is_jack else Vector3(0.95, 1.35, 0.95))
+	_add_mesh(holder, _meshes["sphere"], mat, Vector3(0, 2.95, 0), Vector3(0.95, 0.95, 0.95) if is_jack else Vector3(1.25, 1.25, 1.25))
+	if not is_jack:
+		_add_mesh(holder, _meshes["ring"], mat, Vector3(0, 2.55, 0), Vector3(1.0, 1.0, 1.0))
 	var light := OmniLight3D.new()
 	light.light_color = Catppuccin.SKY if is_jack else Catppuccin.PEACH
 	light.light_energy = 2.4
 	light.omni_range = 11.0
 	light.omni_attenuation = 1.25
 	light.shadow_enabled = false
-	light.position = Vector3(0, 2.4, 0)
+	light.position = Vector3(0, 2.7, 0)
 	holder.add_child(light)
 	if is_jack:
 		_jack_light = light
@@ -363,9 +440,9 @@ func _spawn_landmark(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
 		_uplink_light = light
 	var lab := Label3D.new()
 	lab.text = "J  JACKPOINT" if is_jack else "U  UPLINK"
-	lab.position = Vector3(0, 3.15, 0)
+	lab.position = Vector3(0, 3.55, 0)
 	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lab.font_size = 36
+	lab.font_size = 38
 	lab.outline_size = 12
 	lab.modulate = Catppuccin.SKY if is_jack else Catppuccin.PEACH
 	lab.outline_modulate = Catppuccin.CRUST
@@ -373,8 +450,52 @@ func _spawn_landmark(x: int, y: int, px: int, py: int, is_jack: bool) -> void:
 	holder.add_child(lab)
 
 
+func _spawn_vendor(x: int, y: int, px: int, py: int, label: String) -> void:
+	if maxi(absi(x - px), absi(y - py)) > LANDMARK_VENDOR_RADIUS:
+		return
+	var holder := Node3D.new()
+	holder.position = Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
+	landmark_root.add_child(holder)
+	# Emissive kiosk (no Omni — Deck light budget stays courier + J + U).
+	_add_mesh(holder, _meshes["kiosk"], _mats["vendor"], Vector3(0, 0.85, 0))
+	_add_mesh(holder, _meshes["canopy"], _mats["vendor_trim"], Vector3(0, 1.55, 0))
+	_add_mesh(holder, _meshes["sphere"], _mats["vendor"], Vector3(0, 1.95, 0), Vector3(0.55, 0.55, 0.55))
+	_add_mesh(holder, _meshes["box"], _mats["vendor_trim"], Vector3(0, 0.08, 0), Vector3(0.9, 0.1, 0.7))
+	var lab := Label3D.new()
+	lab.text = "$  %s" % (label if label else "VENDOR")
+	lab.position = Vector3(0, 2.45, 0)
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.font_size = 32
+	lab.outline_size = 10
+	lab.modulate = Catppuccin.YELLOW
+	lab.outline_modulate = Catppuccin.CRUST
+	lab.pixel_size = 0.008
+	holder.add_child(lab)
+
+
+func _spawn_pickup_beacon(x: int, y: int, px: int, py: int, label: String) -> void:
+	if maxi(absi(x - px), absi(y - py)) > ENTITY_RADIUS + 4:
+		return
+	var holder := Node3D.new()
+	holder.position = Vector3(float(x) + 0.5, 0.0, float(y) + 0.5)
+	landmark_root.add_child(holder)
+	_add_mesh(holder, _meshes["sphere"], _mats["pickup"], Vector3(0, 0.55, 0), Vector3(0.7, 0.7, 0.7))
+	_add_mesh(holder, _meshes["disc"], _mats["loot"], Vector3(0, 0.12, 0), Vector3(0.7, 0.7, 0.7))
+	var lab := Label3D.new()
+	lab.text = "*  %s" % label
+	lab.position = Vector3(0, 1.35, 0)
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.font_size = 24
+	lab.outline_size = 8
+	lab.modulate = Catppuccin.YELLOW
+	lab.outline_modulate = Catppuccin.CRUST
+	lab.pixel_size = 0.008
+	holder.add_child(lab)
+
+
 func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 	var needed: Array = []
+	var occupied: Dictionary = {}
 	var players = state.get("players", [])
 	if typeof(players) == TYPE_ARRAY:
 		for p in players:
@@ -388,11 +509,13 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 			var ey := int(p.get("y", -999))
 			if maxi(absi(ex - px), absi(ey - py)) > ENTITY_RADIUS:
 				continue
+			occupied["%d:%d" % [ex, ey]] = true
 			needed.append({
 				"x": ex, "y": ey,
 				"role": "other",
 				"label": str(p.get("name", p.get("glyph", "?"))),
 				"yaw": FACING_YAW[int(p.get("facing", 0)) % 4],
+				"facing": true,
 			})
 	var ents = state.get("entities", [])
 	if typeof(ents) == TYPE_ARRAY:
@@ -405,12 +528,51 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 				continue
 			var g := str(e.get("glyph", "?"))
 			var role := str(GLYPH_ROLE.get(g, "prop"))
+			if role in ["jackpoint", "uplink", "vendor", "self"]:
+				continue
+			# Kind hint from cameras / ICE
+			if str(e.get("kind", "")) == "camera":
+				role = "camera"
+			occupied["%d:%d" % [ex2, ey2]] = true
+			var yaw := 0.0
+			var has_facing := false
+			if e.has("facing"):
+				yaw = FACING_YAW[int(e.get("facing", 0)) % 4]
+				has_facing = role in ["npc", "other", "thug", "infected", "boss"]
 			needed.append({
 				"x": ex2, "y": ey2,
 				"role": role,
 				"label": str(e.get("name", g)),
-				"yaw": 0.0,
+				"yaw": yaw,
+				"facing": has_facing,
 			})
+
+	# Map-glyph pickups (*) when snapshot overlays loot but landmarks omit it.
+	var rows = state.get("map", [])
+	if typeof(rows) == TYPE_ARRAY:
+		var y0 := maxi(0, py - ENTITY_RADIUS)
+		var y1 := mini(rows.size(), py + ENTITY_RADIUS + 1)
+		for y in range(y0, y1):
+			var row := str(rows[y])
+			var x0 := maxi(0, px - ENTITY_RADIUS)
+			var x1 := mini(row.length(), px + ENTITY_RADIUS + 1)
+			for x in range(x0, x1):
+				if row.substr(x, 1) != "*":
+					continue
+				var key := "%d:%d" % [x, y]
+				if occupied.get(key, false):
+					continue
+				occupied[key] = true
+				needed.append({
+					"x": x, "y": y,
+					"role": "pickup",
+					"label": "Loot",
+					"yaw": 0.0,
+					"facing": false,
+				})
+
+	if needed.size() > MAX_POOLED_ENTITIES:
+		needed = needed.slice(0, MAX_POOLED_ENTITIES)
 
 	while _entity_pool.size() < needed.size():
 		_entity_pool.append(_make_entity_node())
@@ -423,7 +585,31 @@ func _paint_entities(state: Dictionary, px: int, py: int, you: String) -> void:
 		node.visible = true
 		node.position = Vector3(float(spec["x"]) + 0.5, 0.0, float(spec["y"]) + 0.5)
 		node.rotation.y = float(spec["yaw"])
-		_style_entity(node, str(spec["role"]), str(spec["label"]))
+		_style_entity(node, str(spec["role"]), str(spec["label"]), bool(spec.get("facing", false)))
+
+
+func _ensure_courier_parts() -> void:
+	if courier == null:
+		return
+	if courier.get_node_or_null("Head") == null:
+		var head := MeshInstance3D.new()
+		head.name = "Head"
+		head.mesh = _meshes["head"]
+		head.material_override = _mats["other_hi"]
+		head.position = Vector3(0, 1.55, 0)
+		courier.add_child(head)
+	if _courier_facing == null:
+		_courier_facing = courier.get_node_or_null("Facing") as MeshInstance3D
+	if _courier_facing == null:
+		_courier_facing = MeshInstance3D.new()
+		_courier_facing.name = "Facing"
+		courier.add_child(_courier_facing)
+	_courier_facing.mesh = _meshes["facing"]
+	_courier_facing.material_override = _mats["facing"]
+	# Prism points along local -Z (north when yaw=0).
+	_courier_facing.position = Vector3(0, 0.95, -0.42)
+	_courier_facing.rotation_degrees = Vector3(90, 0, 0)
+	_courier_facing.scale = Vector3(1.1, 1.0, 1.0)
 
 
 func _make_entity_node() -> Node3D:
@@ -431,9 +617,18 @@ func _make_entity_node() -> Node3D:
 	var body := MeshInstance3D.new()
 	body.name = "Body"
 	n.add_child(body)
+	var head := MeshInstance3D.new()
+	head.name = "Head"
+	n.add_child(head)
+	var accent := MeshInstance3D.new()
+	accent.name = "Accent"
+	n.add_child(accent)
+	var facing := MeshInstance3D.new()
+	facing.name = "Facing"
+	n.add_child(facing)
 	var lab := Label3D.new()
 	lab.name = "Label"
-	lab.position = Vector3(0, 1.85, 0)
+	lab.position = Vector3(0, 1.95, 0)
 	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lab.font_size = 26
 	lab.outline_size = 8
@@ -444,67 +639,110 @@ func _make_entity_node() -> Node3D:
 	return n
 
 
-func _style_entity(node: Node3D, role: String, label: String) -> void:
+func _set_part(mi: MeshInstance3D, mesh: Mesh, mat: Material, pos: Vector3, scale: Vector3 = Vector3.ONE, visible: bool = true) -> void:
+	if mi == null:
+		return
+	mi.visible = visible
+	if not visible:
+		return
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.position = pos
+	mi.scale = scale
+	mi.rotation = Vector3.ZERO
+
+
+func _style_entity(node: Node3D, role: String, label: String, show_facing: bool = false) -> void:
 	var body := node.get_node_or_null("Body") as MeshInstance3D
+	var head := node.get_node_or_null("Head") as MeshInstance3D
+	var accent := node.get_node_or_null("Accent") as MeshInstance3D
+	var facing := node.get_node_or_null("Facing") as MeshInstance3D
 	var lab := node.get_node_or_null("Label") as Label3D
-	var mesh: Mesh = _meshes["capsule"]
-	var mat: Material = _mats["other"]
-	var body_pos := Vector3(0, 0.78, 0)
-	var scale := Vector3.ONE
+	# Defaults — hide optional parts; Body always on.
+	_set_part(head, _meshes["head"], _mats["prop"], Vector3.ZERO, Vector3.ONE, false)
+	_set_part(accent, _meshes["box"], _mats["prop"], Vector3.ZERO, Vector3.ONE, false)
+	_set_part(facing, _meshes["facing"], _mats["facing_other"], Vector3.ZERO, Vector3.ONE, false)
+	var label_y := 1.95
+	var label_color := Catppuccin.TEXT
+
 	match role:
-		"infected":
-			mesh = _meshes["box"]
-			mat = _mats["infected"]
-			body_pos = Vector3(0, 0.55, 0)
-			scale = Vector3(0.55, 1.1, 0.55)
-		"thug":
-			mesh = _meshes["box"]
-			mat = _mats["thug"]
-			body_pos = Vector3(0, 0.7, 0)
-			scale = Vector3(0.62, 1.35, 0.5)
-		"drone":
-			mesh = _meshes["sphere"]
-			mat = _mats["drone"]
-			body_pos = Vector3(0, 1.15, 0)
-			scale = Vector3(1.1, 1.1, 1.1)
-		"npc":
-			mesh = _meshes["capsule"]
-			mat = _mats["npc"]
-		"camera":
-			mesh = _meshes["box"]
-			mat = _mats["camera"]
-			body_pos = Vector3(0, 1.6, 0)
-			scale = Vector3(0.28, 0.22, 0.35)
-		"ice":
-			mesh = _meshes["box"]
-			mat = _mats["ice"]
-			body_pos = Vector3(0, 0.8, 0)
-			scale = Vector3(0.5, 1.5, 0.5)
-		"core":
-			mesh = _meshes["sphere"]
-			mat = _mats["core"]
-			body_pos = Vector3(0, 1.0, 0)
-		"exit":
-			mesh = _meshes["box"]
-			mat = _mats["exit"]
-			body_pos = Vector3(0, 1.0, 0)
-			scale = Vector3(0.4, 2.0, 0.4)
 		"other":
-			mesh = _meshes["capsule"]
-			mat = _mats["other"]
+			# Courier silhouette: tall capsule + head + sky facing chevron.
+			_set_part(body, _meshes["capsule_tall"], _mats["other"], Vector3(0, 0.82, 0))
+			_set_part(head, _meshes["head"], _mats["other_hi"], Vector3(0, 1.58, 0), Vector3(1.05, 1.05, 1.05), true)
+			show_facing = true
+			label_color = Catppuccin.BLUE
+		"npc":
+			_set_part(body, _meshes["capsule_short"], _mats["npc"], Vector3(0, 0.62, 0))
+			_set_part(head, _meshes["head"], _mats["npc_head"], Vector3(0, 1.28, 0), Vector3(1.15, 1.0, 1.15), true)
+			label_color = Catppuccin.LAVENDER
+			label_y = 1.75
+		"infected":
+			# Hunched box torso + offset head — green silhouette vs boxes of slice 1.
+			_set_part(body, _meshes["box"], _mats["infected"], Vector3(0, 0.48, 0.05), Vector3(0.58, 0.95, 0.42))
+			_set_part(head, _meshes["sphere"], _mats["infected_head"], Vector3(0.08, 1.05, 0.05), Vector3(0.75, 0.7, 0.8), true)
+			label_color = Catppuccin.GREEN
+			label_y = 1.55
+		"thug":
+			# Wide peach slab + cylinder head — stockier than infected.
+			_set_part(body, _meshes["box"], _mats["thug"], Vector3(0, 0.62, 0), Vector3(0.72, 1.2, 0.48))
+			_set_part(head, _meshes["disc"], _mats["thug_head"], Vector3(0, 1.35, 0), Vector3(0.55, 0.9, 0.55), true)
+			label_color = Catppuccin.PEACH
+			label_y = 1.85
+		"drone":
+			_set_part(body, _meshes["sphere"], _mats["drone"], Vector3(0, 1.25, 0), Vector3(1.05, 0.85, 1.05))
+			_set_part(accent, _meshes["ring"], _mats["drone"], Vector3(0, 1.25, 0), Vector3(1.15, 0.4, 1.15), true)
+			label_color = Catppuccin.MAUVE
+			label_y = 1.95
+		"boss":
+			_set_part(body, _meshes["capsule_tall"], _mats["boss"], Vector3(0, 0.95, 0), Vector3(1.25, 1.2, 1.25))
+			_set_part(head, _meshes["sphere"], _mats["boss"], Vector3(0, 1.85, 0), Vector3(1.3, 1.1, 1.3), true)
+			_set_part(accent, _meshes["ring"], _mats["boss"], Vector3(0, 1.35, 0), Vector3(1.4, 0.5, 1.4), true)
+			show_facing = true
+			label_color = Catppuccin.RED
+			label_y = 2.35
+		"camera":
+			_set_part(body, _meshes["box"], _mats["camera"], Vector3(0, 1.55, 0), Vector3(0.28, 0.22, 0.38))
+			_set_part(accent, _meshes["pillar"], _mats["prop"], Vector3(0, 0.75, 0), Vector3(0.35, 0.55, 0.35), true)
+			label_color = Catppuccin.RED
+			label_y = 2.05
+		"ice":
+			_set_part(body, _meshes["box"], _mats["ice"], Vector3(0, 0.9, 0), Vector3(0.48, 1.7, 0.48))
+			label_color = Catppuccin.BLUE
+			label_y = 2.1
+		"core":
+			_set_part(body, _meshes["sphere"], _mats["core"], Vector3(0, 1.05, 0), Vector3(1.2, 1.2, 1.2))
+			label_color = Catppuccin.PINK
+		"exit":
+			_set_part(body, _meshes["box"], _mats["exit"], Vector3(0, 1.1, 0), Vector3(0.38, 2.1, 0.38))
+			label_color = Catppuccin.GREEN
+			label_y = 2.35
+		"pickup":
+			_set_part(body, _meshes["sphere"], _mats["pickup"], Vector3(0, 0.45, 0), Vector3(0.65, 0.65, 0.65))
+			_set_part(accent, _meshes["disc"], _mats["loot"], Vector3(0, 0.1, 0), Vector3(0.65, 0.65, 0.65), true)
+			label_color = Catppuccin.YELLOW
+			label_y = 1.15
+		"vendor":
+			_set_part(body, _meshes["kiosk"], _mats["vendor"], Vector3(0, 0.85, 0))
+			_set_part(accent, _meshes["canopy"], _mats["vendor_trim"], Vector3(0, 1.55, 0), Vector3.ONE, true)
+			label_color = Catppuccin.YELLOW
+			label_y = 2.2
 		_:
-			mesh = _meshes["box"]
-			mat = _mats["prop"]
-			body_pos = Vector3(0, 0.4, 0)
-			scale = Vector3(0.45, 0.8, 0.45)
-	if body:
-		body.mesh = mesh
-		body.material_override = mat
-		body.position = body_pos
-		body.scale = scale
+			_set_part(body, _meshes["box"], _mats["prop"], Vector3(0, 0.4, 0), Vector3(0.45, 0.8, 0.45))
+			label_y = 1.2
+
+	if show_facing and facing:
+		facing.visible = true
+		facing.mesh = _meshes["facing"]
+		facing.material_override = _mats["facing_other"] if role == "other" else _mats["facing"]
+		facing.position = Vector3(0, 0.85, -0.4)
+		facing.rotation_degrees = Vector3(90, 0, 0)
+		facing.scale = Vector3(1.0, 1.0, 1.0)
+
 	if lab:
 		lab.text = label
-		lab.modulate = Catppuccin.TEXT
+		lab.modulate = label_color
+		lab.position = Vector3(0, label_y, 0)
 
 
 func _add_mesh(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scale: Vector3 = Vector3.ONE) -> MeshInstance3D:
