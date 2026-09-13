@@ -392,6 +392,10 @@ Tracked under epic **#118** (leave the epic open; slice PRs use `Refs #118`). Ch
 | Forward+ desktop / Mobile Deck renderer + budget notes | Done — [godot-3d.md](godot-3d.md) |
 | Docs: 3D is the Steam presentation goal | Done — this file + [steam-quality-bar.md](steam-quality-bar.md) |
 
+### High-preset GI (#157)
+
+High enables SSAO + SSIL + TAA + denser volumetric fog + ReflectionProbes at **J / U / ICE core+exit** only. Low disables the stack (Deck / #148). Omni budget unchanged. Matrix: [godot-3d.md § High-preset GI](godot-3d.md#high-preset-gi--atmosphere-157).
+
 ### Camera juice (#161) — cosmetic vs authority
 
 The Godot courier **feels** continuous (look smoothing, optional head bob, mesh lerp between grid cells, landing FOV), but:

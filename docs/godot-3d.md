@@ -53,7 +53,7 @@ The demo is a **tech-art showcase** (authored hangar, baked lightmaps, trim-shee
 Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs #141`.
 
 - [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
-- [ ] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
+- [x] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (authored meshes, snapshot-placed)
 - [ ] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend (street / grass / water / rubble)
 - [ ] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
@@ -233,6 +233,11 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | Kit scatter (#158) | off (AOI mesh headroom) | crates / pipes / foliage / vents |
 | Head bob (#161) | **forced off** | optional (F7; default off) |
 | Look smooth (#161) | on (cosmetic yaw/pos rates) | on (default) |
+| SSAO (#157) | **off** | on |
+| SSIL (#157) | **off** | on |
+| TAA (#157) | **off** | SubViewport `use_taa` |
+| Volumetric fog (#157) | **off** (classic fog only) | denser neon shafts |
+| ReflectionProbe (#157) | **off** | J / U / ICE core+exit only |
 
 ### Particles (slice 5)
 
@@ -294,6 +299,8 @@ Minimum matrix: **street idle**, **street combat**, **ICE**, **globe** × **Low*
 | **AOI entity count** | `GraphicsSettings` pool + radii | Low: build 12 / entity 10 / pool ≤24; High: 18 / 16 / ≤48 |
 | **Glow / MSAA** | High SubViewport + WorldEnvironment | Low: MSAA off, glow off/dim |
 | **PBR maps (#156)** | High: normal + ORM on shared trim shader | Low: `materials_use_orm()` false — albedo / procedural only |
+| **SSAO / SSIL / TAA / vol (#157)** | High only — Forward+ neon stack | Low: all off; prefer Low on Deck (#148) |
+| **ReflectionProbe (#157)** | High: jackpoint / uplink / ICE core+exit | Low: none; never per-tile |
 
 ### Low default tweak (#148)
 
@@ -472,13 +479,51 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; lighting #157; ground #159; diegesis #160)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; ground #159; diegesis #160)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
 
 ---
 
+
+
+## High-preset GI / atmosphere (#157)
+
+Abandoned Spaceship–class **atmosphere** on **High** only. Low stays Deck-safe (#148). Omni ceiling still **courier + J + U**.
+
+| Knob | Low | High |
+|------|-----|------|
+| SSAO | off | on (`Environment.ssao_*`) |
+| SSIL | off | on (affordable with ≤3 Omni + Forward+) |
+| TAA | off | `SubViewport.use_taa` on street + globe |
+| Volumetric fog | off (classic fog only) | denser density + neon emission (street / ICE / globe) |
+| ReflectionProbe | none | **Hotspots only:** jackpoint **J**, uplink **U**, ICE **%** core + **X** exit — not every tile |
+
+Wired through `GraphicsSettings.quality_changed` → `Street3D._apply_environment_quality` / `Globe3D._apply_quality` / `main._apply_viewport_quality`. F8 / HUD Quality toggles the stack; log warns that **High can be expensive — prefer Low on Deck**.
+
+**Not shipped:** baked lightmaps for the live MMO map (optional follow-up for static district shells only). No Abandoned Spaceship IP.
+
+`Refs #163` · `Refs #141` · `#148`
+
+---
+
+## Camera juice (#161)
+
+Cosmetic camera / mesh feel only. Python `/ws` remains sole game authority — turns still send the same intents; server `player` / ICE avatar coords stay truth.
+
+| Knob | Control | Default |
+|------|---------|---------|
+| Look smoothing | ConfigFile `graphics.look_smooth` | **on** |
+| Head bob | **F7** / HUD **Bob** · `graphics.head_bob` | **off**; Low forces off |
+| Courier + entity mesh lerp | Always (rates from `look_pos_rate` / `look_yaw_rate`) | render-only |
+| Landing FOV | Automatic on cell settle | small punch |
+
+See [Camera juice — cosmetic vs authority](#camera-juice-161--cosmetic-vs-authority). No Abandoned Spaceship IP.
+
+`Refs #163` · `Refs #141`
+
+---
 
 ## Materials library (#156)
 
@@ -561,13 +606,13 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats / #161 camera juice |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / objective cue / particles / quality / #156 mats / #161 camera juice / #157 GI+probes |
 | `godot_client/materials/` | Shared trim / PBR library (#156): `recolor_trim.gdshader`, `library.gd`, `.tres`, generated textures |
 | `godot_client/models/` | #158 original OBJ kit (wall panel, floor tile, door frame, crate, pipe, neon, foliage, vent) |
 | `godot_client/scripts/mesh_kit.gd` | OBJ → ArrayMesh loader + role catalog (`MeshKit`) |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
-| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload (+ #161 bob / look smooth) |
+| `godot_client/scripts/graphics_settings.gd` | Low/High ConfigFile autoload (+ #161 bob / look smooth · #157 SSAO/SSIL/TAA/vol/probes) |
 | `godot_client/scenes/main.tscn` | Street + Globe SubViewports + AsciiOverlay + Quality |
 | `godot_client/scripts/main.gd` | View cycle (3D/3D+ASCII/FPV/map), overlay, globe, cam/quality |
 | `godot_client/scripts/year_docks.gd` | Globe dock hybrid list + open/close → overlay |

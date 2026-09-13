@@ -253,11 +253,18 @@ func _on_quality_toggle() -> void:
 		return
 	var name := GraphicsSettings.toggle_quality()
 	_sync_quality_btn()
+	_sync_bob_btn()
 	_apply_viewport_quality()
-	_append_log("Quality %s (particles %s)" % [
-		name,
-		"on" if GraphicsSettings.particles_enabled() else "off",
-	])
+	var hi := GraphicsSettings.is_high()
+	_append_log(
+		"Quality %s · particles %s · MSAA %s · TAA/SSAO/SSIL/vol %s (High can be expensive — prefer Low on Deck)"
+		% [
+			name,
+			"on" if GraphicsSettings.particles_enabled() else "off",
+			"2x" if GraphicsSettings.msaa_3d() else "off",
+			"on" if hi else "off",
+		]
+	)
 
 
 func _on_graphics_quality(_level: int) -> void:
@@ -294,10 +301,13 @@ func _sync_bob_btn() -> void:
 
 func _apply_viewport_quality() -> void:
 	var msaa := GraphicsSettings.msaa_3d() if GraphicsSettings else 1
+	var taa := GraphicsSettings.taa_enabled() if GraphicsSettings else true
 	if street_vp:
 		street_vp.msaa_3d = msaa
+		street_vp.use_taa = taa
 	if globe_vp:
 		globe_vp.msaa_3d = msaa
+		globe_vp.use_taa = taa
 
 
 func _apply_view_visibility() -> void:
