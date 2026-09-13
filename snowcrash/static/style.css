@@ -1960,7 +1960,7 @@ body:not(.intro-active) {
   left: 0;
   right: 0;
   bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
-  z-index: 8;
+  z-index: 12;
   padding: 0 max(0.4rem, env(safe-area-inset-right, 0px)) 0 max(0.4rem, env(safe-area-inset-left, 0px));
   justify-content: space-between;
   align-items: flex-end;
@@ -2075,6 +2075,121 @@ body:not(.intro-active) {
   #app.declutter .brand h1 { font-size: 0.75rem; letter-spacing: 0.1em; }
   .dock-btn { font-size: 0.52rem; }
   .vjoy { grid-template-columns: repeat(3, 2.1rem); grid-template-rows: repeat(3, 2.1rem); }
+  .chord-pad { grid-template-columns: repeat(2, 2.35rem); }
+  .vjoy-btn, .chord-pad button { font-size: 0.7rem; min-height: 2.1rem; }
+  /* denser GPS + readable compass on very small screens (#75) */
+  #minimap-wrap {
+    width: min(36vw, 132px) !important;
+    bottom: calc(8.2rem + env(safe-area-inset-bottom, 0px));
+  }
+  .minimap-ascii { font-size: 0.52rem; line-height: 1.05; }
+  .pill.compass, .pill.obj-compass {
+    font-size: 0.68rem;
+    padding: 0.12rem 0.35rem;
+    min-width: 0;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pill.obj-compass { letter-spacing: 0; }
+}
+
+/* One-handed portrait: keep pads usable; don't let side bury FPV (#75 slice2) */
+@media (max-width: 720px) and (orientation: portrait) {
+  #viewport {
+    /* reserve chrome for vjoy + chord pad so FPV doesn't sit under controls */
+    padding-bottom: calc(7.6rem + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-hud {
+    z-index: 12;
+    bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
+  }
+  #app.declutter #side {
+    max-height: min(34vh, 18rem);
+  }
+  #app.declutter .panel-dock {
+    max-height: 4.2rem;
+  }
+  .fpv-stage { min-height: 36vh; }
+  body.large-type .fpv-stage { min-height: 40vh; }
+  #minimap-wrap {
+    /* sit above pads, leave FPV center clear */
+    bottom: calc(8.4rem + env(safe-area-inset-bottom, 0px));
+    opacity: 0.92;
+  }
+}
+
+@media (max-width: 720px) and (orientation: landscape) {
+  .mobile-hud {
+    z-index: 12;
+    padding-bottom: 0.15rem;
+  }
+  #viewport {
+    padding-bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));
+  }
+  #app.declutter #side {
+    max-height: min(28vh, 14rem);
+  }
+  .vjoy {
+    grid-template-columns: repeat(3, 2rem);
+    grid-template-rows: repeat(3, 2rem);
+  }
+  #minimap-wrap {
+    width: min(28vw, 140px) !important;
+    bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Large-type toolbar toggle + name-gate share (#75) */
+.btn-large-type {
+  appearance: none;
+  background: #0a1520;
+  color: var(--dim);
+  border: 1px solid #1e3a40;
+  border-radius: 4px;
+  padding: 0.2rem 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  min-width: 2.4rem;
+}
+.btn-large-type[aria-pressed="true"],
+.btn-large-type[data-mode="on"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(57, 197, 207, 0.25);
+}
+.btn-large-type[data-mode="off"] {
+  color: #8b949e;
+  opacity: 0.85;
+}
+.name-gate-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+.btn-copy-join {
+  appearance: none;
+  background: rgba(57, 197, 207, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(57, 197, 207, 0.45);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.btn-copy-join:active {
+  filter: brightness(1.1);
+}
+.copy-join-status {
+  font-size: 0.72rem;
+  max-width: 100%;
+  word-break: break-all;
 }
 
 /* Declutter: year panels stay folded by default chrome */

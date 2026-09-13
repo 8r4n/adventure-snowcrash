@@ -1,5 +1,5 @@
 /* Snowcrash light offline shell (#75) — caches app shell only; live WS play still needs network. */
-const CACHE = "snowcrash-shell-v1";
+const CACHE = "snowcrash-shell-v2";
 const PRECACHE = [
   "/",
   "/static/style.css",
