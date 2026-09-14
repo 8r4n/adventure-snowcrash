@@ -22,6 +22,7 @@ buses/default_bus_layout="res://default_bus_layout.tres"
 
 [autoload]
 
+SteamBridge="*res://scripts/steam_bridge.gd"
 AudioManager="*res://scripts/audio_manager.gd"
 GraphicsSettings="*res://scripts/graphics_settings.gd"
 FpsMeter="*res://scripts/fps_meter.gd"

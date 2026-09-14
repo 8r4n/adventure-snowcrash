@@ -143,6 +143,19 @@ Ship as an optional **“Terminal Courier”** launch option / second executable
 
 Steamworks API is **not required** to ship, but recommended for overlay, achievements, cloud, and friends.
 
+### Godot SKU — GodotSteam stub (#173)
+
+Preferred host for SteamAPI on the Godot path is the **Godot process** via [GodotSteam GDExtension](https://godotsteam.com/) (not SteamworksPy / Tauri):
+
+1. Drop the GDExtension into `godot_client/addons/godotsteam/` (see that folder’s README) — Godot **4.4.1+**.
+2. Autoload `SteamBridge` no-ops without the addon so **4.3 headless export / CI stay green**.
+3. Dev: `steam_appid.txt` (example checked in as `godot_client/steam_appid.txt.example`, real file gitignored) or env `SteamAppId` / `SteamGameId`. **Never** put `steam_appid.txt` in a SteamPipe depot.
+4. Deck / Big Picture → `GraphicsSettings` Low first-run hint (`SteamBridge.suggest_low_quality()`).
+5. Achievement/stat API is a **placeholder** until a real App ID + Steamworks definitions exist. Overlay works in **exports** only (not editor).
+
+Details: [godot-client.md § GodotSteam integration stub](godot-client.md#godotsteam-integration-stub-173). Do not pay Steam Direct / upload from this issue (same gate as #67).
+
+
 ### Priority integration map
 
 | Feature | Need for v1? | Notes for our stack |
@@ -355,7 +368,7 @@ PWA service worker already caches shell only — same philosophy: shell offline,
 - [ ] Godot Linux export → Deck device QA per [steam-deck.md](steam-deck.md) (#132)
 - [ ] Decide Electron fallback criteria
 - [ ] Steamworks init + achievement stub
-- [ ] `steam_appid.txt` dev workflow documented
+- [x] `steam_appid.txt` dev workflow documented (#173 · `godot_client/steam_appid.txt.example` + gitignore)
 - [ ] Depot VDFs + GH Action dry-run (no live upload without approval)
 - [ ] Capsule / hero art pass + ≥5 1080p screenshots
 - [ ] Trailer brief (separate ticket)

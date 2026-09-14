@@ -184,6 +184,22 @@ Proton: Godot 4 Windows exports generally run on Deck; test input + fullscreen e
 
 **Deck Verified checklist (#132):** [steam-deck.md](steam-deck.md) — native Linux depot, InputMap, 1280×800 UI scale, suspend/reconnect. Device QA not yet run.
 
+### GodotSteam integration stub (#173)
+
+Optional Steamworks path for the Godot SKU — **no paid App ID required to compile**.
+
+| Piece | Where | Behavior |
+|-------|-------|----------|
+| Install drop path | [`godot_client/addons/godotsteam/README.md`](../godot_client/addons/godotsteam/README.md) | Extract [GodotSteam GDExtension](https://godotsteam.com/) here (Godot **4.4.1+**). Not vendored in-repo. |
+| Runtime bridge | Autoload `SteamBridge` → `res://scripts/steam_bridge.gd` | Reflection-only (`Engine.get_singleton("Steam")`). **No-ops** when GDExtension / SteamAPI missing. |
+| App ID (dev) | `godot_client/steam_appid.txt.example` → `steam_appid.txt` (gitignored) | Placeholder **480** (SpaceWar). Or `SteamAppId` / `SteamGameId` env. **Do not ship** in depots. |
+| Deck / Big Picture | `SteamBridge.suggest_low_quality()` | Surfaces to `GraphicsSettings` **Low** default hint on first run (`prefer_low_from_steam_hint()`). Env `SteamDeck=1` works without GodotSteam. |
+| Achievements | `SteamBridge.set_achievement(api_name)` | Placeholder — returns false / emits `achievement_stub` until SteamAPI + store defs exist. |
+| Headless / CI | `--headless` / `SNOWCRASH_DISABLE_STEAM=1` | Skips `steamInit*`; export smoke must not SCRIPT ERROR. |
+
+Disable Steam entirely: `SNOWCRASH_DISABLE_STEAM=1`. Soft-fail init (Steam client closed) keeps the courier loop playable without overlay.
+
+
 Do **not** pay Steam Direct or upload builds from this ticket (same gate as #67).
 
 ### Mobile (#75)

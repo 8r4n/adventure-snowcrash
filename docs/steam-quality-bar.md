@@ -62,7 +62,7 @@ Issue **[#163](https://github.com/8r4n/adventure-snowcrash/issues/163)** (parent
 | **[Abandoned Spaceship Godot Demo](https://github.com/perfoon/Abandoned-Spaceship-Godot-Demo)** (Perfoon) | Godot 4 tech-art showcase: trim-sheet recolor shaders, PBR ORM, baked lightmaps, volumetric fog / SSIL / SSAO / TAA, reflection probes, diegetic arcade video. **Look** bar for store screenshots. We cite it; we do **not** copy meshes, textures, or shaders. |
 | **[BLASTRONAUT](https://store.steampowered.com/app/1392650/BLASTRONAUT/)** (same author, shipped) | Commercial proof this craft bar sells on Steam — “finished Godot product,” not prototype primitives. |
 
-Visual-bar children **#156–#161** shipped (materials / lighting / kit / ground / diegesis / camera). Remaining Steam SKU work: GodotSteam, sidecar/offline, live stills. Authority / loop stays ours (live Python `/ws` + thin Godot). Assessment table + will/won’t-copy lives in [godot-3d.md — Visual bar](godot-3d.md#visual-bar-163).
+Visual-bar children **#156–#161** shipped (materials / lighting / kit / ground / diegesis / camera). Remaining Steam SKU work: GodotSteam **full** (stub #173 done), sidecar/offline, live stills. Authority / loop stays ours (live Python `/ws` + thin Godot). Assessment table + will/won’t-copy lives in [godot-3d.md — Visual bar](godot-3d.md#visual-bar-163).
 
 **Visual-fidelity checklist** (children of #163 — keep parent epics #163 / #141 open; use `Refs` only):
 
@@ -117,7 +117,7 @@ Snapshot of adventure-snowcrash on `dev` relative to the bar above.
 
 | Theme | Gap |
 |-------|-----|
-| 1 Godot primary SKU | **3D street vertical slice shipped (#141, epic open).** Presentation is still flat primitives vs Abandoned Spaceship–class materials/lighting — **#163** + children **#156–#161**. Remaining also: GodotSteam, sidecar/offline. #67 Tauri wrap of *web* is calendar fallback only. |
+| 1 Godot primary SKU | **3D street vertical slice shipped (#141, epic open).** Presentation is still flat primitives vs Abandoned Spaceship–class materials/lighting — **#163** + children **#156–#161**. Remaining also: GodotSteam full (stub #173 done), sidecar/offline. #67 Tauri wrap of *web* is calendar fallback only. |
 | 2 First 10 minutes | **Shipped #133 (Godot):** jack-in brief → name → Payload-Zero beat with dock gate + death/win feedback + skip/remember — see [godot-onboarding.md](godot-onboarding.md). Human ≥3 cold playtest still follow-up. Primer remains deeper post-beat teaching. |
 | 3 Info design | Web HUD is dense (“HUD soup” risk); Godot HUD is minimal (good) but lacks Cogmind-grade tooltips / death recap / teach-in-place. |
 | 4 World density | Globe (#54) + news arcs (#51) still open; density exists as systems but not as a continuous living world read for new players. |

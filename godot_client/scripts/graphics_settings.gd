@@ -5,6 +5,7 @@ extends Node
 ## #157 High SSAO/SSIL/TAA/volumetric + probes — Low keeps these off (Deck / #148).
 ## #159 ground blend full path is High-only; Low keeps cheaper single-albedo ground.
 ## #160 diegetic screens: Low simplifies / hides in ICE.
+## #173 SteamBridge Deck/Big Picture → Low default hint (first-run only).
 
 const CONFIG_PATH := "user://snowcrash_client.cfg"
 const CONFIG_SECTION := "graphics"
@@ -254,12 +255,22 @@ func ambient_energy_ice() -> float:
 	return 0.5 if is_low() else 0.68
 
 
+
+func prefer_low_from_steam_hint() -> bool:
+	## True when SteamBridge reports Deck / Big Picture (or env SteamDeck=1).
+	if SteamBridge:
+		return SteamBridge.suggest_low_quality()
+	return false
+
+
 func _load() -> void:
 	_cfg = ConfigFile.new()
 	var err := _cfg.load(CONFIG_PATH)
 	if err != OK and err != ERR_FILE_NOT_FOUND:
 		push_warning("graphics_settings: load failed %s" % err)
-	var raw := str(_cfg.get_value(CONFIG_SECTION, "quality", "high")).to_lower()
+	# First-run default: High on desktop; Low when Deck / Big Picture hint (#173).
+	var default_q := "low" if prefer_low_from_steam_hint() else "high"
+	var raw := str(_cfg.get_value(CONFIG_SECTION, "quality", default_q)).to_lower()
 	_quality = Quality.LOW if raw == "low" or raw == "0" else Quality.HIGH
 	_look_smooth = bool(_cfg.get_value(CONFIG_SECTION, "look_smooth", true))
 	# Deck/Low: bob off by default — missing key ⇒ false.

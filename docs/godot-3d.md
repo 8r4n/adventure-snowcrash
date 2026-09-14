@@ -263,6 +263,7 @@ Persisted in `user://snowcrash_client.cfg` section `[graphics]` via autoload `Gr
 | Materials (#156) | albedo + procedural trim (no normal/ORM) | trim albedo + normal + ORM |
 | Kit scatter (#158) | off (AOI mesh headroom) | crates / pipes / foliage / vents |
 | Ground blend (#159) | single tinted albedo | world-space multi-tex + rubble chips |
+| GodotSteam (#173) | N/A (no-op without API) | Deck/BPM → Low first-run hint via `SteamBridge` |
 | Diegetic screens (#160) | short labels; hidden in ICE | full StreetNet/objective lines; ICE simplified |
 | Head bob (#161) | **forced off** | optional (F7; default off) |
 | Look smooth (#161) | on (cosmetic yaw/pos rates) | on (default) |
@@ -510,6 +511,7 @@ Epic acceptance still unmet / not device-QA’d:
 
 - [x] FPS overlay + logger + protocol (#148) — hardware result rows still TBD (no Deck/mid-PC pass yet)
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
+- [x] GodotSteam stub (#173) — optional `SteamBridge` autoload + docs; no hard Steam dep for headless
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
 - [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; **diegesis #160 done**; **demo capture #166 done**)

@@ -10,3 +10,16 @@ build/
 # Godot editor (godot_client/ spike)
 .godot/
 **/.godot/
+
+# Steamworks / GodotSteam (#173) — never ship App ID file
+steam_appid.txt
+godot_client/steam_appid.txt
+**/steam_appid.txt
+
+# Optional local GodotSteam GDExtension binaries (install per docs; do not vendor)
+godot_client/addons/godotsteam/*.dll
+godot_client/addons/godotsteam/*.so
+godot_client/addons/godotsteam/*.dylib
+godot_client/addons/godotsteam/win64/
+godot_client/addons/godotsteam/linuxbsd/
+godot_client/addons/godotsteam/macos/
