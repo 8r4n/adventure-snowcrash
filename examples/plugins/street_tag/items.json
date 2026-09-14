@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "id": "street_tag.sticker",
+      "name": "Street Tag Sticker",
+      "glyph": "~",
+      "kind": "trinket",
+      "description": "Original mesh graffiti sticker — Faraday-safe ink.",
+      "equippable": true
+    }
+  ]
+}

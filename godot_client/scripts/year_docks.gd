@@ -93,7 +93,10 @@ func cycle_dock() -> void:
 	for def in DOCK_DEFS:
 		ids.append(str(def["id"]))
 	for mid in _mod_panel_ids:
-		ids.append(str(mid))
+		var key := str(mid)
+		if not key.begins_with("mod:"):
+			key = "mod:%s" % key
+		ids.append(key)
 	if ids.is_empty():
 		return
 	if _open_id.is_empty():
@@ -1067,6 +1070,7 @@ func _paint_empathy(state: Dictionary) -> void:
 # --- Mod ui_panel (Hello Courier) --------------------------------------------
 
 func _ensure_mod_dock_buttons(state: Dictionary) -> void:
+	# Read mod ui_panel defs from snapshot mods.panels (API 1.2+; parity with YearUI).
 	var mods := _as_dict(state.get("mods", {}))
 	var panels := _as_arr(mods.get("panels", mods.get("ui_panels", [])))
 	var seen: Dictionary = {}
@@ -1076,8 +1080,8 @@ func _ensure_mod_dock_buttons(state: Dictionary) -> void:
 		var pid := str(panel.get("id", ""))
 		if pid.is_empty():
 			continue
-		seen[pid] = true
 		var key := "mod:%s" % pid
+		seen[key] = true
 		if _dock_btns.has(key):
 			continue
 		var label := str(panel.get("dock_label", panel.get("title", "Mod"))).substr(0, 10)
@@ -1085,15 +1089,11 @@ func _ensure_mod_dock_buttons(state: Dictionary) -> void:
 		btn.tooltip_text = "%s (mod)" % panel.get("title", pid)
 		dock_bar.add_child(btn)
 		_dock_btns[key] = btn
-		if not pid in _mod_panel_ids:
-			_mod_panel_ids.append(pid)
 	# Remove stale mod buttons
 	var to_drop: Array = []
 	for id in _dock_btns.keys():
-		if str(id).begins_with("mod:"):
-			var mid := str(id).substr(4)
-			if not seen.has(mid):
-				to_drop.append(id)
+		if str(id).begins_with("mod:") and not seen.has(str(id)):
+			to_drop.append(id)
 	for id in to_drop:
 		var btn: Button = _dock_btns[id]
 		btn.queue_free()
@@ -1101,6 +1101,11 @@ func _ensure_mod_dock_buttons(state: Dictionary) -> void:
 		if _open_id == id:
 			_open_id = ""
 			_show_empty_dock()
+	# Rebuild dock keys for Deck cycle (must use mod:<id>, not bare panel id).
+	_mod_panel_ids = PackedStringArray()
+	for id in _dock_btns.keys():
+		if str(id).begins_with("mod:"):
+			_mod_panel_ids.append(str(id))
 
 
 func _paint_mod_panel(state: Dictionary, panel_id: String) -> void:

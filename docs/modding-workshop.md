@@ -108,7 +108,7 @@ If we add checksums later, they belong in `mod.json` as optional `sha256` of ent
 
 ## Compatibility at the door
 
-Host plugin API is semver (`PLUGIN_API_VERSION`, currently **1.3.0**). Packs declare `api_version`:
+Host plugin API is semver (`PLUGIN_API_VERSION`, currently **1.4.0**). Snapshot `mods.capabilities` advertises implemented vs denied permissions and the FS/network sandbox policy (no symlinks, no URL entry paths, no unsigned auto-download). Packs declare `api_version`:
 
 - Same **major**, required ≤ host → load (1.0 / 1.1 / 1.2 still work on 1.3).
 - Higher minor/patch than host → **skip** (“requires newer host”).
