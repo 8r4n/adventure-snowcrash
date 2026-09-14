@@ -78,9 +78,12 @@ func send_chat(text: String) -> bool:
 	return _send({"type": "chat", "text": text})
 
 
-func send_respawn() -> bool:
-	# Prefer action "r" (same as web); server also accepts type "respawn".
-	return send_action("r")
+func send_respawn(option_id: String = "safe_pad") -> bool:
+	# Prefer action "r" + arg (same as web death overlay); server also accepts type "respawn".
+	oid := str(option_id).strip_edges()
+	if oid.is_empty() or oid == "default":
+		oid = "safe_pad"
+	return send_action("r", oid)
 
 
 

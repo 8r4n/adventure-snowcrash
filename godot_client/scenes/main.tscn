@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://c8snowcrashplayloop1"]
+[gd_scene load_steps=8 format=3 uid="uid://c8snowcrashplayloop1"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/net_client.gd" id="2_net"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/onboarding.gd" id="4_onboard"]
 [ext_resource type="PackedScene" uid="uid://c8snowcrashstreet3d1" path="res://scenes/street.tscn" id="5_street"]
 [ext_resource type="PackedScene" uid="uid://c8snowcrashglobe3d1" path="res://scenes/globe.tscn" id="6_globe"]
+[ext_resource type="Script" path="res://scripts/death_recap.gd" id="7_death"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -522,6 +523,10 @@ text = "Controls appear after load"
 [node name="OnboardingBeat" type="CanvasLayer" parent="."]
 unique_name_in_owner = true
 script = ExtResource("4_onboard")
+
+[node name="DeathRecapOverlay" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+script = ExtResource("7_death")
 
 [node name="IceFlash" type="ColorRect" parent="."]
 unique_name_in_owner = true

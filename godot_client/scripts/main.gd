@@ -38,6 +38,7 @@ extends Control
 @onready var globe_vp: SubViewport = %GlobeViewport
 @onready var globe_banner: Label = %GlobeBanner
 @onready var ascii_overlay: Label = %AsciiOverlay
+@onready var death_recap: DeathRecapOverlay = %DeathRecapOverlay
 
 const HOLD_HZ := 8.0
 const INV_DIGIT_MS := 420
@@ -52,6 +53,8 @@ var _inv_digit_accum: float = -1.0
 var _mode: String = "play"
 var _prev_mode: String = "play"
 var _death_recap_logged: bool = false
+var _prev_inv_count: int = -1
+var _inv_juice_t: float = 0.0
 var _was_ice: bool = false
 var _globe_overlay: bool = false
 var _globe_selected: String = ""
@@ -98,6 +101,7 @@ func _ready() -> void:
 		globe.pin_selected.connect(_on_globe_pin_selected)
 		globe.pin_activated.connect(_on_globe_pin_activated)
 	_wire_onboarding()
+	_wire_death_recap()
 	_wire_audio()
 	_apply_ws_url_defaults()
 	_on_status("disconnected — start dev server on :8766", "warn")
@@ -252,6 +256,21 @@ func _wire_onboarding() -> void:
 
 
 
+
+func _wire_death_recap() -> void:
+	if death_recap == null:
+		return
+	death_recap.respawn_requested.connect(_on_death_recap_respawn)
+
+
+func _on_death_recap_respawn(option_id: String) -> void:
+	if not net.is_joined():
+		return
+	AudioManager.play_confirm()
+	net.send_respawn(option_id)
+	_append_log("Respawn → %s" % option_id)
+
+
 func _wire_audio() -> void:
 	if mute_btn:
 		mute_btn.pressed.connect(_on_mute_pressed)
@@ -317,7 +336,7 @@ func _on_onboarding_jack_in() -> void:
 
 func _on_onboarding_respawn() -> void:
 	if net.is_joined():
-		net.send_action("r")
+		net.send_respawn("safe_pad")
 
 
 func _apply_theme_hints() -> void:
@@ -652,6 +671,12 @@ func _paint(state: Dictionary) -> void:
 	else:
 		objective_label.add_theme_color_override("font_color", Catppuccin.PEACH)
 		_death_recap_logged = false
+	if not dead_now:
+		if death_recap:
+			death_recap.set_last_objective(_format_objective(state))
+	var suppress_death_ui := onboarding != null and onboarding.is_beat_active()
+	if death_recap:
+		death_recap.apply_snapshot(state, suppress_death_ui)
 	_prev_mode = _mode
 
 	_paint_ice_hud(state)
@@ -755,7 +780,12 @@ func _append_death_recap_once(state: Dictionary) -> void:
 	var cause = state.get("death_cause", "Courier down")
 	if typeof(cause) == TYPE_DICTIONARY:
 		cause = cause.get("cause", cause.get("by", "Courier down"))
-	_append_log("DEATH RECAP: %s — press R to respawn" % str(cause))
+	var opts = state.get("respawn_options", [])
+	var n_opts := opts.size() if typeof(opts) == TYPE_ARRAY else 0
+	_append_log(
+		"DEATH RECAP: %s — overlay open · %d pad option(s) · R = safe pad"
+		% [str(cause), n_opts]
+	)
 
 
 func _paint_view(state: Dictionary) -> void:
@@ -788,24 +818,46 @@ func _paint_view(state: Dictionary) -> void:
 func _paint_inventory(state: Dictionary) -> void:
 	var inv = state.get("inventory", [])
 	var selected := int(state.get("selected_inv", 0))
+	var count := inv.size() if typeof(inv) == TYPE_ARRAY else 0
+	if _prev_inv_count >= 0 and count > _prev_inv_count:
+		_inv_juice_t = 0.45
+		AudioManager.play_sfx("pickup")
+	_prev_inv_count = count
 	inv_list.clear()
 	if typeof(inv) != TYPE_ARRAY or inv.is_empty():
 		inv_list.add_item("(empty)")
 		inv_list.set_item_disabled(0, true)
+		inv_list.modulate = Color(1, 1, 1, 1)
 		return
 	for i in range(inv.size()):
 		var it = inv[i]
 		var label := "?"
+		var tip := ""
 		if typeof(it) == TYPE_DICTIONARY:
 			label = str(it.get("name", it.get("id", "?")))
 			var glyph := str(it.get("glyph", ""))
 			if not glyph.is_empty():
 				label = "%s %s" % [glyph, label]
+			var qty = it.get("qty", it.get("count", null))
+			if qty != null and int(qty) > 1:
+				label = "%s ×%s" % [label, str(qty)]
+			tip = str(it.get("desc", it.get("description", it.get("blurb", ""))))
+			if tip.is_empty():
+				tip = str(it.get("id", label))
 		else:
 			label = str(it)
+			tip = label
 		inv_list.add_item("%d  %s" % [i, label])
+		inv_list.set_item_tooltip(i, tip)
+		if i == selected:
+			inv_list.set_item_custom_fg_color(i, Catppuccin.TEAL)
 	if selected >= 0 and selected < inv_list.item_count:
 		inv_list.select(selected)
+	if _inv_juice_t > 0.0:
+		var pulse := 0.65 + 0.35 * sin(_inv_juice_t * 18.0)
+		inv_list.modulate = Color(pulse, 1.0, pulse, 1.0)
+	else:
+		inv_list.modulate = Color(1, 1, 1, 1)
 
 
 func _paint_log(state: Dictionary) -> void:
@@ -896,6 +948,10 @@ func _tick_ice_flash(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if _inv_juice_t > 0.0:
+		_inv_juice_t = max(0.0, _inv_juice_t - delta)
+		if _inv_juice_t == 0.0 and inv_list:
+			inv_list.modulate = Color(1, 1, 1, 1)
 	_tick_ice_flash(delta)
 	if _inv_digit_accum >= 0.0:
 		_inv_digit_accum += delta
