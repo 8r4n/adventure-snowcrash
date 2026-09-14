@@ -113,6 +113,125 @@ func _ready() -> void:
 		FpsMeter.bind_host(self)
 		_sync_fps_scene_mode()
 
+	# Capture helpers (#166): fixture stills (preferred on software GL) or live AUTO_JOIN.
+	var fixture := OS.get_environment("SNOWCRASH_CAPTURE_FIXTURE").strip_edges()
+	if not fixture.is_empty():
+		call_deferred("_capture_from_fixture", fixture)
+	elif OS.get_environment("SNOWCRASH_AUTO_JOIN").strip_edges() in ["1", "true", "yes", "on"]:
+		call_deferred("_auto_join_from_env")
+
+
+func _auto_join_from_env() -> void:
+	var n := OS.get_environment("SNOWCRASH_NAME").strip_edges()
+	if n.is_empty():
+		n = "Demo3D"
+	name_edit.text = n
+	var u := OS.get_environment("SNOWCRASH_WS_URL").strip_edges()
+	if u.is_empty():
+		u = OS.get_environment("SNOWCRASH_WS").strip_edges()
+	if u.is_empty():
+		u = DEFAULT_WS_URL
+	url_edit.text = u
+	_append_log("AUTO_JOIN %s → %s" % [n, u])
+	_on_join_pressed()
+
+
+func _capture_from_fixture(path: String) -> void:
+	## Offline Godot 3D stills from a JSON fixture (no live /ws). Used when GPU/WS
+	## capture is unavailable — still renders our kit/materials/landmarks.
+	var out_dir := OS.get_environment("SNOWCRASH_CAPTURE_OUT").strip_edges()
+	if out_dir.is_empty():
+		out_dir = "user://capture_166"
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	_append_log("CAPTURE fixture %s → %s" % [path, out_dir])
+	status_label.text = "capture: loading fixture…"
+	var street_path := path
+	var ice_path := OS.get_environment("SNOWCRASH_CAPTURE_FIXTURE_ICE").strip_edges()
+	if GraphicsSettings:
+		var q := OS.get_environment("SNOWCRASH_CAPTURE_QUALITY").strip_edges().to_lower()
+		if q == "low":
+			GraphicsSettings.set_quality(GraphicsSettings.Quality.LOW)
+		else:
+			GraphicsSettings.set_quality(GraphicsSettings.Quality.HIGH)
+		_sync_quality_btn()
+	await _capture_one_fixture(street_path, out_dir, "street", false)
+	if not ice_path.is_empty() and FileAccess.file_exists(ice_path):
+		await _capture_one_fixture(ice_path, out_dir, "ice", true)
+	# Optional 1st-person street beat
+	if FileAccess.file_exists(street_path):
+		if street and street.has_method("toggle_camera"):
+			street.toggle_camera()
+			_sync_cam_btn()
+		await _capture_one_fixture(street_path, out_dir, "street_fp", false)
+	_append_log("CAPTURE done — quitting")
+	await get_tree().create_timer(0.4).timeout
+	get_tree().quit()
+
+
+func _capture_one_fixture(path: String, out_dir: String, tag: String, ice: bool) -> void:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		_append_log("CAPTURE missing %s" % path)
+		return
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		_append_log("CAPTURE bad JSON %s" % path)
+		return
+	var state: Dictionary = parsed.get("state", parsed)
+	if typeof(state) != TYPE_DICTIONARY or state.is_empty():
+		_append_log("CAPTURE empty state %s" % path)
+		return
+	_last_state = state
+	if onboarding:
+		onboarding.force_skip_beat("capture")
+	_view_mode = "3d"
+	_apply_view_visibility()
+	if street:
+		street.apply_snapshot(state)
+	_paint(state)
+	if year_docks:
+		year_docks.paint(state)
+	status_label.text = "capture: %s settling…" % tag
+	# Let mesh rebuild + a few animation frames land (software GL is slow).
+	for i in range(24):
+		await get_tree().process_frame
+	# Orbit / turn cosmetic yaw a few stills
+	var frames := 8 if not ice else 6
+	for i in range(frames):
+		if street and street.has_method("nudge_capture_yaw"):
+			street.nudge_capture_yaw(0.35)
+		elif street:
+			var courier := street.get_node_or_null("Courier") as Node3D
+			if courier:
+				courier.rotation.y += 0.35
+		for _j in range(4):
+			await get_tree().process_frame
+		_save_capture_frame(out_dir, "%s_%02d" % [tag, i])
+	status_label.text = "capture: wrote %s" % tag
+
+
+func _save_capture_frame(out_dir: String, stem: String) -> void:
+	await get_tree().process_frame
+	var img: Image = null
+	if street_vp:
+		var tex: ViewportTexture = street_vp.get_texture()
+		if tex:
+			img = tex.get_image()
+	if img == null:
+		img = get_viewport().get_texture().get_image()
+	if img == null:
+		_append_log("CAPTURE no image for %s" % stem)
+		return
+	var path := "%s/%s.png" % [out_dir, stem]
+	var err := img.save_png(path)
+	_append_log("CAPTURE %s err=%s" % [path, err])
+
+
+func _sync_cam_btn() -> void:
+	if cam_btn and street:
+		cam_btn.text = "Cam: %s" % ("1st" if street.cam_mode == street.CamMode.FIRST else "3rd")
+
 
 func _wire_onboarding() -> void:
 	if onboarding == null:

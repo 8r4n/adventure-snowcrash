@@ -1,5 +1,12 @@
-# Docs fixtures
+# Fixtures
 
-OSM spike fixtures live under [`scripts/fixtures/`](../../scripts/fixtures/) (see [`tiny_downtown.osm.xml`](../../scripts/fixtures/tiny_downtown.osm.xml)) so CI scripts can load them next to `osm_to_ascii_shard.py`.
+JSON snapshots for offline / CI helpers.
 
-Research: [osm-procedural-globe.md](../osm-procedural-globe.md) (#83).
+| File | Use |
+|------|-----|
+| `demo-godot3d-seed42.json` | Godot 3D README capture (#166) — sparse absolute street map near jackpoint |
+| `demo-godot3d-ice-seed42.json` | Same pass — cyberspace / ICE lattice |
+
+Regenerate: `python3 scripts/gen_godot3d_demo_fixture.py`.
+
+Original kit/materials only — no Abandoned Spaceship IP.

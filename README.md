@@ -7,20 +7,30 @@ A short, playable cyberpunk **rogue-like / MMORPG prototype** in Python. **Dev**
 
 ## Demo
 
-Live desktop feature tour of current **dev** gameplay (2026-09-13): skip intro, FPV + Street GPS, inventory, StreetNet, docks (journal/shop/craft/ICE/globe/year panels), Catppuccin + Aa, combat. Highlight GIF below; full ~68s MP4 (with trailer bed) linked.
+**Godot 3D client** hero (2026-09-13, #166): High-preset street corridor + jackpoint landmark + ICE lattice after the visual-fidelity stack (#156 materials · #158 kit · #161 camera · #157 GI). Highlight GIF below; short MP4 (trailer bed) linked. Older web ASCII tour kept as secondary.
 
 <p align="center">
-  <img src="docs/screenshots/demo-2026-09-13.gif" alt="Snowcrash live demo — FPV, Street GPS, docks, ICE, globe, themes" width="720" />
+  <img src="docs/screenshots/demo-godot3d-2026-09-13.gif" alt="Snowcrash Godot 3D demo — street kit, jackpoint, ICE lattice" width="720" />
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/demo-2026-09-13.mp4">Full demo (MP4)</a>
+  <a href="docs/screenshots/demo-godot3d-2026-09-13.mp4">Godot 3D demo (MP4)</a>
   ·
   <a href="docs/demo-video.md">Re-capture recipe</a>
+  ·
+  <a href="docs/godot-3d.md">Godot 3D docs</a>
 </p>
 
 <details>
-<summary>Archived screenshots</summary>
+<summary>Secondary / archived demos</summary>
+
+<p align="center">
+  <img src="docs/screenshots/demo-2026-09-13.gif" alt="Web ASCII live desktop tour (secondary)" width="480" />
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/demo-2026-09-13.mp4">Web feature tour (MP4)</a>
+</p>
 
 <p align="center">
   <img src="docs/screenshots/archive/demo-2026-09-montage.gif" alt="Archived #111 puppeteer montage GIF" width="480" />
