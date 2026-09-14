@@ -32,6 +32,12 @@ The Godot **editor/binary is not required in this repo**. These files are a vali
 
 Production server default is port **8765** — change the URL if you point at that process.
 
+## Death / respawn
+
+After the onboarding beat, flatlines show a **SIGNAL LOST** overlay (`scripts/death_recap.gd`): cause, last objective, and `respawn_options` pad buttons (default **R** = safe pad). During the first-session beat, OnboardingBeat still owns the death card.
+
+See [docs/godot-first-hour.md](../docs/godot-first-hour.md).
+
 ## Controls (play loop)
 
 | Input | Intent (same strings as web) |

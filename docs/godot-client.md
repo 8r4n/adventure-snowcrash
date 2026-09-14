@@ -431,7 +431,7 @@ Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps
 **Core loop leftovers**
 
 - [ ] Street GPS / minimap (respect #116 hide-GPS)
-- [ ] Death / respawn UX polish beyond `R` + HUD flag
+- [x] Death / respawn UX polish beyond `R` + HUD flag (**this PR** — `death_recap.gd` overlay + pad options)
 - [ ] Gamepad mapping
 
 **Social & meta**
@@ -463,13 +463,24 @@ Remaining #141 work (do **not** close the issue): Steam-ready gaps (measured fps
 - [ ] Docs: mark client “implemented” for player how-to when parity is real
 - [x] Optional: Steam packaging path notes (#67 / #130) via Godot export + depot layout ([godot-desktop-export.md](godot-desktop-export.md); upload still gated)
 
-Suggested next: GPS minimap + death UX, Deck hardware fps pass (#132). Desktop export presets + script shipped (**#149**). #141 ASCII overlay (slice 6) shipped.
+### Slice — death / inventory juice (**this PR**, Refs #118)
+
+| Item | Status |
+|------|--------|
+| Full-screen **SIGNAL LOST** death overlay (post-onboarding) | Done — `godot_client/scripts/death_recap.gd` |
+| Cause + soft-hardcore note + last objective | Done |
+| `respawn_options` pad buttons + default safe pad (`r` + arg) | Done — `NetClient.send_respawn(option_id)` |
+| Inventory juice (pickup pulse + tooltips + selected teal) | Done — `main.gd` `_paint_inventory` |
+| Crash-free first-hour checklist | Done — [godot-first-hour.md](godot-first-hour.md) |
+
+Suggested next: GPS minimap (#116), party/crew/shop surfaces, Deck hardware fps pass (#132). Death overlay shipped this PR.
 
 ---
 ## Related
 
 - [audio.md](audio.md) — #134 SFX/music buses + trailer bed
 - [godot-3d.md](godot-3d.md) — #141 3D Metaverse street (Steam presentation goal)
+- [godot-first-hour.md](godot-first-hour.md) — crash-free first-hour checklist (Refs #118)
 - [godot-desktop-export.md](godot-desktop-export.md) — #149 Linux/Windows headless export + `/ws` env
 - [steam-quality-bar.md](steam-quality-bar.md) — #130 Steam comps + quality bar; **3D Godot** is the Steam presentation goal
 - [steam-packaging.md](steam-packaging.md) — #67 Direct / depots / assets; Tauri = calendar fallback wrap of web
