@@ -2011,29 +2011,47 @@ body:not(.intro-active) {
   overscroll-behavior: contain;
 }
 .vjoy {
-  grid-template-columns: repeat(3, 2.4rem);
-  grid-template-rows: repeat(3, 2.4rem);
+  grid-template-columns: repeat(3, minmax(2.55rem, 2.85rem));
+  grid-template-rows: repeat(3, minmax(2.55rem, 2.85rem));
+  gap: 0.28rem;
 }
 .chord-pad {
-  grid-template-columns: repeat(2, 2.6rem);
+  grid-template-columns: repeat(2, minmax(2.75rem, 3.1rem));
+  gap: 0.28rem;
 }
 .vjoy-btn, .chord-pad button {
   appearance: none;
-  background: rgba(10, 21, 32, 0.85);
+  background: rgba(10, 21, 32, 0.88);
   border: 1px solid #1e3a40;
   color: var(--accent);
-  border-radius: 6px;
+  border-radius: 8px;
   font-family: var(--mono);
   font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  min-height: 2.75rem; /* ~44px thumb target */
+  min-width: 2.75rem;
 }
-.vjoy-btn:active, .chord-pad button:active {
-  background: rgba(57, 197, 207, 0.25);
+.chord-pad button.chord-primary {
+  color: #05080c;
+  background: rgba(57, 197, 207, 0.82);
   border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(57, 197, 207, 0.28);
+}
+.vjoy-btn:active, .chord-pad button:active,
+.vjoy-btn.is-pressed, .chord-pad button.is-pressed {
+  background: rgba(57, 197, 207, 0.35);
+  border-color: var(--accent);
+  transform: scale(0.96);
+}
+.chord-pad button.chord-primary:active,
+.chord-pad button.chord-primary.is-pressed {
+  background: rgba(57, 197, 207, 1);
+  color: #05080c;
 }
 .vjoy-idle { opacity: 0.25; }
 
@@ -2131,25 +2149,32 @@ body:not(.intro-active) {
 /* One-handed portrait: keep pads usable; don't let side bury FPV (#75 slice2) */
 @media (max-width: 720px) and (orientation: portrait) {
   #viewport {
-    /* reserve chrome for vjoy + chord pad so FPV doesn't sit under controls */
-    padding-bottom: calc(7.6rem + env(safe-area-inset-bottom, 0px));
+    /* reserve chrome for taller one-handed chords (LOOK/WAIT row) */
+    padding-bottom: calc(9.2rem + env(safe-area-inset-bottom, 0px));
   }
   .mobile-hud {
     z-index: 12;
     bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
   }
   #app.declutter #side {
-    max-height: min(34vh, 18rem);
+    max-height: min(32vh, 17rem);
   }
   #app.declutter .panel-dock {
     max-height: 4.2rem;
   }
-  .fpv-stage { min-height: 36vh; }
-  body.large-type .fpv-stage { min-height: 40vh; }
+  .fpv-stage { min-height: 34vh; }
+  body.large-type .fpv-stage { min-height: 38vh; }
   #minimap-wrap {
     /* sit above pads, leave FPV center clear */
-    bottom: calc(8.4rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(9.8rem + env(safe-area-inset-bottom, 0px));
     opacity: 0.92;
+  }
+  .chord-pad {
+    grid-template-columns: repeat(2, minmax(2.9rem, 3.35rem));
+  }
+  .vjoy-btn, .chord-pad button {
+    min-height: 2.9rem;
+    min-width: 2.9rem;
   }
 }
 
@@ -2423,8 +2448,27 @@ header.topbar .panel-dock {
   }
 }
 @media (max-width: 720px), ((max-width: 1024px) and (pointer: coarse)) {
-  #app.declutter .year-panel[open] .panel-body {
-    max-height: none; /* #side remains the single scroll owner on narrow */
+  /* Slice 4 (#75): single scroll owner — kill nested scroll hell on Journal/ICE/year docks */
+  #app.declutter #side {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  #app.declutter .year-panel[open] {
+    overflow: visible; /* do not trap scroll inside <details> on narrow */
+  }
+  #app.declutter .year-panel .panel-body,
+  #app.declutter .year-panel[open] .panel-body,
+  #app.declutter .year-panel .panel-body.empathy-body,
+  #app.declutter .year-panel .panel-body.forecast-body,
+  #app.declutter .year-panel .panel-body.ecology-body,
+  #app.declutter .year-panel .panel-body.globe-body,
+  #app.declutter .year-panel .panel-body.sleeves-body,
+  #app.declutter .year-panel .panel-body.primer-body,
+  #app.declutter .year-panel .panel-body.jaunte-body,
+  #app.declutter .mod-panel-body {
+    max-height: none !important;
+    overflow: visible !important;
   }
 }
 
@@ -2663,4 +2707,58 @@ header.topbar .panel-dock {
     overflow: auto;
   }
   .jaunte-hop-row input { font-size: 1rem; } /* iOS zoom-avoid */
+}
+
+/* ============================================================
+   Mobile slice 4 (#75) — touch HUD + safe-area / notch polish
+   ============================================================ */
+header.topbar {
+  padding-top: max(0.2rem, env(safe-area-inset-top, 0px));
+  padding-left: max(0.35rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.35rem, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 720px), ((max-width: 1024px) and (pointer: coarse)) {
+  .mobile-hud {
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .vjoy, .chord-pad {
+    padding: 0.2rem;
+    border-radius: 10px;
+    background: rgba(5, 8, 12, 0.42);
+    border: 1px solid rgba(30, 58, 64, 0.55);
+  }
+  #app.declutter .stats-compact {
+    top: 0;
+    padding-top: 0.2rem;
+    box-shadow: 0 6px 12px rgba(5, 8, 12, 0.45);
+  }
+  .toast-stack {
+    padding-right: max(0.25rem, env(safe-area-inset-right, 0px));
+  }
+  .death-overlay .death-card,
+  .year-modal .year-modal-card {
+    margin-top: max(0.5rem, env(safe-area-inset-top, 0px));
+    margin-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+  body.playing {
+    overscroll-behavior-y: none;
+  }
+}
+@media (max-width: 420px) {
+  .vjoy {
+    grid-template-columns: repeat(3, minmax(2.35rem, 2.55rem));
+    grid-template-rows: repeat(3, minmax(2.35rem, 2.55rem));
+  }
+  .chord-pad {
+    grid-template-columns: repeat(2, minmax(2.55rem, 2.9rem));
+  }
+  .vjoy-btn, .chord-pad button {
+    font-size: 0.68rem;
+    min-height: 2.55rem;
+    min-width: 2.55rem;
+  }
+  #minimap-wrap {
+    bottom: calc(9.6rem + env(safe-area-inset-bottom, 0px));
+  }
 }

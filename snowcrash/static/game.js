@@ -3638,6 +3638,9 @@
           clearInterval(touchMoveRepeat);
           touchMoveRepeat = null;
         }
+        document.querySelectorAll(".vjoy-btn.is-pressed, .chord-pad button.is-pressed").forEach((el) => {
+          el.classList.remove("is-pressed");
+        });
       }
       function pulseTouchMoves() {
         if (!touchMoveByPointer.size) {
@@ -3650,6 +3653,7 @@
       function bindTouchAct(root, attr, opts) {
         if (!root) return;
         const hold = !!(opts && opts.hold);
+        const pressedByPointer = new Map();
         const onDown = (ev) => {
           const btn = ev.target && ev.target.closest ? ev.target.closest("[" + attr + "]") : null;
           if (!btn || btn.disabled) return;
@@ -3659,6 +3663,8 @@
           try { btn.setPointerCapture(ev.pointerId); } catch (_) {}
           const val = btn.getAttribute(attr);
           if (!val) return;
+          btn.classList.add("is-pressed");
+          pressedByPointer.set(ev.pointerId, btn);
           Sound.unlock();
           if (hold) {
             touchMoveByPointer.set(ev.pointerId, val);
@@ -3671,6 +3677,11 @@
           }
         };
         const onUp = (ev) => {
+          const pressed = pressedByPointer.get(ev.pointerId);
+          if (pressed) {
+            pressed.classList.remove("is-pressed");
+            pressedByPointer.delete(ev.pointerId);
+          }
           if (!hold) return;
           if (touchMoveByPointer.has(ev.pointerId)) {
             touchMoveByPointer.delete(ev.pointerId);
@@ -3690,6 +3701,34 @@
       }
       bindTouchAct(vjoy, "data-move", { hold: true });
       bindTouchAct(chord, "data-act", { hold: false });
+      // ICE / panel-open chords: pressed chrome
+      if (chord) {
+        chord.addEventListener("pointerdown", (ev) => {
+          const btn = ev.target && ev.target.closest ? ev.target.closest("[data-panel-open]") : null;
+          if (!btn || btn.disabled) return;
+          if (ev.pointerType === "mouse" && ev.button !== 0) return;
+          btn.classList.add("is-pressed");
+          try { btn.setPointerCapture(ev.pointerId); } catch (_) {}
+        });
+        const clearPanelPress = (ev) => {
+          const btn = ev.target && ev.target.closest ? ev.target.closest("[data-panel-open]") : null;
+          if (btn) btn.classList.remove("is-pressed");
+        };
+        chord.addEventListener("pointerup", clearPanelPress);
+        chord.addEventListener("pointercancel", clearPanelPress);
+        chord.addEventListener("lostpointercapture", clearPanelPress);
+      }
+      // Nested scroll: keep Journal/ICE flick inside #side
+      const sideEl = document.getElementById("side");
+      if (sideEl && !sideEl.dataset.nestedScrollBound) {
+        sideEl.dataset.nestedScrollBound = "1";
+        sideEl.addEventListener("touchmove", (ev) => {
+          if (!window.matchMedia("(max-width: 720px), ((max-width: 1024px) and (pointer: coarse))").matches) return;
+          if (sideEl.scrollHeight > sideEl.clientHeight + 1) {
+            ev.stopPropagation();
+          }
+        }, { passive: true });
+      }
       window.addEventListener("pointercancel", () => clearTouchMoves());
       window.addEventListener("blur", () => clearTouchMoves());
       document.addEventListener("visibilitychange", () => {

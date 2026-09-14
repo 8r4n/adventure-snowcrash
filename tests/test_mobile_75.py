@@ -1,4 +1,4 @@
-"""Mobile playability slice 3 (#75) — static shell + join helpers."""
+"""Mobile playability (#75) — static shell, join helpers, slice 4 HUD/chords."""
 
 from __future__ import annotations
 
@@ -46,3 +46,25 @@ def test_index_and_sw_served():
         qr = client.get("/static/qrcode.min.js")
         assert qr.status_code == 200
         assert len(qr.content) > 1000
+
+
+def test_slice4_chord_and_nested_scroll_markers():
+    html = (ROOT / "snowcrash" / "templates" / "index.html").read_text(encoding="utf-8")
+    assert 'data-chord-layout="onehand-v4"' in html
+    assert 'data-act="look"' in html
+    assert 'data-act="."' in html
+    assert "LOOK" in html and "WAIT" in html
+    assert "chord-primary" in html
+    # plane pad removed from mobile chords (keyboard still available)
+    assert 'data-act="plane_up"' not in html
+    css = (STATIC / "style.css").read_text(encoding="utf-8")
+    assert "Mobile slice 4 (#75)" in css
+    assert "max-height: none !important" in css
+    assert "is-pressed" in css
+    assert "safe-area-inset-top" in css
+    game = (STATIC / "game.js").read_text(encoding="utf-8")
+    assert 'classList.add("is-pressed")' in game
+    assert "nestedScrollBound" in game
+    doc = (ROOT / "docs" / "mobile.md").read_text(encoding="utf-8")
+    assert "Slice 4" in doc
+    assert "LOOK/WAIT" in doc or "LOOK / WAIT" in doc
