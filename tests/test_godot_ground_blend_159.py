@@ -65,6 +65,8 @@ def test_street_uses_ground_blend_mats():
     assert "MaterialLibrary.make_ground_alpha" in src
     assert 'make_ground("rubble"' in src or '_mats["rubble"]' in src
     assert "_maybe_rubble_overlay" in src
+    assert "func _maybe_rubble_overlay(" in src
+    assert "ground_rubble_overlay" in src
     assert "#159" in src
     assert "Omni budget" in src or "courier + J + U" in src
     assert "Closes #141" not in src

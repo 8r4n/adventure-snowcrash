@@ -1293,6 +1293,27 @@ func _kit(name: String, fallback: Mesh) -> Mesh:
 	return fallback
 
 
+func _maybe_rubble_overlay(origin: Vector3, x: int, y: int) -> void:
+	## Sparse rubble chips on floor/street (#159). High only — AOI mesh headroom (#148).
+	var on: bool = true
+	if GraphicsSettings:
+		on = GraphicsSettings.ground_rubble_overlay()
+	if not on:
+		return
+	if not _mats.has("rubble") or _mats["rubble"] == null:
+		return
+	# Deterministic sparse placement (~1/17 tiles) — distinct hash from scatter props.
+	var h: int = int(absi(x * 2654435761 ^ y * 2246822519) % 17)
+	if h != 2 and h != 9:
+		return
+	var ox: float = 0.22 if h == 2 else -0.18
+	var oz: float = -0.16 if h == 2 else 0.24
+	var chip: Mesh = _meshes["box"]
+	_add_mesh(map_root, chip, _mats["rubble"], origin + Vector3(ox, 0.09, oz), Vector3(0.22, 0.08, 0.18))
+	if h == 9:
+		_add_mesh(map_root, chip, _mats["rubble"], origin + Vector3(-ox * 0.7, 0.07, -oz * 0.5), Vector3(0.14, 0.06, 0.12))
+
+
 func _maybe_scatter_prop(origin: Vector3, x: int, y: int, kind: String) -> void:
 	## Sparse kit debris / foliage / vents. High only (#148 AOI headroom). No extra Omni.
 	var scatter_on: bool = true
