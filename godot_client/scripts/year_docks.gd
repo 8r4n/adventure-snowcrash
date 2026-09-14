@@ -427,6 +427,8 @@ func _send(action: String, arg = null) -> void:
 	if action == "__globe_select":
 		_globe_selected_id = str(arg) if arg != null else ""
 		globe_region_highlight.emit(_globe_selected_id)
+		if net != null and net.is_joined() and not _globe_selected_id.is_empty():
+			net.send_action("globe_preview", _globe_selected_id)
 		if _open_id == "globe":
 			_paint_open_dock(_last_state)
 		return
@@ -720,20 +722,63 @@ func _paint_globe(state: Dictionary) -> void:
 				break
 	elif cur.is_empty():
 		cur = str(reg.get("id", ""))
-	var cost = g.get("cost_credits", g.get("hop_cost", g.get("cost", "?")))
+	var cost = int(g.get("cost_credits", g.get("hop_cost", g.get("cost", 15))))
+	var recall_cost := int(g.get("recall_cost_credits", cost / 2))
 	var cd := float(g.get("cooldown_remaining", g.get("cooldown", 0)))
+	var credits := int(g.get("credits", state.get("credits", 0)))
 	var zoom := str(g.get("zoom", "globe"))
-	_add_meta("%s · hop %s cr · cd %s · zoom %s" % [
+	var hop_ready := bool(g.get("hop_ready", cd <= 0.05 and credits >= cost))
+	var block_msg := str(g.get("hop_block_message", ""))
+	var status := "ready" if cd <= 0.05 else ("%.0fs" % cd)
+	if cd <= 0.05 and credits < cost:
+		status = "need %d cr" % cost
+	_add_meta("%s · credits %d · hop %d / recall %d · cd %s · zoom %s" % [
 		str(reg.get("name", cur if not cur.is_empty() else "—")),
-		str(cost),
-		("ready" if cd <= 0.05 else "%.0fs" % cd),
-		zoom,
+		credits, cost, recall_cost, status, zoom,
 	])
-	_add_dim(str(g.get("hint", "3D Earth left · pick a pin or Teleport below.")))
+	_add_dim(str(g.get("hint", "3D Earth left · pick a pin to preview street flavor, then Teleport.")))
 	_add_dim("Hybrid: SubViewport 3D globe overlays the street view while this dock is open.")
-	if not _globe_selected_id.is_empty():
-		_add_meta("Selected pin: %s" % _globe_selected_id)
-		_add_action_row([{"label": "Teleport selected", "action": "teleport", "arg": _globe_selected_id}])
+	var preview := _as_dict(g.get("preview", {}))
+	var preview_id := str(g.get("preview_region_id", ""))
+	if preview_id.is_empty():
+		preview_id = _globe_selected_id
+	if not preview_id.is_empty() and (preview.is_empty() or str(preview.get("id", "")) != preview_id):
+		for r in regions:
+			if typeof(r) == TYPE_DICTIONARY and str(r.get("id", "")) == preview_id:
+				preview = r
+				break
+	if not preview_id.is_empty():
+		_globe_selected_id = preview_id
+		var pname := str(preview.get("name", preview_id))
+		var flavor := str(preview.get("street_flavor", preview.get("label", "")))
+		var home_id := str(g.get("home_region_id", ""))
+		var shard := "ASCII" if bool(preview.get("has_ascii_shard", false)) else ("home" if preview_id == home_id else "mapgen")
+		var news_tag := " · NEWS" if bool(preview.get("has_news", false)) else ""
+		_add_meta("Preview: %s (%s) · %s%s" % [pname, preview_id, shard, news_tag])
+		if not flavor.is_empty():
+			_add_dim(flavor)
+		var lms: Array = _as_arr(preview.get("landmarks", []))
+		if not lms.is_empty():
+			var parts: PackedStringArray = PackedStringArray()
+			for i in range(mini(5, lms.size())):
+				parts.append(str(lms[i]))
+			_add_dim("landmarks: %s" % ", ".join(parts))
+		var news_arr: Array = _as_arr(preview.get("news", []))
+		if not news_arr.is_empty() and typeof(news_arr[0]) == TYPE_DICTIONARY:
+			_add_dim("StreetNet: %s" % str(news_arr[0].get("headline", "")))
+		elif str(preview.get("news_headline", "")) != "":
+			_add_dim("StreetNet: %s" % str(preview.get("news_headline", "")))
+		var p_cost := int(preview.get("cost_credits", cost if preview_id != home_id else recall_cost))
+		var p_ready := bool(preview.get("hop_ready", hop_ready and preview_id != cur))
+		var p_block := str(preview.get("blocked_message", block_msg))
+		if preview_id == cur or bool(preview.get("here", false)):
+			_add_dim("Already sleeved here.")
+		elif p_ready:
+			_add_action_row([{"label": "Teleport (−%d cr)" % p_cost, "action": "teleport", "arg": preview_id}])
+		else:
+			_add_dim("Hop blocked: %s" % (p_block if not p_block.is_empty() else status))
+			_add_action_row([{"label": "Teleport (blocked)", "action": "teleport", "arg": preview_id}])
+		_add_action_row([{"label": "Clear preview", "action": "globe_preview", "arg": "clear"}])
 	_add_action_row([
 		{"label": "Street", "action": "globe_zoom", "arg": "street"},
 		{"label": "Regions", "action": "globe_zoom", "arg": "region"},
@@ -794,8 +839,14 @@ func _paint_globe(state: Dictionary) -> void:
 			mark += " ▶"
 		if bool(r.get("has_ascii_shard", false)):
 			mark += " ascii"
+		if bool(r.get("has_news", false)):
+			mark += " NEWS"
 		_add_meta("%s%s" % [name, mark])
-		_add_dim("%s · %s,%s" % [id, r.get("lat", "?"), r.get("lon", "?")])
+		var flavor := str(r.get("street_flavor", r.get("label", "")))
+		if flavor.is_empty():
+			_add_dim("%s · %s,%s" % [id, r.get("lat", "?"), r.get("lon", "?")])
+		else:
+			_add_dim("%s · %s" % [id, flavor])
 		var hop_id := id
 		_add_action_row([
 			{"label": "Select", "action": "__globe_select", "arg": hop_id},

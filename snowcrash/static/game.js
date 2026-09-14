@@ -2197,8 +2197,8 @@
       return [x, y];
     }
 
-    // Globe UI local search state (survives snapshot re-renders)
-    const _globeUiState = { q: "", ascii: false, focus: false, selStart: 0, selEnd: 0 };
+    // Globe UI local search / preview state (survives snapshot re-renders)
+    const _globeUiState = { q: "", ascii: false, focus: false, selStart: 0, selEnd: 0, previewId: "" };
 
     function renderGlobe(s) {
       if (!els.globeBody) return;
@@ -2224,7 +2224,14 @@
       const cur = defStr(g.region_id, "");
       const home = defStr(g.home_region_id, "");
       const cost = defNum(g.cost_credits, 15);
+      const recallCost = defNum(g.recall_cost_credits, Math.floor(cost / 2));
       const cd = defNum(g.cooldown_remaining, 0);
+      const cdSec = defNum(g.cooldown_sec, 45);
+      const credits = defNum(g.credits, defNum(s.credits, 0));
+      const canAfford = defBool(g.can_afford_hop, credits >= cost);
+      const previewSrv = defObj(g.preview);
+      if (defStr(g.preview_region_id, "")) _globeUiState.previewId = defStr(g.preview_region_id, "");
+      const previewId = defStr(_globeUiState.previewId, defStr(g.preview_region_id, ""));
       const reg = defObj(g.region);
       const zoom = defStr(g.zoom, g.panel_open ? "globe" : "street");
       const w = 200, h = 100;
@@ -2273,8 +2280,15 @@
         if (defBool(reg.has_ascii_shard, false)) return " · ASCII pack on hop";
         return src === "mapgen" ? " · mapgen shard" : "";
       })();
+      const cdPct = cdSec > 0 ? Math.max(0, Math.min(100, (1 - cd / cdSec) * 100)) : 100;
+      const hopStatus = cd > 0.5
+        ? `cooldown ${cd.toFixed(0)}s`
+        : (canAfford ? "hop ready" : `need ${cost} cr (have ${credits})`);
       const meta =
-        `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}${shardNote}<br/>Hop cost ${cost} cr · cooldown ${cd > 0 ? cd.toFixed(0) + "s" : "ready"} · <button type="button" data-globe="recall">Recall home</button></div>`;
+        `<div class="globe-meta"><strong>${escapeHtml(defStr(reg.name, cur))}</strong> · lat ${defNum(reg.lat, 0).toFixed(1)} lon ${defNum(reg.lon, 0).toFixed(1)}${shardNote}<br/>` +
+        `Credits <strong>${credits}</strong> · hop ${cost} cr · recall ${recallCost} cr · ${hopStatus} · ` +
+        `<button type="button" data-globe="recall"${(cd > 0.5 || credits < recallCost) ? " disabled" : ""}>Recall home</button></div>` +
+        `<div class="globe-cd-meter" title="Uplink cooldown"><div class="globe-cd-fill" style="width:${cdPct.toFixed(0)}%"></div></div>`;
 
       const restoreGlobeSearch = () => {
         const inp = document.getElementById("globe-search");
@@ -2285,12 +2299,51 @@
         }
       };
 
+      const findRegion = (id) => regionsAll.find((r) => defStr(r.id, "") === id) || {};
+      const previewCardHtml = () => {
+        if (!previewId) {
+          return `<div class="globe-preview dim">Tap a pin or <em>Preview</em> to inspect street flavor before hop.</div>`;
+        }
+        const pv = (defStr(previewSrv.id, "") === previewId) ? previewSrv : {};
+        const r = Object.keys(pv).length ? pv : findRegion(previewId);
+        const name = defStr(r.name, previewId);
+        const flavor = defStr(r.street_flavor, defStr(r.label, ""));
+        const strip = defStr(r.ascii_strip, "");
+        const lms = defArr(r.landmarks);
+        const news = defArr(r.news);
+        const newsHead = news.length ? defStr(news[0].headline, "") : defStr(r.news_headline, "");
+        const pCost = defNum(r.cost_credits, previewId === home ? recallCost : cost);
+        const ready = defBool(r.hop_ready, cd <= 0.5 && credits >= pCost && previewId !== cur);
+        const blockMsg = defStr(r.blocked_message, "");
+        const here = previewId === cur || defBool(r.here, false);
+        const shard = defBool(r.has_ascii_shard, false)
+          ? "ASCII shard"
+          : (previewId === home ? "home street" : "mapgen shard");
+        let body =
+          `<div class="globe-preview">` +
+          `<div class="globe-preview-head"><strong>${escapeHtml(name)}</strong> <span class="dim">(${escapeHtml(previewId)})</span>` +
+          ` · ${escapeHtml(shard)}` +
+          (defBool(r.has_news, news.length > 0) ? ` · <span class="globe-news-tag">NEWS</span>` : "") +
+          `</div>` +
+          (flavor ? `<div class="globe-preview-flavor">${escapeHtml(flavor)}</div>` : "") +
+          (lms.length ? `<div class="dim">landmarks: ${escapeHtml(lms.join(", "))}</div>` : "") +
+          (newsHead ? `<div class="globe-preview-news">StreetNet: ${escapeHtml(String(newsHead).slice(0, 120))}</div>` : "") +
+          (strip ? `<pre class="globe-ascii-strip" aria-label="Street ASCII preview">${escapeHtml(strip)}</pre>` : "") +
+          `<div class="globe-preview-hop">`;
+        if (here) body += `<span class="dim">Already sleeved here.</span>`;
+        else if (ready) body += `<button type="button" data-tp="${escapeHtml(previewId)}">Hop (−${pCost} cr)</button>`;
+        else body += `<button type="button" data-tp="${escapeHtml(previewId)}" disabled>Hop</button> <span class="dim">${escapeHtml(blockMsg || hopStatus)}</span>`;
+        body += ` <button type="button" data-globe-preview="clear">Clear</button></div></div>`;
+        return body;
+      };
+
       if (zoom === "street") {
         els.globeBody.innerHTML =
           zoomBar +
           searchBar +
           geoStrip +
           meta +
+          previewCardHtml() +
           `<div class="globe-street-card"><strong>Street GPS</strong><p class="dim">You are sleeved in ${escapeHtml(defStr(reg.name, cur))} (${escapeHtml(cur)}). Zoom to <em>Regions</em> or <em>Globe</em> to uplink-hop.</p>` +
           `<button type="button" data-globe-zoom="region">Open region list</button> ` +
           `<button type="button" data-globe-zoom="globe">Zoom to Earth</button></div>` +
@@ -2317,8 +2370,13 @@
         const name = defStr(r.name, id);
         const here = id === cur ? " · HERE" : "";
         const ascii = defBool(r.has_ascii_shard, false) ? " · ASCII" : "";
-        const disabled = (cd > 0.5 && id !== cur) ? " disabled" : "";
-        return `<div class="row"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}${ascii}</span></span><button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></div>`;
+        const news = defBool(r.has_news, false) ? " · NEWS" : "";
+        const sel = id === previewId ? " globe-row-selected" : "";
+        const hopCost = id === home ? recallCost : cost;
+        const disabled = (id === cur || cd > 0.5 || credits < hopCost) ? " disabled" : "";
+        return `<div class="row${sel}"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}${ascii}${news}</span></span>` +
+          `<span><button type="button" data-globe-preview="${escapeHtml(id)}">Preview</button> ` +
+          `<button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></span></div>`;
       }).join("");
 
       if (zoom === "region") {
@@ -2330,9 +2388,10 @@
           searchBar +
           geoStrip +
           meta +
+          previewCardHtml() +
           filterNote +
           `<div class="globe-region-list">${list}</div>` +
-          `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a region to hop."))}</div>`;
+          `<div class="row dim">${escapeHtml(defStr(g.hint, "Preview a region, then hop."))}</div>`;
         restoreGlobeSearch();
         return;
       }
@@ -2340,11 +2399,14 @@
       // zoom === globe (schematic Earth)
       const pins = regions.map((r) => {
         const id = defStr(r.id, "");
-        const [x, y] = latLonToSvg(r.lat, r.lon, w, h);
+        const useNewsPin = defBool(r.has_news, false) && r.news_lat != null && r.news_lon != null;
+        const [x, y] = latLonToSvg(useNewsPin ? Number(r.news_lat) : r.lat, useNewsPin ? Number(r.news_lon) : r.lon, w, h);
         const cls = ["pin"];
         if (id === home || r.home) cls.push("home");
         if (id === cur) cls.push("here");
+        if (id === previewId) cls.push("selected");
         if (defBool(r.has_ascii_shard, false)) cls.push("ascii");
+        if (defBool(r.has_news, false)) cls.push("news");
         const ecos = ecoByRegion[id] || defArr(r.ecology);
         if (ecos.length) {
           cls.push("ecology");
@@ -2355,9 +2417,12 @@
           ? " · " + ecos.map((e) => defStr(e.resource_short || e.resource, "?") + "@" + defStr((e.controller || {}).name, "?")).join(", ")
           : "";
         const asciiTitle = defBool(r.has_ascii_shard, false) ? " · ASCII shard" : "";
-        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")" + escapeHtml(ecoTitle + asciiTitle);
-        const rad = ecos.length ? 2.8 : (defBool(r.has_ascii_shard, false) ? 2.5 : 2.2);
-        return `<circle class="${cls.join(" ")}" data-tp="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>`;
+        const newsTitle = defBool(r.has_news, false) ? " · NEWS: " + defStr(r.news_headline, "StreetNet beat") : "";
+        const flavorTitle = defStr(r.street_flavor, defStr(r.label, ""));
+        const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")" +
+          escapeHtml((flavorTitle ? " — " + flavorTitle : "") + ecoTitle + asciiTitle + newsTitle);
+        const rad = defBool(r.has_news, false) ? 3.1 : (ecos.length ? 2.8 : (defBool(r.has_ascii_shard, false) ? 2.5 : 2.2));
+        return `<circle class="${cls.join(" ")}" data-globe-preview="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>`;
       }).join("");
       const land = `
         <ellipse class="land" cx="42" cy="42" rx="28" ry="22"/>
@@ -2378,10 +2443,11 @@
         searchBar +
         geoStrip +
         meta +
+        previewCardHtml() +
         `<svg class="globe-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Schematic Earth region picker"><rect class="ocean" width="${w}" height="${h}"/>${land}${pins}</svg>` +
         (ecoStrip ? `<div class="globe-ecology-strip"><strong>Scarce nodes</strong> ${ecoStrip}</div>` : "") +
         `<div class="globe-region-list globe-region-list-compact">${list}</div>` +
-        `<div class="row dim">${escapeHtml(defStr(g.hint, "Pick a pin to uplink-hop."))}</div>`;
+        `<div class="row dim">${escapeHtml(defStr(g.hint, "Tap a pin to preview, then Hop."))}</div>`;
       restoreGlobeSearch();
     }
 
@@ -3309,6 +3375,15 @@
       bindPanel(els.raidBody, [["data-raid", (v) => send("raid_" + v)]]);
       bindPanel(els.globeBody, [
         ["data-tp", (v) => send("teleport", v)],
+        ["data-globe-preview", (v) => {
+          if (v === "clear") {
+            _globeUiState.previewId = "";
+            send("globe_preview", "clear");
+          } else {
+            _globeUiState.previewId = v;
+            send("globe_preview", v);
+          }
+        }],
         ["data-globe-zoom", (v) => send("globe_zoom", v)],
         ["data-globe-filter", (v) => {
           _globeUiState.ascii = (v === "ascii");
