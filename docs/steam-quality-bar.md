@@ -62,13 +62,14 @@ Issue **[#163](https://github.com/8r4n/adventure-snowcrash/issues/163)** (parent
 | **[Abandoned Spaceship Godot Demo](https://github.com/perfoon/Abandoned-Spaceship-Godot-Demo)** (Perfoon) | Godot 4 tech-art showcase: trim-sheet recolor shaders, PBR ORM, baked lightmaps, volumetric fog / SSIL / SSAO / TAA, reflection probes, diegetic arcade video. **Look** bar for store screenshots. We cite it; we do **not** copy meshes, textures, or shaders. |
 | **[BLASTRONAUT](https://store.steampowered.com/app/1392650/BLASTRONAUT/)** (same author, shipped) | Commercial proof this craft bar sells on Steam — “finished Godot product,” not prototype primitives. |
 
-Visual-bar children **#156–#161** shipped (materials / lighting / kit / ground / diegesis / camera). Remaining Steam SKU work: GodotSteam **full** (stub #173 done), sidecar/offline, live stills. Authority / loop stays ours (live Python `/ws` + thin Godot). Assessment table + will/won’t-copy lives in [godot-3d.md — Visual bar](godot-3d.md#visual-bar-163).
+Visual-bar children **#156–#161** shipped (materials / lighting / kit / ground / diegesis / camera). Remaining Steam SKU work: GodotSteam **full** (stub #173 done), sidecar/offline, live stills. Authority / loop stays ours (live Python `/ws` + thin Godot). Assessment table + will/won’t-copy lives in [godot-3d.md — Visual bar](godot-3d.md#visual-bar-163). Authored GLB conventions: [godot-blender-assets.md](godot-blender-assets.md).
 
 **Visual-fidelity checklist** (children of #163 — keep parent epics #163 / #141 open; use `Refs` only):
 
 - [x] [#156](https://github.com/8r4n/adventure-snowcrash/issues/156) Trim-sheet / PBR + Catppuccin recolor shader
 - [x] [#157](https://github.com/8r4n/adventure-snowcrash/issues/157) High-preset SSAO/SSIL/TAA/volumetric + probes
 - [x] [#158](https://github.com/8r4n/adventure-snowcrash/issues/158) Modular corridor + prop kit (snapshot-placed)
+- [x] [#179](https://github.com/8r4n/adventure-snowcrash/issues/179) Blender→Godot authored GLB pipeline (wall_panel + door_frame)
 - [x] [#159](https://github.com/8r4n/adventure-snowcrash/issues/159) Ground blend materials
 - [x] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens
 - [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (cosmetic only; `/ws` grid stays authority)

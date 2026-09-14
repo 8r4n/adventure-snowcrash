@@ -2,6 +2,7 @@ extends Node3D
 class_name Street3D
 ## Snapshot map → neon 3D street + cyberspace/ICE lattice (#141). Python /ws remains authority.
 ## #158: modular corridor / prop kit (MeshKit) — snapshot-placed, original meshes.
+## #179: prefer Blender-authored GLB (meters, floor origin) when present; OBJ fallback.
 ## #156: shared trim / PBR + Catppuccin recolor (MaterialLibrary) — Omni budget unchanged.
 ## #159: ground blend (floor/street/grass/water/rubble) — world-space shared mats; Low cheaper.
 ## #160: diegetic screens (jack terminal + StreetNet board) — Label3D/quad; #133 docks untouched.
@@ -501,7 +502,7 @@ func _ensure_resources() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(float(_build_radius * 2 + 6), float(_build_radius * 2 + 6))
 	_meshes["ground"] = plane
-	# #158 modular kit (original OBJ → ArrayMesh). Fallback stays PrimitiveMesh.
+	# #158/#179 modular kit (GLB preferred, then OBJ → ArrayMesh). Fallback stays PrimitiveMesh.
 	MeshKit.ensure()
 	for kn in MeshKit.NAMES:
 		var km: Mesh = MeshKit.get_mesh(kn)
@@ -612,8 +613,7 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 	match role:
 		"wall":
 			var mat = _mats["wall_hi"] if alt else _mats["wall"]
-			var wall_mesh: Mesh = _kit("wall_panel", _meshes["box"])
-			_add_mesh(map_root, wall_mesh, mat, origin + Vector3(0, WALL_H * 0.5, 0), Vector3(1.0, WALL_H, 1.0))
+			_kit_place(map_root, "wall_panel", _meshes["box"], mat, origin, origin + Vector3(0, WALL_H * 0.5, 0), Vector3(1.0, WALL_H, 1.0))
 		"floor":
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
 			_maybe_rubble_overlay(origin, x, y)
@@ -632,9 +632,8 @@ func _place_tile(ch: String, x: int, y: int, alt: bool) -> void:
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["water"], origin + Vector3(0, 0.02, 0), Vector3(1.0, 0.7, 1.0))
 		"door":
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
-			var frame: Mesh = _kit("door_frame", _meshes["box"])
-			_add_mesh(map_root, frame, _mats["door"], origin + Vector3(0, 1.15, 0), Vector3(1.0, 2.2, 1.0))
-			var frame_b: MeshInstance3D = _add_mesh(map_root, frame, _mats["door"], origin + Vector3(0, 1.15, 0), Vector3(1.0, 2.2, 1.0))
+			_kit_place(map_root, "door_frame", _meshes["box"], _mats["door"], origin, origin + Vector3(0, 1.15, 0), Vector3(1.0, 2.2, 1.0))
+			var frame_b: MeshInstance3D = _kit_place(map_root, "door_frame", _meshes["box"], _mats["door"], origin, origin + Vector3(0, 1.15, 0), Vector3(1.0, 2.2, 1.0))
 			frame_b.rotation.y = PI * 0.5
 		"manhole":
 			_add_mesh(map_root, _kit("floor_tile", _meshes["floor"]), _mats["floor"], origin + Vector3(0, 0.04, 0))
@@ -1291,6 +1290,15 @@ func _kit(name: String, fallback: Mesh) -> Mesh:
 	if km:
 		return km
 	return fallback
+
+
+func _kit_place(parent: Node3D, name: String, fallback: Mesh, mat: Material, origin: Vector3, unit_pos: Vector3, unit_scale: Vector3) -> MeshInstance3D:
+	## #179 authored GLB is already meters / floor-origin — identity xform.
+	## #158 OBJ kit stays unit-sized and uses the historical offset + scale.
+	var mesh: Mesh = _kit(name, fallback)
+	if MeshKit.is_authored(name):
+		return _add_mesh(parent, mesh, mat, origin, Vector3.ONE)
+	return _add_mesh(parent, mesh, mat, unit_pos, unit_scale)
 
 
 func _maybe_rubble_overlay(origin: Vector3, x: int, y: int) -> void:

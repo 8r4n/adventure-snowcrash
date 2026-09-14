@@ -60,6 +60,7 @@ Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs
 - [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: this section + [steam-quality-bar.md](steam-quality-bar.md) cite (this PR)
 - [x] [#166](https://github.com/8r4n/adventure-snowcrash/issues/166) Reproduce Godot 3D demo (README + capture)
+- [x] [#179](https://github.com/8r4n/adventure-snowcrash/issues/179) Blender→Godot authored asset pipeline (GLB kit; this slice)
 
 
 ## Demo capture (#166)
@@ -514,7 +515,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] GodotSteam stub (#173) — optional `SteamBridge` autoload + docs; no hard Steam dep for headless
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; **diegesis #160 done**; **demo capture #166 done**)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **Blender GLB #179 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; **diegesis #160 done**; **demo capture #166 done**)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.
@@ -641,6 +642,19 @@ Live street stills still **TBD** (no Godot / Deck in CI — same honesty as #148
 
 ---
 
+## Blender-authored kit (#179)
+
+`#158` OBJ remains the fallback. **wall_panel** and **door_frame** now ship as Blender 4.3 **GLB** (meters, floor origin, UVs, bevel, `Mat_*` slots). `MeshKit` prefers `.glb` then `.obj`. `street_3d.gd` `_kit_place` uses identity xform for authored pieces so we do not double-scale `WALL_H`.
+
+Rebuild: `./scripts/blender_export_kit.sh` → `godot_client/models/*.glb` + `tools/blender/src/*.blend`. Conventions: [godot-blender-assets.md](godot-blender-assets.md).
+
+**AOI / Deck / Omni:** unchanged — `BUILD_RADIUS` 18, `MAX_POOLED_ENTITIES` 48, `kit_scatter()` High-only, lights still courier + J + U. Emissive neon slots ≠ extra Omni.
+
+**Not shipped:** Abandoned Spaceship GLBs / hangar meshes. Original Catppuccin neon.
+
+`Refs #163` · `Refs #141` — epics stay OPEN.
+
+---
 
 ## Diegetic in-world screens (#160)
 
@@ -687,10 +701,12 @@ Street-distance **J** / **U** / **$** language without dumping year docks:
 | Path | Role |
 |------|------|
 | `godot_client/scenes/street.tscn` | `Node3D` world, environment, Rim, FxRoot, courier rig |
-| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / #160 screens / objective cue / particles / quality / #156 mats / #159 ground / #161 camera juice / #157 GI+probes |
+| `godot_client/scripts/street_3d.gd` | Snapshot → meshes / entities / ICE / landmarks (#150) / #160 screens / objective cue / particles / quality / #156 mats / #159 ground / #161 camera juice / #157 GI+probes / #179 authored GLB |
 | `godot_client/materials/` | Shared trim / PBR (#156) + ground blend (#159): `recolor_trim.gdshader`, `ground_blend.gdshader`, `library.gd`, `.tres`, generated textures |
-| `godot_client/models/` | #158 original OBJ kit (wall panel, floor tile, door frame, crate, pipe, neon, foliage, vent) |
-| `godot_client/scripts/mesh_kit.gd` | OBJ → ArrayMesh loader + role catalog (`MeshKit`) |
+| `godot_client/models/` | #158 OBJ kit + #179 Blender GLB (`wall_panel.glb`, `door_frame.glb`) |
+| `godot_client/scripts/mesh_kit.gd` | GLB-preferred Mesh loader + role catalog (`MeshKit`) |
+| `docs/godot-blender-assets.md` | #179 units / origin / export / Godot import |
+| `scripts/blender_export_kit.sh` | Headless Blender 4.3 rebuild |
 | `godot_client/scripts/diegetic_screens.gd` | #160 jack terminal + StreetNet billboard prefabs (Label3D) |
 | `godot_client/scenes/globe.tscn` | Stylized Earth + Rim + Fill Omni |
 | `godot_client/scripts/globe_3d.gd` | Region pins, orbit dust, quality |
