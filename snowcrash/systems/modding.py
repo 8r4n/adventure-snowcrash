@@ -3,7 +3,7 @@
 Loads manifests from ``mods/`` and ``examples/plugins/`` and registers
 JSON-defined items, street events, journal beats, StreetNet broadcasts,
 ICE probes / light cyberspace nodes, globe pins, CSP-friendly UI panels,
-and StreetNet slash commands.
+StreetNet slash commands, capability flags, and a fail-closed FS/network sandbox.
 No arbitrary Python/WASM/mod-JS exec.
 """
 
@@ -22,7 +22,7 @@ from ..items import Item
 log = logging.getLogger("snowcrash.modding")
 
 # Public plugin API semver — bump minor for additive hooks, major for breaks.
-PLUGIN_API_VERSION = "1.3.0"
+PLUGIN_API_VERSION = "1.4.0"
 
 MANIFEST_NAMES = ("mod.json", "manifest.json")
 
@@ -146,6 +146,57 @@ def api_compatible(required: str, provided: str = PLUGIN_API_VERSION) -> bool:
     return api_incompatibility_reason(required, provided) is None
 
 
+def permission_status(perm: str) -> str:
+    """Classify a permission name: implemented | denied | known | unknown."""
+    p = (perm or "").strip().lower()
+    if not p:
+        return "unknown"
+    if p in DENIED_PERMISSIONS:
+        return "denied"
+    if p in IMPLEMENTED_PERMISSIONS:
+        return "implemented"
+    if p in KNOWN_PERMISSIONS:
+        return "known"
+    return "unknown"
+
+
+def host_capability_flags() -> Dict[str, Any]:
+    """Version negotiation / capability flags for clients and mod authors (API 1.4).
+
+    Safe-by-default: FS/network/exec are always ``denied``. Implemented data
+    hooks are ``implemented``. Snapshot exposes this so Godot/web can negotiate
+    UI without guessing the host contract.
+    """
+    perm_flags: Dict[str, str] = {}
+    for p in sorted(IMPLEMENTED_PERMISSIONS):
+        perm_flags[p] = "implemented"
+    for p in sorted(DENIED_PERMISSIONS):
+        perm_flags[p] = "denied"
+    for p in sorted(KNOWN_PERMISSIONS - IMPLEMENTED_PERMISSIONS - DENIED_PERMISSIONS):
+        perm_flags.setdefault(p, "known")
+    return {
+        "api_version": PLUGIN_API_VERSION,
+        "permissions": perm_flags,
+        "sandbox": {
+            "code_execution": "denied",
+            "fs": "mod_dir_jail",
+            "network": "denied",
+            "symlinks": "denied",
+            "partial_apply": False,
+            "unsigned_auto_download": False,
+        },
+        "clients": {
+            "web_ui_panel": True,
+            "godot_ui_panel": True,
+        },
+    }
+
+
+def mod_has_permission(mod: "LoadedMod", perm: str) -> bool:
+    """True if the loaded mod was granted *perm* (manifest allowlist)."""
+    return perm in (getattr(mod, "permissions", None) or [])
+
+
 def _repo_root() -> Path:
     # snowcrash/systems/modding.py → repo root
     return Path(__file__).resolve().parents[2]
@@ -182,20 +233,48 @@ def default_search_roots() -> List[Path]:
     return out
 
 
+_ENTRY_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+
+
 def _safe_child(base: Path, rel: str) -> Optional[Path]:
-    """Resolve *rel* under *base*; reject absolute / traversal."""
+    """Resolve *rel* under *base*; reject absolute / traversal / URLs / symlinks.
+
+    FS/network sandbox: entry paths are relative files inside the mod directory
+    only. Schemes (``http:``, ``file:``, …), ``..``, absolutes, and symlinks
+    are fail-closed — mods never get host FS or network via the loader.
+    """
     if not rel or not isinstance(rel, str):
+        return None
+    rel = rel.strip()
+    if not rel:
+        return None
+    # Network / URL / scheme — never allow (fs/network sandbox).
+    if _ENTRY_SCHEME_RE.match(rel) or "://" in rel or rel.startswith("//"):
+        return None
+    if "\\" in rel or chr(0) in rel:
         return None
     if os.path.isabs(rel) or ".." in Path(rel).parts:
         return None
     try:
         base_r = base.resolve()
+        # Walk components; reject symlinks at any step (no host FS via link).
+        cur = base_r
+        for part in Path(rel).parts:
+            if part in ("", ".", ".."):
+                return None
+            nxt = cur / part
+            if nxt.is_symlink():
+                return None
+            cur = nxt
         target = (base / rel).resolve()
     except OSError:
         return None
     try:
         target.relative_to(base_r)
     except ValueError:
+        return None
+    # Final path must not be a symlink (even if it points inside the jail).
+    if target.exists() and target.is_symlink():
         return None
     return target
 
@@ -327,6 +406,8 @@ class ModRegistry:
             ],
             "skipped": list(self.skipped),
             "implemented_permissions": sorted(IMPLEMENTED_PERMISSIONS),
+            "denied_permissions": sorted(DENIED_PERMISSIONS),
+            "capabilities": host_capability_flags(),
         }
 
 
@@ -1618,5 +1699,6 @@ class ModdingMixin:
                 "mod_count": 0,
                 "mods": [],
                 "errors": [],
+                "capabilities": host_capability_flags(),
             }
         return reg.snapshot()

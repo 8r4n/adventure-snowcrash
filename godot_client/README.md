@@ -32,6 +32,12 @@ The Godot **editor/binary is not required in this repo**. These files are a vali
 
 Production server default is port **8765** — change the URL if you point at that process.
 
+## Death / respawn
+
+After the onboarding beat, flatlines show a **SIGNAL LOST** overlay (`scripts/death_recap.gd`): cause, last objective, and `respawn_options` pad buttons (default **R** = safe pad). During the first-session beat, OnboardingBeat still owns the death card.
+
+See [docs/godot-first-hour.md](../docs/godot-first-hour.md).
+
 ## Controls (play loop)
 
 | Input | Intent (same strings as web) |
@@ -86,7 +92,7 @@ Default viewport **1280×800** (`keep` aspect). Export presets: tracked `export_
 | Forecast | `forecast` | `forecast`, `forecast_nudge`, `forecast_status`, `forecast_close` |
 | Ecology | `ecology` | `ecology_*`, `ecology_claim`, `ecology_raid` |
 | Empathy | `empathy` | `empathy_*`, `empathy_answer`, `bounty_*` |
-| Hello Courier / mod `ui_panel` | `mods.panels` | allowlisted `action` (+ optional `arg`) from panel JSON |
+| Hello Courier / mod `ui_panel` | `mods.panels` (+ `mods.capabilities`) | allowlisted `action` (+ optional `arg`); dock keys `mod:<id>` cycle with Deck |
 
 Dock bar is accordion-style (one panel open). Opening Globe/Primer/Jaunte/Sleeves/Forecast/Ecology/Empathy sends the same refresh action as web. Catppuccin Mocha colors via `scripts/catppuccin.gd`.
 

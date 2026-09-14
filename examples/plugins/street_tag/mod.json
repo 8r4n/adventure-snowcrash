@@ -1,0 +1,12 @@
+{
+  "id": "street_tag",
+  "name": "Street Tag",
+  "version": "1.0.0",
+  "api_version": "1.0.0",
+  "description": "Minimal example pack — one namespaced trinket only. Shows smallest safe permission set.",
+  "author": "8r4n",
+  "license": "MIT",
+  "attribution": "Bundled first-party minimal example for adventure-snowcrash #72.",
+  "permissions": ["items"],
+  "entry": {"items": "items.json"}
+}

@@ -8,11 +8,15 @@ from pathlib import Path
 from snowcrash.mmorpg import GameWorld
 from snowcrash.systems.modding import (
     PLUGIN_API_VERSION,
+    _safe_child,
     api_compatible,
     api_incompatibility_reason,
     discover_mod_dirs,
+    host_capability_flags,
     load_all_mods,
     load_mod,
+    mod_has_permission,
+    permission_status,
     ModRegistry,
     item_from_def,
 )
@@ -30,19 +34,20 @@ def _join(w: GameWorld, name: str = "ModCourier"):
 
 def test_api_semver_compatible():
     assert api_compatible("1.0.0", "1.0.0")
-    assert api_compatible("1.0.0", "1.3.0")
-    assert api_compatible("1.2.0", "1.3.0")
+    assert api_compatible("1.0.0", "1.4.0")
+    assert api_compatible("1.3.0", "1.4.0")
     assert not api_compatible("2.0.0", "1.0.0")
     assert not api_compatible("1.9.0", "1.0.0")
     assert not api_compatible("nope", "1.0.0")
-    assert not api_compatible("", "1.3.0")
-    r = api_incompatibility_reason("2.0.0", "1.3.0")
+    assert not api_compatible("", "1.4.0")
+    r = api_incompatibility_reason("2.0.0", "1.4.0")
     assert r and "major mismatch" in r
-    r = api_incompatibility_reason("1.9.0", "1.3.0")
+    r = api_incompatibility_reason("1.9.0", "1.4.0")
     assert r and "requires newer host" in r
-    r = api_incompatibility_reason("nope", "1.3.0")
+    r = api_incompatibility_reason("nope", "1.4.0")
     assert r and "unparseable" in r
-    assert api_incompatibility_reason("1.1.0", "1.3.0") is None
+    assert api_incompatibility_reason("1.1.0", "1.4.0") is None
+    assert PLUGIN_API_VERSION.startswith("1.4")
 
 
 def test_discover_includes_hello_courier(tmp_path, monkeypatch):
@@ -613,3 +618,164 @@ def test_reload_clears_stale_globe_overlay(monkeypatch, tmp_path):
         isinstance(r, dict) and r.get("id") == "temp_pin.here"
         for r in (getattr(w, "globe_regions", {}) or {}).values()
     )
+
+
+def test_host_capability_flags_safe_by_default():
+    caps = host_capability_flags()
+    assert caps["api_version"] == PLUGIN_API_VERSION
+    perms = caps["permissions"]
+    assert perms.get("items") == "implemented"
+    assert perms.get("ui_panel") == "implemented"
+    assert perms.get("streetnet") == "implemented"
+    assert perms.get("network") == "denied"
+    assert perms.get("fs_read") == "denied"
+    assert perms.get("fs_write") == "denied"
+    assert perms.get("wasm") == "denied"
+    assert perms.get("exec") == "denied"
+    sandbox = caps["sandbox"]
+    assert sandbox["network"] == "denied"
+    assert sandbox["fs"] == "mod_dir_jail"
+    assert sandbox["symlinks"] == "denied"
+    assert sandbox["partial_apply"] is False
+    assert sandbox["unsigned_auto_download"] is False
+    assert caps["clients"]["web_ui_panel"] is True
+    assert caps["clients"]["godot_ui_panel"] is True
+    assert permission_status("network") == "denied"
+    assert permission_status("items") == "implemented"
+    assert permission_status("nope_perm") == "unknown"
+
+
+def test_snapshot_includes_capabilities(monkeypatch):
+    monkeypatch.delenv("SNOWCRASH_DISABLE_MODS", raising=False)
+    monkeypatch.setenv("SNOWCRASH_EXAMPLE_PLUGINS", "1")
+    w = GameWorld(72042)
+    snap = w._modding_snapshot()
+    assert snap.get("api_version", "").startswith("1.4")
+    caps = snap.get("capabilities") or {}
+    assert caps.get("permissions", {}).get("network") == "denied"
+    assert caps.get("sandbox", {}).get("fs") == "mod_dir_jail"
+    assert "denied_permissions" in snap
+    assert "network" in snap["denied_permissions"]
+    assert any(m.get("id") == "hello_courier" for m in snap.get("mods") or [])
+    assert any(m.get("id") == "street_tag" for m in snap.get("mods") or [])
+    loaded = load_mod(EXAMPLE, ModRegistry())
+    assert loaded is not None
+    assert mod_has_permission(loaded, "items")
+    assert not mod_has_permission(loaded, "network")
+
+
+def test_safe_child_rejects_url_and_traversal(tmp_path):
+    base = tmp_path / "mod"
+    base.mkdir()
+    (base / "items.json").write_text("{}", encoding="utf-8")
+    assert _safe_child(base, "items.json") is not None
+    assert _safe_child(base, "../items.json") is None
+    assert _safe_child(base, "/etc/passwd") is None
+    assert _safe_child(base, "https://evil.example/pack.json") is None
+    assert _safe_child(base, "http://evil.example/x") is None
+    assert _safe_child(base, "file:///etc/passwd") is None
+    assert _safe_child(base, "C:/Windows/system.ini") is None
+
+
+def test_fail_closed_symlink_entry(tmp_path):
+    """Symlinked entry files are rejected (host FS sandbox)."""
+    mod = tmp_path / "sym_mod"
+    mod.mkdir()
+    outside = tmp_path / "outside_items.json"
+    outside.write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "id": "sym_mod.badge",
+                        "name": "Should Not Load",
+                        "kind": "trinket",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    link = mod / "items.json"
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        return
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "sym_mod",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["items"],
+                "entry": {"items": "items.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert "sym_mod.badge" not in reg.items
+    assert any("missing/unsafe" in e.message or "items" in e.message for e in reg.errors)
+
+
+def test_fail_closed_url_entry_path(tmp_path):
+    mod = tmp_path / "url_mod"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "url_mod",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["items"],
+                "entry": {"items": "https://evil.example/items.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert "url_mod" not in reg.mods
+    assert any("missing/unsafe" in e.message for e in reg.errors)
+
+
+def test_fail_closed_fs_read_permission(tmp_path):
+    mod = tmp_path / "fs_mod"
+    mod.mkdir()
+    (mod / "mod.json").write_text(
+        json.dumps(
+            {
+                "id": "fs_mod",
+                "version": "1.0.0",
+                "api_version": PLUGIN_API_VERSION,
+                "permissions": ["fs_read"],
+                "entry": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    reg = ModRegistry()
+    assert load_mod(mod, reg) is None
+    assert any("denied permission" in e.message and "fs_read" in e.message for e in reg.errors)
+
+
+def test_godot_mod_panel_snapshot_parity():
+    """Godot YearDocks must read mods.panels with mod:<id> dock keys (parity with web)."""
+    src = (ROOT / "godot_client" / "scripts" / "year_docks.gd").read_text(encoding="utf-8")
+    assert 'mods.get("panels"' in src
+    assert "_paint_mod_panel" in src
+    assert "_ensure_mod_dock_buttons" in src
+    assert "mod:%s" in src
+    assert 'begins_with("mod:")' in src
+    assert "_mod_panel_ids" in src
+    assert 'key = "mod:%s" % key' in src
+
+
+def test_street_tag_minimal_example():
+    tag = ROOT / "examples" / "plugins" / "street_tag"
+    reg = ModRegistry()
+    loaded = load_mod(tag, reg)
+    assert loaded is not None
+    assert "street_tag.sticker" in reg.items
+    assert loaded.permissions == ["items"]

@@ -6,14 +6,14 @@ Issue **#72** (related **#37** editor/map tools · **#67** Steam packaging · **
 
 Source: `snowcrash/systems/modding.py` (`ModdingMixin`), discovery roots `mods/` and `examples/plugins/`, example `examples/plugins/hello_courier/`.
 
-**Plugin API:** `1.3.0` (additive: StreetNet slash commands over 1.2 `ui_panel` / 1.1 hooks / 1.0 items).
+**Plugin API:** `1.4.0` (additive: capability flags + FS/network sandbox tightening over 1.3 StreetNet cmds / 1.2 `ui_panel` / 1.1 hooks / 1.0 items).
 
 ## Acceptance map
 
 | Criterion | Status |
 |-----------|--------|
 | Documented plugin API (path, manifest, versioning, capabilities) | This doc |
-| Safe sandbox: no host FS/network by default; explicit permissions | Fail closed — see Security |
+| Safe sandbox: no host FS/network by default; explicit permissions | **Tightened (API 1.4)** — deny perms + path jail (no URLs/symlinks); see Security |
 | Hooks: custom items + street events | Implemented (API 1.0) |
 | Hooks: journal beats / quest steps | **Implemented (API 1.1)** |
 | Hooks: StreetNet / world broadcasts | **Implemented (API 1.1)** |
@@ -24,6 +24,8 @@ Source: `snowcrash/systems/modding.py` (`ModdingMixin`), discovery roots `mods/`
 | Hot-reload aligned with `/api/reload_defs` | `reload_mods()` inside reload path; stale globe overlays cleared; journal re-offered |
 | Example `hello_courier` | Items + street events + journal + StreetNet + `/hello` + ICE + globe pin + UI panel |
 | Semver + broken mods fail closed | `api_version` major match + required ≤ host; one bad def skips the **whole** pack |
+| Capability / version negotiation flags | **API 1.4** — snapshot `mods.capabilities` (perms + sandbox + clients) |
+| Godot client mod panel parity | **API 1.4** — Godot docks read `mods.panels` (`mod:<id>` keys) |
 | Web UI dock (`ui_panel`) | **Implemented (API 1.2)** — CSP-safe markdown + allowlisted actions |
 | Workshop-style distribution notes | **[modding-workshop.md](modding-workshop.md)** — local packs; no unsigned auto-download |
 | WASM / Lua | **Not in this slice** — remains on #72 |
@@ -41,13 +43,14 @@ Declarative content only for now. Scripted hooks can be added later behind expli
 ## Security model (fail closed)
 
 1. **No code execution.** Only `json.load` of files under the mod directory. Web `ui_panel` bodies are escaped/sanitized markdown — **no mod JavaScript**.
-2. **Path jail.** Entry paths must be relative; `..` and absolute paths rejected.
-3. **Permissions allowlist.** Manifest must list capabilities. Unknown or denied permissions (`network`, `fs_write`, `exec`, `python`, `wasm`, …) **reject the whole mod**.
-4. **API semver.** `api_version` major must match host `PLUGIN_API_VERSION` (`1.3.0`); required version must be `<=` host. Missing / unparseable / future-minor / other-major → skip mod with a specific error (see Compatibility).
-5. **Validation.** Ids, kinds, grids, lat/lon, and numeric ranges are sanitized; invalid defs reject the mod (not partial apply).
-6. **No core overwrite.** Item / probe / region ids cannot collide with core factories or other mods. Globe metadata overlays are non-teleportable by default.
-7. **Defaults.** No unsigned auto-download. No host FS/network. Mods must use **original** prose (no novel text).
-8. **Disable.** `SNOWCRASH_DISABLE_MODS=1` skips discovery entirely.
+2. **Path jail (FS sandbox).** Entry paths must be relative files under the mod directory. Rejected fail-closed: `..`, absolutes, backslashes, NUL, URL/schemes (`http:`, `https:`, `file:`, …), and **symlinks** (no host FS via link).
+3. **Permissions allowlist.** Manifest must list capabilities. Unknown or denied permissions (`network`, `fs_read`, `fs_write`, `exec`, `python`, `wasm`, …) **reject the whole mod**. There is no grant path for FS/network in v1 — declaring them is always denial.
+4. **Capability flags.** Host publishes `mods.capabilities` (permission statuses + sandbox policy + which clients render `ui_panel`) so tools/clients negotiate without guessing.
+5. **API semver.** `api_version` major must match host `PLUGIN_API_VERSION` (`1.4.0`); required version must be `<=` host. Missing / unparseable / future-minor / other-major → skip mod with a specific error (see Compatibility).
+6. **Validation.** Ids, kinds, grids, lat/lon, and numeric ranges are sanitized; invalid defs reject the mod (not partial apply).
+7. **No core overwrite.** Item / probe / region ids cannot collide with core factories or other mods. Globe metadata overlays are non-teleportable by default.
+8. **Defaults.** No unsigned auto-download. No host FS/network. Mods must use **original** prose (no novel text).
+9. **Disable.** `SNOWCRASH_DISABLE_MODS=1` skips discovery entirely.
 
 Broken mods never crash the world: errors land in the registry / snapshot `mods.errors` and logs.
 
@@ -116,7 +119,38 @@ Each immediate subdirectory with `mod.json` (or `manifest.json`) is a candidate.
 | `ice_nodes` | **1.1** | ICE probes + lightweight cyberspace nodes (`ice_nodes.json`) |
 | `globe_regions` | **1.1** | Globe pins + metadata regions (`globe_regions.json`) |
 | `ui_panel` | **1.2** | CSP-friendly YearUI dock panel (`ui_panel.json`) |
-| `network` / `fs_*` / `exec` / `python` / `wasm` | **denied** | Always fail closed |
+| `network` / `fs_read` / `fs_write` / `exec` / `python` / `wasm` / `host` | **denied** | Always fail closed (API 1.4 still — no grant path) |
+
+### Capability flags (API 1.4)
+
+Snapshot field `mods.capabilities` (also on `/api/reload_defs`):
+
+```json
+{
+  "api_version": "1.4.0",
+  "permissions": {
+    "items": "implemented",
+    "ui_panel": "implemented",
+    "network": "denied",
+    "fs_read": "denied",
+    "wasm": "denied"
+  },
+  "sandbox": {
+    "code_execution": "denied",
+    "fs": "mod_dir_jail",
+    "network": "denied",
+    "symlinks": "denied",
+    "partial_apply": false,
+    "unsigned_auto_download": false
+  },
+  "clients": {
+    "web_ui_panel": true,
+    "godot_ui_panel": true
+  }
+}
+```
+
+Clients (YearUI + Godot docks) read `mods.panels` for `ui_panel` content. Godot dock keys are `mod:<panel_id>` so Deck cycling stays in sync with the web accordion.
 
 ### Items (`items.json`)
 
@@ -334,15 +368,16 @@ Snapshot: `mods.panels` (+ `mods.ui_panel_count`). YearUI injects dock buttons i
 | `_all_ice_probes` / `ice_probe` | Core + mod probes |
 | `jack_in` | Optional weighted mod cyberspace node |
 | `_globe_snapshot` | `mod_pins` / `mod_regions` |
-| Snapshot `mods` | Registry summary + `panels` + errors |
+| Snapshot `mods` | Registry summary + `panels` + `capabilities` + errors |
 | YearUI dock | Renders `mods.panels` (CSP markdown + action buttons) |
+| Godot `YearDocks` | Same `mods.panels` — dock buttons `mod:<id>`, Deck cycle parity |
 | Actions `mods`, `mod_item <id>`, `mod_reload` | List / grant / reload |
 | StreetNet `/<slash>` | Mod commands from `streetnet.json` |
 
 ### Compatibility policy
 
-- **Host** `PLUGIN_API_VERSION` is the contract (`1.3.0`).
-- **Additive** hooks → bump **minor**; mods on older minors keep working (`1.0.0` / `1.1.0` / `1.2.0` still load).
+- **Host** `PLUGIN_API_VERSION` is the contract (`1.4.0`).
+- **Additive** hooks → bump **minor**; mods on older minors keep working (`1.0.0` … `1.3.0` still load).
 - **Breaking** manifest/fields → bump **major**; old mods fail closed with a clear error.
 - Partial apply of a single mod is never done: one bad def skips that **entire pack** (nothing is committed to the registry until every def validates).
 - Fail-closed reasons (recorded in `mods.errors` + `mods.skipped`):
@@ -351,10 +386,10 @@ Snapshot: `mods.panels` (+ `mods.ui_panel_count`). YearUI injects dock buttons i
 |-----------|------------------|
 | Missing / junk `api_version` | `unparseable api_version` |
 | `2.x` on host `1.x` | `major mismatch` |
-| `1.9.0` on host `1.3.0` | `requires newer host` |
-| Denied perm (`network`, `wasm`, …) | `denied permission` |
+| `1.9.0` on host `1.4.0` | `requires newer host` |
+| Denied perm (`network`, `fs_read`, `wasm`, …) | `denied permission` |
 | Unknown perm | `unknown permission` |
-| Bad def / collision / path jail | specific validator message |
+| Bad def / collision / path jail / symlink / URL entry | specific validator message / missing/unsafe |
 
 `api_compatible()` / `api_incompatibility_reason()` implement the table. The world stays up; only that pack is skipped.
 
@@ -392,7 +427,10 @@ globe
 ```
 
 Open the **Hello** button on the YearUI panel dock (injected from `hello_courier.desk`) to try the sample `ui_panel`.
+Godot thin client: same panel appears on the year dock bar (Deck cycles `mod:hello_courier.desk`).
 In StreetNet IRC type `/hello` (API 1.3 command) or `/help` to see mod cmds.
+Inspect `mods.capabilities` in the snapshot for host sandbox / permission negotiation (API 1.4).
+Minimal second example: `examples/plugins/street_tag/` (`mod_item street_tag.sticker`).
 
 ## Attribution
 
