@@ -59,6 +59,37 @@ Keep parent epics #163 / #141 open from a single child. Use `Refs #163` · `Refs
 - [x] [#160](https://github.com/8r4n/adventure-snowcrash/issues/160) Diegetic in-world screens (StreetNet / ads / jack terminals)
 - [x] [#161](https://github.com/8r4n/adventure-snowcrash/issues/161) Camera juice (look smooth, bob, FOV) without breaking WS grid authority
 - [x] [#162](https://github.com/8r4n/adventure-snowcrash/issues/162) Docs: this section + [steam-quality-bar.md](steam-quality-bar.md) cite (this PR)
+- [x] [#166](https://github.com/8r4n/adventure-snowcrash/issues/166) Reproduce Godot 3D demo (README + capture)
+
+
+## Demo capture (#166)
+
+README hero is the **Godot 3D** client (not web ASCII). Media:
+
+| Asset | Path |
+|-------|------|
+| GIF | [`screenshots/demo-godot3d-2026-09-13.gif`](screenshots/demo-godot3d-2026-09-13.gif) |
+| MP4 | [`screenshots/demo-godot3d-2026-09-13.mp4`](screenshots/demo-godot3d-2026-09-13.mp4) |
+| Street still | [`screenshots/demo-godot3d-2026-09-13-street.png`](screenshots/demo-godot3d-2026-09-13-street.png) |
+| ICE still | [`screenshots/demo-godot3d-2026-09-13-ice.png`](screenshots/demo-godot3d-2026-09-13-ice.png) |
+
+**Repro**
+
+```bash
+# Live (GPU + DISPLAY preferred)
+ADVENTURE_QA=1 ./scripts/run_dev.sh
+cd godot_client && SNOWCRASH_AUTO_JOIN=1 /path/to/godot4 --path .
+
+# Stills fallback (software GL / no reliable live WS paint)
+python3 scripts/gen_godot3d_demo_fixture.py
+./scripts/capture_godot3d_demo.sh
+```
+
+Env knobs: `SNOWCRASH_CAPTURE_FIXTURE`, `SNOWCRASH_CAPTURE_FIXTURE_ICE`, `SNOWCRASH_CAPTURE_OUT`, `SNOWCRASH_CAPTURE_QUALITY`, `SNOWCRASH_AUTO_JOIN`. Recipe: [demo-video.md](demo-video.md#godot-3d-hero-166--current-readme).
+
+Shows: modular kit corridor (#158), trim materials (#156), jackpoint landmark, ICE lattice, brief camera yaw. High-preset SSAO/SSIL/vol need Forward+ (GPU). **No Abandoned Spaceship IP.**
+
+`Refs #163` · `Refs #141`
 
 ---
 
@@ -481,7 +512,7 @@ Epic acceptance still unmet / not device-QA’d:
 - [x] Landmark / vendor readability **without HUD soup** — [#150](https://github.com/8r4n/adventure-snowcrash/issues/150) (J/U/$ silhouettes + objective cue; docks still gated by #133)
 - [ ] Deck Verified path — export + hardware checklist still open ([steam-deck.md](steam-deck.md))
 - [x] Desktop export builds (Linux / Windows) toward Steam — [#149](https://github.com/8r4n/adventure-snowcrash/issues/149) / [godot-desktop-export.md](godot-desktop-export.md) (macOS optional later)
-- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; **diegesis #160 done**)
+- [ ] Abandoned Spaceship–class visual fidelity — [#163](https://github.com/8r4n/adventure-snowcrash/issues/163) (docs #162 done; **materials #156 done**; **kit #158 done**; **camera #161 done**; **lighting #157 done**; **ground #159 done**; **diegesis #160 done**; **demo capture #166 done**)
 - [ ] Optional polish: GPS minimap (#116-aware), death/respawn UX, Theme resource, jack-in cutscene
 
 Do **not** close #141 until the Steam-ready 3D loop above is honestly done.

@@ -1,5 +1,58 @@
 # Demo video — re-capture recipe
 
+## Godot 3D hero (#166) — current README
+
+| File | Role | Size (2026-09-13) |
+|------|------|-------------------|
+| `docs/screenshots/demo-godot3d-2026-09-13.mp4` | Godot 3D street + ICE stills reel (~12s) + trailer bed | ~1.1 MB |
+| `docs/screenshots/demo-godot3d-2026-09-13.gif` | README above-the-fold Godot 3D loop | ~1.3 MB |
+| `docs/screenshots/demo-godot3d-2026-09-13-street.png` | Street still (kit + jackpoint glow) | still |
+| `docs/screenshots/demo-godot3d-2026-09-13-ice.png` | ICE lattice still | still |
+| `docs/fixtures/demo-godot3d-seed42.json` | Sparse absolute-map fixture (seed 42 @ jackpoint) | capture input |
+| `docs/fixtures/demo-godot3d-ice-seed42.json` | ICE cyberspace fixture | capture input |
+| `docs/screenshots/demo-2026-09-13.*` | Secondary web ASCII desktop tour | archived-as-secondary |
+
+### Why stills fallback (this agent box)
+
+Live Godot ↔ `/ws` on **llvmpipe** starves WebSocket polling during High-preset AOI rebuild (reconnect storm / never paints). Capture therefore:
+
+1. `python3 scripts/gen_godot3d_demo_fixture.py` — seed-42 world, force near **J**, sparse absolute `map` rows (Street3D indexes by world x/y)
+2. Godot `SNOWCRASH_CAPTURE_FIXTURE=…` loads JSON offline, applies `Street3D.apply_snapshot`, orbits yaw, saves SubViewport PNGs (`scripts/capture_godot3d_demo.sh`)
+3. `ffmpeg` stitches PNG → MP4 (+ `docs/audio/trailer-bed-30s.wav`) → palette GIF
+
+**Renderer note:** OpenGL Compatibility on software GL (SSAO/SSIL/volumetric/TAA need Forward+/Vulkan — use a GPU box for live High GI). Materials (#156), kit (#158), landmarks (#150), camera juice (#161) still read in frames. **No Abandoned Spaceship IP.**
+
+### Live Godot capture (preferred on GPU + DISPLAY)
+
+```bash
+ADVENTURE_QA=1 ./scripts/run_dev.sh   # Terminal A — ws://127.0.0.1:8766/ws
+
+# Terminal B
+cd godot_client
+SNOWCRASH_AUTO_JOIN=1 SNOWCRASH_NAME=Demo3D \
+  /workspace/tools/godot/godot --path . --resolution 1280x800
+# or: SNOWCRASH_WS_URL=ws://127.0.0.1:8766/ws ./build/linux/Snowcrash.x86_64
+
+# Terminal C — after Jack in, Quality High (F8)
+ffmpeg -y -video_size 1280x800 -framerate 30 -f x11grab -i ${DISPLAY}.0+0,0 -t 75 \
+  -c:v libx264 -pix_fmt yuv420p /tmp/godot3d-raw.mp4
+```
+
+Beat sheet (~45–90s): neon street corridor → walk/turn (camera feel) → **J** landmark → jack in → ICE lattice → jack out → optional Globe dock → end on High street.
+
+### Fixture stills encode
+
+```bash
+./scripts/capture_godot3d_demo.sh
+# then encode frames in $SNOWCRASH_CAPTURE_OUT (see script) with the ffmpeg recipe under Web section below (fps/scale/palette).
+```
+
+`Refs #163` · `Refs #141` — do not close those epics from #166.
+
+---
+
+## Web ASCII tour (secondary)
+
 Fresh README demo for current `dev` gameplay (**#126** live desktop; supersedes #111 montage). Assets:
 
 | File | Role | Size (2026-09-13) |

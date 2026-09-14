@@ -194,6 +194,12 @@ func toggle_camera() -> String:
 	return camera_mode_name()
 
 
+func nudge_capture_yaw(delta_yaw: float) -> void:
+	## Demo capture only (#166) — cosmetic yaw; does not send turn intents.
+	_target_yaw += delta_yaw
+	courier.rotation.y += delta_yaw
+
+
 ## Same trigger the web client uses (game.js renderCyberHint / overlay).
 static func ice_active(state: Dictionary) -> bool:
 	if state.is_empty():
