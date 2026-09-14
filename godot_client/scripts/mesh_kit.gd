@@ -1,7 +1,9 @@
 extends RefCounted
 class_name MeshKit
-## Original modular corridor / prop kit (#158). Snapshot-placed; Python /ws stays authority.
-## OBJ sources live under res://models/. Parsed to ArrayMesh so editor import is not required.
+## Original modular corridor / prop kit (#158 OBJ + #179 Blender GLB).
+## Snapshot-placed; Python /ws stays authority.
+## Prefer res://models/*.glb (authored, meters, floor origin) then *.obj.
+## Parsed at runtime so editor import is not required.
 ## Not Abandoned Spaceship IP. Omni budget unchanged (this class never creates lights).
 
 const MODEL_DIR := "res://models/"
@@ -30,6 +32,7 @@ const ROLE_MESH := {
 }
 
 static var _cache: Dictionary = {}
+static var _authored: Dictionary = {}
 static var _ready: bool = false
 
 
@@ -37,7 +40,8 @@ static func ensure() -> void:
 	if _ready:
 		return
 	for n in NAMES:
-		_cache[n] = _load_obj(n)
+		_authored[n] = false
+		_cache[n] = _load_mesh(n)
 	_ready = true
 
 
@@ -48,11 +52,100 @@ static func get_mesh(name: String) -> Mesh:
 	return null
 
 
+static func is_authored(name: String) -> bool:
+	## True when a Blender GLB was loaded (world meters, origin at floor).
+	ensure()
+	return bool(_authored.get(name, false))
+
+
 static func mesh_for_role(role: String) -> Mesh:
 	var key: String = str(ROLE_MESH[role]) if ROLE_MESH.has(role) else ""
 	if key == "":
 		return null
 	return get_mesh(key)
+
+
+static func _load_mesh(name: String) -> Mesh:
+	var glb: Mesh = _load_glb(name)
+	if glb != null:
+		_authored[name] = true
+		return glb
+	return _load_obj(name)
+
+
+static func _load_glb(name: String) -> Mesh:
+	var path: String = "%s%s.glb" % [MODEL_DIR, name]
+	if ResourceLoader.exists(path):
+		var imported: Resource = load(path)
+		if imported is Mesh:
+			return imported as Mesh
+		if imported is PackedScene:
+			var inst: Node = (imported as PackedScene).instantiate()
+			var from_scene: Mesh = _mesh_from_node(inst)
+			inst.queue_free()
+			if from_scene != null:
+				return from_scene
+	if not FileAccess.file_exists(path):
+		return null
+	if not ClassDB.class_exists("GLTFDocument"):
+		return null
+	var doc: GLTFDocument = GLTFDocument.new()
+	var state: GLTFState = GLTFState.new()
+	var err: Error = doc.append_from_file(path, state)
+	if err != OK:
+		return null
+	var root: Node = doc.generate_scene(state)
+	if root == null:
+		return null
+	var mesh: Mesh = _mesh_from_node(root)
+	root.queue_free()
+	return mesh
+
+
+static func _mesh_from_node(root: Node) -> Mesh:
+	var found: Array = []
+	_collect_mesh_instances(root, found)
+	if found.is_empty():
+		return null
+	if found.size() == 1:
+		var only: MeshInstance3D = found[0] as MeshInstance3D
+		if only.mesh != null:
+			return only.mesh
+		return null
+	var am: ArrayMesh = ArrayMesh.new()
+	for item in found:
+		var mi: MeshInstance3D = item as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var xf: Transform3D = mi.global_transform
+		var mesh: Mesh = mi.mesh
+		for s in range(mesh.get_surface_count()):
+			var arrays: Array = mesh.surface_get_arrays(s)
+			if arrays.is_empty() or arrays[Mesh.ARRAY_VERTEX] == null:
+				continue
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var norms: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+			for i in range(verts.size()):
+				verts[i] = xf * verts[i]
+			if norms.size() == verts.size():
+				var basis: Basis = xf.basis.orthonormalized()
+				for j in range(norms.size()):
+					norms[j] = basis * norms[j]
+			arrays[Mesh.ARRAY_VERTEX] = verts
+			if norms.size() > 0:
+				arrays[Mesh.ARRAY_NORMAL] = norms
+			am.add_surface_from_arrays(mesh.surface_get_primitive_type(s), arrays)
+	if am.get_surface_count() == 0:
+		return null
+	am.resource_name = root.name
+	return am
+
+
+static func _collect_mesh_instances(node: Node, out: Array) -> void:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		out.append(node)
+	for child in node.get_children():
+		_collect_mesh_instances(child, out)
 
 
 static func _load_obj(name: String) -> Mesh:

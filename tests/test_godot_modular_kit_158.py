@@ -92,12 +92,17 @@ def test_docs_158_catalog_and_comparison():
 
 
 def test_no_abandoned_spaceship_meshes():
+    allowed = {".obj", ".glb", ".blend"}
     for p in MODELS.rglob("*"):
         if not p.is_file():
             continue
-        assert p.suffix.lower() in {".obj"}
-        text = p.read_text(encoding="utf-8")
-        assert "Hangar" not in text
-        assert ".glb" not in text
-    assert not list(MODELS.rglob("*.glb"))
+        assert p.suffix.lower() in allowed, p.name
+        raw = p.read_bytes()
+        assert b"Hangar" not in raw
+        assert b"Abandoned Spaceship" not in raw
+        assert b"perfoon" not in raw.lower()
+        if p.suffix.lower() == ".obj":
+            text = raw.decode("utf-8")
+            assert "Hangar" not in text
+    # Prefer binary GLB (#179); do not vendor demo glTF sources.
     assert not list(MODELS.rglob("*.gltf"))
