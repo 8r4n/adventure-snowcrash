@@ -168,15 +168,15 @@
             <button type="button" class="vjoy-btn" data-move="back">▼</button>
             <button type="button" class="vjoy-btn" data-move="back_right">↘</button>
           </div>
-          <div id="chord-pad" class="chord-pad">
-            <button type="button" data-act="turn_left">Q</button>
-            <button type="button" data-act="turn_right">E</button>
-            <button type="button" data-act="g">GET</button>
-            <button type="button" data-act="f">FIRE</button>
-            <button type="button" data-panel-open="ice">ICE</button>
-            <button type="button" data-act="i">INV</button>
-            <button type="button" data-act="plane_up">↑Z</button>
-            <button type="button" data-act="plane_down">↓Z</button>
+          <div id="chord-pad" class="chord-pad" data-chord-layout="onehand-v4">
+            <button type="button" data-act="turn_left" title="Turn left (q)" aria-label="Turn left">Q</button>
+            <button type="button" data-act="turn_right" title="Turn right (e)" aria-label="Turn right">E</button>
+            <button type="button" class="chord-primary" data-act="g" title="Pick up (g)" aria-label="Get">GET</button>
+            <button type="button" class="chord-primary" data-act="f" title="Fire / hack (f)" aria-label="Fire">FIRE</button>
+            <button type="button" data-act="look" title="Look" aria-label="Look">LOOK</button>
+            <button type="button" data-act="." title="Wait (.)" aria-label="Wait">WAIT</button>
+            <button type="button" data-panel-open="ice" title="ICE probes" aria-label="ICE panel">ICE</button>
+            <button type="button" data-act="i" title="Inventory (i)" aria-label="Inventory">INV</button>
           </div>
         </div>
       </div>

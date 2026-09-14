@@ -29,7 +29,7 @@ This doc tracks **slice progress** — #75 stays open until the full acceptance 
 | Minimap / compass at small sizes | **Improved** | ≤420px denser GPS + ellipsis compass pills; portrait/landscape offsets clear of pads |
 | Copy join link | **Done** | Name-gate **Copy join link** copies URL with `?name=` (clipboard + fallback) |
 
-### Slice 3 (this branch)
+### Slice 3 (PR #120)
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -122,9 +122,9 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 1. Jack in with `?name=MobileTest` (or **Copy join link** / **Show QR** from the gate)
 2. Virtual stick moves (hold repeats); page does not rubber-band scroll behind the pad
 3. Lift finger / rotate / background the tab — no idle drift; HUD eventually `reconnecting…` then recovers
-4. FIRE / GET / ICE chords respond
+4. FIRE / GET / LOOK / WAIT / ICE / INV chords respond (thumb-sized; pressed flash)
 5. Toolbar **Aa** cycles Auto / Large / Compact and FPV density updates
-6. Open Jrnl + ICE from dock — one scroll surface; FPV + pads still reachable in portrait
+6. Open Jrnl + ICE from dock — **one** scroll surface (`#side`); no nested panel scrollbar; FPV + pads still reachable in portrait
 7. HP / Focus sticky row remains readable when toasts fire
 8. Notch / home-indicator devices: chrome clear of unsafe edges
 9. Uplink Hop **Globe** — type or tap a region chip (no native `prompt`)
@@ -134,7 +134,7 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 
 | Path | Touch status |
 |------|----------------|
-| Move / turn / GET / FIRE / ICE / INV / plane | Chord pad + vjoy |
+| Move / turn / GET / FIRE / LOOK / WAIT / ICE / INV | Chord pad + vjoy (plane ↑Z/↓Z keyboard-only on mobile) |
 | Journal / ICE / StreetNet / dock | Buttons + accordion |
 | Wish | Toolbar **Wish** focuses chat with `/wish ` (soft keyboard) |
 | Jaunte globe hop | Inline input + chips (was `window.prompt`) |
@@ -149,6 +149,15 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 - #109 Godot thin client — store-native Android/iOS later; does not block this PWA path ([godot-client.md](godot-client.md))
 - Campaign log: #42
 
+### Slice 4 (this branch)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Safer nested scroll (Journal / ICE / year docks) | **Done** | On narrow/coarse, `#side` is the only scroll owner; all `.panel-body*` (incl. empathy/forecast/ecology/globe) `max-height: none` + `overflow: visible`; open `<details>` no longer `overflow: hidden`; touchmove stopPropagation when `#side` can scroll |
+| One-handed action chords | **Improved** | Chord pad: Q/E · GET/FIRE (primary) · LOOK/WAIT · ICE/INV; ~44px thumb targets; `is-pressed` chrome; plane ↑Z/↓Z removed from pad (keyboard still works for cyberspace) |
+| Touch HUD polish | **Improved** | Pad backplates + light blur; larger vjoy/chord grids; portrait reserves ~9.2rem for pads |
+| Safe-area / notch | **Improved** | Topbar padding uses `env(safe-area-inset-*)`; sticky stats shadow; death/year modal cards inset; body `overscroll-behavior-y: none` while playing |
+
 ## Remaining for full #75 acceptance
 
 See open checkboxes on **#75**. Highest leverage next slices:
@@ -156,4 +165,4 @@ See open checkboxes on **#75**. Highest leverage next slices:
 1. **Real-device matrix** (iPhone Safari + Android Chrome) — portrait one-handed + landscape combat
 2. Measured 30fps+ / battery on a mid-range phone during neon rain / ICE
 3. Finish hover/keyboard audit for leftover year-modals / globe pin hit targets
-4. Further one-handed polish from that device feedback
+4. Cyberspace plane ↑Z/↓Z on the chord pad (or long-press) if phone jack-in becomes common
