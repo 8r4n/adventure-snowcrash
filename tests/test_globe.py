@@ -212,3 +212,70 @@ def test_geo_objective_and_track():
     assert s["globe"]["geo_objectives"]
     sides = (s.get("journal") or {}).get("side") or []
     assert any(str(x.get("id") or "").startswith("geo_daily_") for x in sides)
+
+
+def test_globe_preview_and_hop_quote():
+    w = GameWorld(5420)
+    a = _join(w)
+    assert w.handle_year_action(a, "globe_preview", "neo_tokyo")
+    assert a.globe["preview_region_id"] == "neo_tokyo"
+    s = w.snapshot(a)
+    g = s["globe"]
+    pv = g["preview"]
+    assert pv["id"] == "neo_tokyo"
+    assert pv.get("street_flavor")
+    assert pv.get("has_ascii_shard") is True
+    assert pv.get("landmarks")
+    assert pv.get("ascii_strip")
+    assert g["credits"] >= 200
+    assert g["can_afford_hop"] is True
+    assert g["recall_cost_credits"] == max(0, int(g["cost_credits"]) // 2)
+    neo = next(r for r in g["regions"] if r["id"] == "neo_tokyo")
+    assert neo.get("street_flavor")
+    # Credits block
+    a.credits = 2
+    a.last_action_ts = 0
+    card = w._globe_preview_card(a, "berlin_circuit")
+    assert card["blocked_reason"] == "credits"
+    assert card["hop_ready"] is False
+    # Cooldown block after hop
+    a.credits = 200
+    a.last_action_ts = 0
+    assert w.handle_year_action(a, "teleport", "neo_tokyo")
+    a.last_action_ts = 0
+    card = w._globe_preview_card(a, "berlin_circuit")
+    assert card["blocked_reason"] == "cooldown"
+    assert w.handle_year_action(a, "globe_preview", "clear")
+    assert a.globe["preview_region_id"] is None
+
+
+def test_news_geo_pins_prefer_beat_lat_lon():
+    w = GameWorld(5421)
+    # Stamp a beat with explicit lat/lon slightly off region centroid
+    beat = w.attach_news_geo(
+        {"id": "test_pin", "text": "pin test", "headline": "Pin test"},
+        region_id="neo_tokyo",
+        lat=35.70,
+        lon=139.80,
+    )
+    assert beat["geo"]["lat"] == 35.70
+    # Inject into active daily so geo objectives see it
+    w.daily_storylines_active = {
+        "date": "2026-09-13",
+        "beats": [beat],
+        "fired_ids": ["test_pin"],
+    }
+    objs = w._globe_geo_objectives()
+    hit = next(o for o in objs if o.get("beat_id") == "test_pin")
+    assert abs(float(hit["lat"]) - 35.70) < 1e-6
+    assert abs(float(hit["lon"]) - 139.80) < 1e-6
+    assert hit.get("pin_lat") == 35.70
+    a = _join(w)
+    w.handle_year_action(a, "globe_preview", "neo_tokyo")
+    s = w.snapshot(a)
+    neo = next(r for r in s["globe"]["regions"] if r["id"] == "neo_tokyo")
+    assert neo.get("has_news") is True
+    assert neo.get("news_lat") == 35.70
+    pv = s["globe"]["preview"]
+    assert pv.get("has_news") is True
+    assert pv["news"]

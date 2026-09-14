@@ -11,12 +11,13 @@ OSM research + converter: **#83** · [osm-procedural-globe.md](osm-procedural-gl
 1. Open **Globe** dock (or **Shift+G** / action `globe`)
 2. Zoom ladder: **Street** → **Regions** → schematic **Globe** (`globe_zoom`)
 3. **Search** / ASCII filter in the panel (or `globe_search` / `globe_filter`)
-4. **Hop** / `teleport <region_id>` — credits + cooldown
-5. Land on a **playable street shard**:
+4. **Preview** a pin (`globe_preview`) — street flavor / ASCII strip / hop quote
+5. **Hop** / `teleport <region_id>` — credits + cooldown (UI shows when blocked)
+6. Land on a **playable street shard**:
    - Prefer prebuilt `snowcrash_ascii_shard_v1` when `regions.json` has `chunk_path` (OSM→ASCII pilots)
    - Else `generate_world(shard_seed)` mapgen
    - Home (`fractured_la`) = live shared MMORPG world
-6. StreetNet daily geo beats (#51) show on journal + retarget compass (`globe_track`)
+7. StreetNet daily geo beats (#51) show on journal + retarget compass (`globe_track`); news pins use beat lat/lon when stamped
 
 ## Actions
 
@@ -28,6 +29,7 @@ OSM research + converter: **#83** · [osm-procedural-globe.md](osm-procedural-gl
 | `globe_search` / `region_search` | query | Filter catalog by id/name/continent/label |
 | `globe_filter` | `ascii` \| `all` | Toggle ASCII-shard pilot filter |
 | `globe_track` / `track_geo` | `region_id` \| `clear` | Point compass / journal at geo objective |
+| `globe_preview` / `preview_region` | `region_id` \| `clear` | Pin preview card (street flavor + hop quote) |
 | `globe_status` / `where` | — | Log current region + cooldown |
 | `teleport` / `tp` / `uplink_hop` | `region_id` | Hop to region shard |
 | `globe_recall` / `recall` | — | Hop home (half cost) |
@@ -74,7 +76,7 @@ python3 scripts/osm_to_ascii_shard.py \
 
 ## Snapshot (`globe`)
 
-`panel_open`, `region_id`, `region`, `home_region_id`, `regions[]` (incl. `has_ascii_shard`), `cost_credits`, `cooldown_sec`, `cooldown_remaining`, `teleports`, `shards_loaded`, `shard_seed`, `shard_source`, `chunk_path`, `zoom`, `zoom_levels`, `search`, `filter_ascii`, `ascii_shard_count`, `geo_objectives[]`, `tracked_geo_region`, `news_geo_hook`, `hint`.
+`panel_open`, `region_id`, `region`, `home_region_id`, `regions[]` (incl. `has_ascii_shard`, `street_flavor`, `has_news`, `news_lat`/`news_lon`), `cost_credits`, `recall_cost_credits`, `credits`, `can_afford_hop`, `hop_ready`, `hop_block_reason` / `hop_block_message`, `cooldown_sec`, `cooldown_remaining`, `teleports`, `shards_loaded`, `shard_seed`, `shard_source`, `chunk_path`, `zoom`, `zoom_levels`, `search`, `filter_ascii`, `ascii_shard_count`, `geo_objectives[]` (prefer beat `lat`/`lon` when stamped), `tracked_geo_region`, `preview_region_id`, `preview` (street flavor + ASCII strip + hop quote + news), `news_geo_hook`, `hint`.
 
 ## News geo hook (#51)
 
@@ -102,7 +104,7 @@ Ops notes: [daily-storylines.md](daily-storylines.md) — append dated `entries[
 
 ## Web UI
 
-Dock **Globe** · zoom ladder **Street / Regions / Globe** · **search box** + **ASCII / All** filter · StreetNet geo chips · schematic SVG Earth with pins (ASCII pilots highlighted) · region list **Hop** · **Recall home**. Shift+G opens panel + `globe` action. Touch-friendly search (`inputmode=search`, min tap height).
+Dock **Globe** · zoom ladder **Street / Regions / Globe** · **search box** + **ASCII / All** filter · StreetNet geo chips · schematic SVG Earth with pins (ASCII / **NEWS** / selected) · **pin preview** card (street flavor, landmarks, ASCII strip, hop cost/cooldown) before **Hop** · credits + cooldown meter · region list **Preview** / **Hop** · **Recall home**. Godot dock + 3D globe mirror preview / hop-block reasons. Shift+G opens panel + `globe` action. Touch-friendly search (`inputmode=search`, min tap height).
 
 ## Remaining (#54 — leave open)
 
@@ -115,7 +117,9 @@ Not claimed done in this slice:
 - [ ] Richer pin filters (ecology / faction / fog) beyond search + ASCII toggle
 - [ ] Production daily-news agent automation beyond in-server `reload_daily_storylines` hook
 
-Shipped here: region search + ASCII catalog UX, more city ASCII pilots, daily beats always land with `region_id` / geo, journal + compass cross-region geo track.
+Shipped earlier: region search + ASCII catalog UX, city ASCII pilots, daily beats land with `region_id` / geo, journal + compass cross-region geo track.
+
+Shipped in this slice: **pin preview / street flavor** before hop (`globe_preview`), hop **cost/cooldown UX** (credits meter, blocked reasons) on web + Godot dock/3D globe, **news-geo pins** prefer stamped beat lat/lon on the schematic Earth.
 
 ## Ecology overlay (#57)
 

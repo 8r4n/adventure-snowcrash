@@ -681,7 +681,9 @@ func _on_globe_pin_selected(region_id: String) -> void:
 	_globe_selected = str(region_id)
 	if year_docks and year_docks.has_method("set_globe_selection"):
 		year_docks.set_globe_selection(_globe_selected)
-	_append_log("Globe pin: %s" % _globe_selected)
+	if net and net.is_joined() and not _globe_selected.is_empty():
+		net.send_action("globe_preview", _globe_selected)
+	_append_log("Globe pin preview: %s" % _globe_selected)
 
 
 func _on_globe_pin_activated(region_id: String) -> void:

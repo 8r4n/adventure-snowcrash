@@ -49,6 +49,7 @@ var _mat_pin_home: StandardMaterial3D
 var _mat_pin_here: StandardMaterial3D
 var _mat_pin_sel: StandardMaterial3D
 var _mat_pin_dim: StandardMaterial3D
+var _mat_pin_news: StandardMaterial3D
 var _sphere_mesh: SphereMesh
 var _pin_mesh: SphereMesh
 var _built_mats := false
@@ -386,6 +387,8 @@ func _refresh_pin_look() -> void:
 			mat = _mat_pin_sel
 		elif id == _current_id:
 			mat = _mat_pin_here
+		elif bool(data.get("has_news", false)):
+			mat = _mat_pin_news
 		elif bool(data.get("home", false)):
 			mat = _mat_pin_home
 		elif bool(data.get("has_ascii_shard", false)):
@@ -394,10 +397,16 @@ func _refresh_pin_look() -> void:
 			mat = _mat_pin_dim
 		mesh.set_surface_override_material(0, mat)
 		if label:
-			var show_lbl := id == _selected_id or id == _current_id or bool(data.get("home", false))
+			var show_lbl := (
+				id == _selected_id or id == _current_id or bool(data.get("home", false))
+				or bool(data.get("has_news", false))
+			)
 			label.visible = show_lbl
 			if show_lbl:
-				label.text = str(data.get("name", id))
+				var nm := str(data.get("name", id))
+				if bool(data.get("has_news", false)):
+					nm = "★ " + nm
+				label.text = nm
 		if id != _selected_id:
 			node.scale = Vector3.ONE
 
@@ -416,16 +425,25 @@ func _pin_passes_filter(id: String, data: Dictionary) -> bool:
 
 func _update_select_label() -> void:
 	if _selected_id.is_empty():
-		select_label.text = "click pin · dbl = hop"
+		select_label.text = "click pin · preview · dbl = hop"
 		select_label.modulate = Catppuccin.OVERLAY1
 		return
 	var name := _selected_id
+	var flavor := ""
+	var has_news := false
 	for p in _pins:
 		if str(p.get("id", "")) == _selected_id:
 			var d: Dictionary = p.get("data", {})
 			name = str(d.get("name", _selected_id))
+			flavor = str(d.get("street_flavor", d.get("label", "")))
+			has_news = bool(d.get("has_news", false))
 			break
-	select_label.text = "▶ %s" % name
+	var tag := " ★NEWS" if has_news else ""
+	if flavor.is_empty():
+		select_label.text = "▶ %s%s · dbl=hop" % [name, tag]
+	else:
+		var short := flavor if flavor.length() <= 42 else flavor.substr(0, 40) + "…"
+		select_label.text = "▶ %s%s — %s" % [name, tag, short]
 	select_label.modulate = Catppuccin.YELLOW
 
 
@@ -434,10 +452,13 @@ func _update_hud_plate(g: Dictionary) -> void:
 	var reg := _as_dict(g.get("region", {}))
 	if not reg.is_empty():
 		cur_name = str(reg.get("name", _current_id))
+	var credits := int(g.get("credits", 0))
 	var cd := "ready" if _cooldown <= 0.05 else "%.0fs" % _cooldown
+	if _cooldown <= 0.05 and credits < _cost:
+		cd = "need %d cr" % _cost
 	var zoom := _zoom_level.to_upper()
-	hud_plate.text = "%s · hop %d cr · cd %s · %s" % [cur_name, _cost, cd, zoom]
-	if _cooldown > 0.05:
+	hud_plate.text = "%s · credits %d · hop %d cr · cd %s · %s" % [cur_name, credits, _cost, cd, zoom]
+	if _cooldown > 0.05 or credits < _cost:
 		hud_plate.modulate = Catppuccin.PEACH
 	else:
 		hud_plate.modulate = Catppuccin.SKY
@@ -504,6 +525,7 @@ func _ensure_mats() -> void:
 	_mat_pin_here = _make_pin_mat(Catppuccin.TEAL, 1.4)
 	_mat_pin_sel = _make_pin_mat(Catppuccin.YELLOW, 1.8)
 	_mat_pin_dim = _make_pin_mat(Catppuccin.OVERLAY0, 0.25)
+	_mat_pin_news = _make_pin_mat(Catppuccin.PEACH, 1.25)
 
 
 func _make_pin_mat(col: Color, emit: float) -> StandardMaterial3D:

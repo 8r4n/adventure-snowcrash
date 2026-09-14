@@ -2333,6 +2333,32 @@ body:not(.intro-active) {
 .globe-search-meta { font-size: 0.62rem; margin-bottom: 0.15rem; }
 .globe-geo-strip { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; margin: 0.2rem 0; }
 .globe-geo-strip .chip { font-size: 0.62rem; padding: 0.12rem 0.35rem; }
+.globe-cd-meter {
+  height: 4px; background: #1a2430; border-radius: 2px; margin: 0.15rem 0 0.35rem; overflow: hidden;
+}
+.globe-cd-fill { height: 100%; background: linear-gradient(90deg, #7ad4ff, #a8ffc8); transition: width 0.3s linear; }
+.globe-preview {
+  margin: 0.3rem 0; padding: 0.4rem; background: #0c141c; border: 1px solid #243444; border-radius: 4px;
+  font-size: 0.68rem;
+}
+.globe-preview-head { margin-bottom: 0.15rem; }
+.globe-preview-flavor { color: #9ad4ff; margin: 0.15rem 0; }
+.globe-preview-news { color: #ffcc66; margin: 0.15rem 0; font-size: 0.64rem; }
+.globe-news-tag {
+  display: inline-block; font-size: 0.55rem; padding: 0.05rem 0.25rem;
+  background: #3a2a10; color: #ffcc66; border-radius: 2px; vertical-align: middle;
+}
+.globe-ascii-strip {
+  margin: 0.25rem 0; padding: 0.3rem; background: #060a10; color: #7ee787;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.58rem; line-height: 1.15; white-space: pre; overflow-x: auto;
+  border-radius: 3px; border: 1px solid #1a3040;
+}
+.globe-preview-hop { margin-top: 0.3rem; display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+.globe-row-selected { border-left: 2px solid #7ad4ff; padding-left: 0.3rem; background: rgba(122, 212, 255, 0.06); }
+.globe-svg .pin.selected { fill: #c8f0ff; stroke: #fff; stroke-width: 0.9; }
+.globe-svg .pin.news { fill: #ffcc66; stroke: #5a3a10; stroke-width: 0.7; }
+.globe-svg .pin.news.selected { fill: #ffe0a0; stroke: #fff; }
 
 
 
