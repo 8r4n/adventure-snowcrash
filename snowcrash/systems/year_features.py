@@ -1171,6 +1171,7 @@ class YearFeaturesMixin(ModdingMixin, CorpPatrolMixin, SoftHardcoreMixin, Sleeve
             "globe_search", "search_globe", "region_search",
             "globe_filter", "filter_globe",
             "globe_track", "track_geo", "geo_track",
+            "globe_preview", "preview_region", "preview_globe", "pin_preview",
         ):
             return self._globe_action(agent, a, arg or "")
 

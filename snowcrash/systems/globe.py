@@ -6,6 +6,7 @@ present, else mapgen(region shard_seed). Home region keeps the live shared
 street world. News pipeline (#51) can stamp region_id via attach_news_geo().
 Zoom ladder: street → region list → schematic globe.
 Region search / ASCII filter + cross-region geo compass for daily beats.
+Pin preview / street flavor + hop cost/cooldown quote before teleport.
 """
 
 from __future__ import annotations
@@ -51,6 +52,7 @@ class GlobeMixin:
         self._globe_ctx_region: str = self.globe_home_id
         self._globe_home_pack: Optional[Dict[str, Any]] = None
         self._globe_bind_depth = 0
+        self._globe_shard_meta_cache: Dict[str, Dict[str, Any]] = {}
         self._push_event(
             "broadcast",
             "StreetNet globe layer online — zoom out and uplink-hop regions (#54 stub).",
@@ -122,6 +124,7 @@ class GlobeMixin:
                 "filter_ascii": False,
                 "tracked_geo_region": None,
                 "tracked_geo_beat": None,
+                "preview_region_id": None,
             }
             return
         g.setdefault("region_id", self.globe_home_id)
@@ -138,6 +141,7 @@ class GlobeMixin:
         g.setdefault("filter_ascii", False)
         g.setdefault("tracked_geo_region", None)
         g.setdefault("tracked_geo_beat", None)
+        g.setdefault("preview_region_id", None)
         if g["region_id"] not in self.globe_regions:
             g["region_id"] = self.globe_home_id
 
@@ -368,6 +372,172 @@ class GlobeMixin:
             out.append(dict(r))
         return out
 
+
+    def _globe_shard_meta(self, region_id: str) -> Dict[str, Any]:
+        """Lightweight pilot metadata (pilot_note, landmarks, ascii strip) — cached."""
+        rid = str(region_id or "")
+        cache = getattr(self, "_globe_shard_meta_cache", None)
+        if not isinstance(cache, dict):
+            self._globe_shard_meta_cache = {}
+            cache = self._globe_shard_meta_cache
+        if rid in cache:
+            return dict(cache[rid])
+        reg = self._globe_region(rid) or {}
+        meta: Dict[str, Any] = {
+            "pilot_note": None,
+            "landmarks": [],
+            "ascii_strip": None,
+            "width": None,
+            "height": None,
+        }
+        chunk_path = reg.get("chunk_path")
+        if chunk_path:
+            try:
+                from .ascii_shard import load_shard_json
+
+                doc = load_shard_json(str(chunk_path))
+                meta["pilot_note"] = doc.get("pilot_note")
+                lm = doc.get("landmarks") or {}
+                if isinstance(lm, dict):
+                    meta["landmarks"] = sorted(str(k) for k in lm.keys())
+                meta["width"] = doc.get("width")
+                meta["height"] = doc.get("height")
+                tiles = doc.get("tiles") or []
+                if isinstance(tiles, list) and tiles:
+                    mid = len(tiles) // 2
+                    rows = []
+                    for y in range(max(0, mid - 2), min(len(tiles), mid + 3)):
+                        row = str(tiles[y])
+                        if len(row) > 28:
+                            cx = len(row) // 2
+                            row = row[max(0, cx - 14) : cx + 14]
+                        rows.append(row)
+                    meta["ascii_strip"] = "\n".join(rows)
+            except Exception:
+                pass
+        cache[rid] = dict(meta)
+        return dict(meta)
+
+    def _globe_street_flavor(self, region_id: str) -> str:
+        """Human street flavor line for pin tooltips / preview cards."""
+        reg = self._globe_region(region_id) or {}
+        meta = self._globe_shard_meta(region_id)
+        parts: List[str] = []
+        label = (reg.get("label") or "").strip()
+        if label:
+            parts.append(label)
+        note = (meta.get("pilot_note") or "").strip()
+        if note and "ASCII pilot" not in note:
+            parts.append(note[:96])
+        lms = meta.get("landmarks") or []
+        if lms:
+            parts.append("landmarks: " + ", ".join(lms[:5]))
+        if not parts:
+            kind = reg.get("kind") or "region"
+            cont = reg.get("continent") or "?"
+            parts.append("%s pad · continent %s" % (kind, cont))
+        return " · ".join(parts)
+
+    def _globe_hop_quote(self, agent, region_id: str) -> Dict[str, Any]:
+        """Cost / cooldown / affordability quote for a hop target (UI authority)."""
+        self._globe_bootstrap_agent(agent)
+        rid = (region_id or "").strip().lower()
+        if rid in ("home", "la", "recall", "fractured"):
+            rid = self.globe_home_id
+        reg = self._globe_region(rid)
+        cur = self._globe_agent_region(agent)
+        credits = int(getattr(agent, "credits", 0) or 0)
+        now = time.time()
+        cd_until = float(agent.globe.get("cooldown_until") or 0)
+        cd_left = max(0.0, cd_until - now)
+        cost = int(self.globe_teleport_cost)
+        is_home = rid == self.globe_home_id
+        if is_home:
+            cost = max(0, cost // 2)
+        mode = getattr(agent, "mode", "play")
+        blocked = None
+        if not reg:
+            blocked = "unknown_region"
+        elif reg.get("metadata_only") or reg.get("mod_overlay") or reg.get("teleport") is False:
+            blocked = "metadata_only"
+        elif rid == cur:
+            blocked = "already_here"
+        elif mode in ("cyberspace", "heist", "flotilla", "dead", "won"):
+            blocked = "mode_%s" % mode
+        elif cd_left > 0.05:
+            blocked = "cooldown"
+        elif cost > 0 and credits < cost:
+            blocked = "credits"
+        reasons = {
+            "unknown_region": "Unknown region id.",
+            "metadata_only": "Mod metadata pin — not a hop target.",
+            "already_here": "Already sleeved here.",
+            "cooldown": "Uplink cooldown — %.0fs left." % cd_left,
+            "credits": "Need %d credits (have %d)." % (cost, credits),
+        }
+        if blocked and blocked.startswith("mode_"):
+            reasons[blocked] = "Cannot hop while %s." % mode
+        return {
+            "region_id": rid,
+            "cost_credits": cost,
+            "recall": is_home,
+            "credits": credits,
+            "can_afford": credits >= cost,
+            "cooldown_remaining": cd_left,
+            "on_cooldown": cd_left > 0.05,
+            "hop_ready": blocked is None,
+            "blocked_reason": blocked,
+            "blocked_message": reasons.get(blocked) if blocked else None,
+            "here": rid == cur,
+        }
+
+    def _globe_preview_card(self, agent, region_id: str) -> Optional[Dict[str, Any]]:
+        """Full pin preview: street flavor, landmarks, news beats, hop quote."""
+        self._globe_bootstrap_agent(agent)
+        rid = (region_id or "").strip().lower()
+        if rid in ("home", "la", "recall", "fractured"):
+            rid = self.globe_home_id
+        reg = self._globe_region(rid)
+        if not reg:
+            return None
+        meta = self._globe_shard_meta(rid)
+        quote = self._globe_hop_quote(agent, rid)
+        news = [
+            {
+                "beat_id": o.get("beat_id"),
+                "headline": o.get("headline"),
+                "lat": o.get("lat"),
+                "lon": o.get("lon"),
+            }
+            for o in self._globe_geo_objectives()
+            if o.get("region_id") == rid
+        ]
+        shard_kind = (
+            "home"
+            if rid == self.globe_home_id
+            else ("osm_ascii" if reg.get("chunk_path") else "mapgen")
+        )
+        return {
+            "id": rid,
+            "name": reg.get("name") or rid,
+            "label": reg.get("label"),
+            "kind": reg.get("kind"),
+            "continent": reg.get("continent"),
+            "lat": reg.get("lat"),
+            "lon": reg.get("lon"),
+            "home": bool(reg.get("home")),
+            "has_ascii_shard": bool(reg.get("chunk_path")),
+            "chunk_path": reg.get("chunk_path"),
+            "shard_kind": shard_kind,
+            "street_flavor": self._globe_street_flavor(rid),
+            "landmarks": list(meta.get("landmarks") or []),
+            "ascii_strip": meta.get("ascii_strip"),
+            "pilot_note": meta.get("pilot_note"),
+            "news": news,
+            "has_news": bool(news),
+            **quote,
+        }
+
     def _globe_geo_objectives(self) -> List[Dict[str, Any]]:
         """Active daily (#51) beats that carry a region_id for cross-region tracking."""
         active = getattr(self, "daily_storylines_active", None) or {}
@@ -379,15 +549,30 @@ class GlobeMixin:
             if not rid:
                 continue
             reg = self._globe_region(str(rid)) or {}
+            geo = b.get("geo") if isinstance(b.get("geo"), dict) else {}
+            blat = blon = None
+            for src in (geo, b):
+                if blat is None and src.get("lat") is not None:
+                    try:
+                        blat = float(src["lat"])
+                    except (TypeError, ValueError):
+                        pass
+                if blon is None and src.get("lon") is not None:
+                    try:
+                        blon = float(src["lon"])
+                    except (TypeError, ValueError):
+                        pass
             objs.append(
                 {
                     "beat_id": b.get("id"),
                     "headline": b.get("headline") or b.get("summary") or b.get("text"),
                     "region_id": str(rid),
                     "region_name": reg.get("name") or rid,
-                    "lat": reg.get("lat"),
-                    "lon": reg.get("lon"),
-                    "continent": reg.get("continent"),
+                    "lat": blat if blat is not None else reg.get("lat"),
+                    "lon": blon if blon is not None else reg.get("lon"),
+                    "continent": reg.get("continent") or geo.get("continent"),
+                    "pin_lat": blat if blat is not None else reg.get("lat"),
+                    "pin_lon": blon if blon is not None else reg.get("lon"),
                 }
             )
         return objs
@@ -705,6 +890,7 @@ class GlobeMixin:
         )
         # After hop, drop zoom to street so GPS closes onto the pad
         agent.globe["zoom"] = "street"
+        agent.globe["preview_region_id"] = rid
         if hasattr(self, "_primer_note_progress"):
             self._primer_note_progress(agent, "globe_hop", 1)
         agent.sfx("uplink")
@@ -865,6 +1051,36 @@ class GlobeMixin:
                 j["notes"] = notes[-8:]
             return True
 
+
+        if a in ("globe_preview", "preview_region", "preview_globe", "pin_preview"):
+            if not arg or arg.lower() in ("clear", "none", "-"):
+                agent.globe["preview_region_id"] = None
+                agent.log("Globe pin preview cleared.")
+                return True
+            card = self._globe_preview_card(agent, arg)
+            if not card:
+                agent.log("Unknown region to preview. Example: globe_preview neo_tokyo")
+                agent.globe["panel_open"] = True
+                return True
+            agent.globe["preview_region_id"] = card["id"]
+            agent.globe["panel_open"] = True
+            flavor = card.get("street_flavor") or card.get("label") or ""
+            news_n = len(card.get("news") or [])
+            if card.get("hop_ready"):
+                quote = "hop ready · %d cr" % int(card.get("cost_credits") or 0)
+            else:
+                quote = card.get("blocked_message") or "hop blocked"
+            agent.log(
+                "Pin preview %s — %s · %s%s"
+                % (
+                    card.get("name") or card["id"],
+                    (flavor[:72] + ("…" if len(flavor) > 72 else "")),
+                    quote,
+                    (" · %d news beat(s)" % news_n) if news_n else "",
+                )
+            )
+            return True
+
         return False
 
     def _globe_snapshot(self, agent) -> Dict[str, Any]:
@@ -874,6 +1090,11 @@ class GlobeMixin:
         now = time.time()
         cd_until = float(agent.globe.get("cooldown_until") or 0)
         regions_out: List[Dict[str, Any]] = []
+        geo_by_region: Dict[str, List[Dict[str, Any]]] = {}
+        for o in self._globe_geo_objectives():
+            gr = str(o.get("region_id") or "")
+            if gr:
+                geo_by_region.setdefault(gr, []).append(o)
         for r in self.globe_defs.get("regions", []):
             rid = r.get("id")
             eco_nodes = []
@@ -886,6 +1107,8 @@ class GlobeMixin:
                     }
                     for n in self._ecology_nodes_for_region(str(rid or ""))
                 ]
+            news_here = geo_by_region.get(str(rid or ""), [])
+            meta = self._globe_shard_meta(str(rid or "")) if r.get("chunk_path") else {}
             regions_out.append(
                 {
                     "id": rid,
@@ -900,6 +1123,13 @@ class GlobeMixin:
                     "has_ecology": bool(eco_nodes),
                     "has_ascii_shard": bool(r.get("chunk_path")),
                     "chunk_path": r.get("chunk_path"),
+                    "street_flavor": self._globe_street_flavor(str(rid or "")),
+                    "landmarks": list(meta.get("landmarks") or []),
+                    "has_news": bool(news_here),
+                    "news_count": len(news_here),
+                    "news_headline": (news_here[0].get("headline") if news_here else None),
+                    "news_lat": (news_here[0].get("lat") if news_here else None),
+                    "news_lon": (news_here[0].get("lon") if news_here else None),
                 }
             )
 
@@ -929,13 +1159,20 @@ class GlobeMixin:
             chunk_path = (reg or {}).get("chunk_path")
         else:
             shard_source = "mapgen"
-        hints = {
-            "street": "Street GPS — open Globe or zoom region/globe to uplink-hop.",
-            "region": "Region list — search / hop a locale, or zoom globe for Earth.",
-            "globe": "Schematic Earth — search, pick a pin / region id, then teleport.",
-        }
         ascii_count = sum(1 for r in self.globe_defs.get("regions", []) if r.get("chunk_path"))
         geo_objs = self._globe_geo_objectives()
+        credits = int(getattr(agent, "credits", 0) or 0)
+        cost = int(self.globe_teleport_cost)
+        recall_cost = max(0, cost // 2)
+        cd_left = max(0.0, cd_until - now)
+        preview_id = agent.globe.get("preview_region_id")
+        preview = self._globe_preview_card(agent, str(preview_id)) if preview_id else None
+        hop_quote = self._globe_hop_quote(agent, str(preview_id or cur))
+        hints = {
+            "street": "Street GPS — open Globe or zoom region/globe to uplink-hop.",
+            "region": "Region list — preview a locale, then hop when ready.",
+            "globe": "Schematic Earth — tap a pin to preview street flavor, then Hop.",
+        }
         return {
             "panel_open": bool(agent.globe.get("panel_open")),
             "region_id": cur,
@@ -949,12 +1186,20 @@ class GlobeMixin:
                 "lon": reg.get("lon"),
                 "home": bool(reg.get("home")),
                 "has_ascii_shard": bool((reg or {}).get("chunk_path")),
+                "street_flavor": self._globe_street_flavor(cur),
             },
             "home_region_id": self.globe_home_id,
             "regions": regions_out,
-            "cost_credits": int(self.globe_teleport_cost),
+            "cost_credits": cost,
+            "recall_cost_credits": recall_cost,
             "cooldown_sec": float(self.globe_teleport_cooldown),
-            "cooldown_remaining": max(0.0, cd_until - now),
+            "cooldown_remaining": cd_left,
+            "credits": credits,
+            "can_afford_hop": credits >= cost,
+            "can_afford_recall": credits >= recall_cost,
+            "hop_ready": hop_quote.get("hop_ready"),
+            "hop_block_reason": hop_quote.get("blocked_reason"),
+            "hop_block_message": hop_quote.get("blocked_message"),
             "teleports": int(agent.globe.get("teleports") or 0),
             "shards_loaded": sorted(self.globe_shards.keys()),
             "shard_seed": shard_seed,
@@ -968,6 +1213,8 @@ class GlobeMixin:
             "ascii_shard_count": ascii_count,
             "geo_objectives": geo_objs,
             "tracked_geo_region": agent.globe.get("tracked_geo_region"),
+            "preview_region_id": preview_id,
+            "preview": preview,
             "ecology_nodes": (
                 self._ecology_globe_overlay()
                 if hasattr(self, "_ecology_globe_overlay")
