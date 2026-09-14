@@ -87,7 +87,7 @@ Valve note: if a Linux build exists they test it first; only fall back to Window
 
 ### Performance (checklist sibling)
 
-Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and **≤3 Omni lights** (courier + J + U). Neon rim is a **DirectionalLight** (not Omni). Slice 5 adds a **Low/High** quality preset (`GraphicsSettings` / F8) — **Low** disables particles, MSAA, glow, and shrinks AOI (**build 12 / entity 10 / pool ≤24** after #148). **#157** High adds SSAO/SSIL/TAA/volumetric + hotspot ReflectionProbes — **Low keeps that stack off**; do not leave Deck on High as the silent default. Prefer Low on Deck until hardware QA. Use **F3** FPS overlay + Shift+F3 → `user://fps_samples.log` per [godot-3d.md § FPS measurement (#148)](godot-3d.md#fps-measurement-148). ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
+Default config must hold **~30 fps at 800p** on Deck. 3D street uses the **Mobile** renderer, AOI mesh rebuild, no shadows, and **≤3 Omni lights** (courier + J + U). Neon rim is a **DirectionalLight** (not Omni). Slice 5 adds a **Low/High** quality preset (`GraphicsSettings` / F8) — **Low** disables particles, MSAA, glow, and shrinks AOI (**build 12 / entity 10 / pool ≤24** after #148). **#157** High adds SSAO/SSIL/TAA/volumetric + hotspot ReflectionProbes — **Low keeps that stack off**; do not leave Deck on High as the silent default. Prefer Low on Deck until hardware QA. `#173` `SteamBridge.suggest_low_quality()` (Deck env / Big Picture) feeds `GraphicsSettings` first-run Low default. Use **F3** FPS overlay + Shift+F3 → `user://fps_samples.log` per [godot-3d.md § FPS measurement (#148)](godot-3d.md#fps-measurement-148). ASCII FPV remains a cheap toggle. Risk: unbounded log/`RichTextLabel` growth and unthrottled WS paint — keep snapshot paint cheap (already snapshot-driven).
 
 ---
 
@@ -234,7 +234,7 @@ Tracked honestly so Verified is not claimed early:
 |---------|--------|------------|
 | **No Deck hardware in CI / this agent** | Cannot complete on-device checklist | Borrow / buy Deck; or SteamOS VM is **not** a substitute for Verified |
 | **No exported release build in CI yet** | Nothing to install on Deck | Local: `./scripts/export_godot_client.sh linux` (#149); add CI export job later |
-| **GodotSteam not integrated** | Overlay, Steam Input glyphs, floating keyboard gaps → risk **Playable** not Verified | Integrate on Godot 4.4+ before review request |
+| **GodotSteam stub only (#173)** | Overlay / glyphs / OSK still need real GDExtension + device pass | Stub autoload + Low hint shipped; drop GodotSteam into `addons/godotsteam/` on 4.4.1+ before Verified review |
 | **Name / chat text entry** | OSK auto-invoke required for Verified text-input rule | Soft on-screen keys or Steamworks keyboard API |
 | **Hosted WS only (Mode A)** | Sleep + flaky Wi-Fi needs solid reconnect (code path exists) | Device pass must include sleep test |
 | **Offline sidecar not shipped** | Airplane / offline Deck weaker | Mode B post-Verified path; not blocking checklist doc |
