@@ -2422,7 +2422,13 @@
         const title = escapeHtml(defStr(r.name, id)) + " (" + escapeHtml(id) + ")" +
           escapeHtml((flavorTitle ? " — " + flavorTitle : "") + ecoTitle + asciiTitle + newsTitle);
         const rad = defBool(r.has_news, false) ? 3.1 : (ecos.length ? 2.8 : (defBool(r.has_ascii_shard, false) ? 2.5 : 2.2));
-        return `<circle class="${cls.join(" ")}" data-globe-preview="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>`;
+        const hitRad = Math.max(5.6, rad + 3.2);
+        return (
+          `<g class="pin-wrap">` +
+          `<circle class="pin-hitbox" data-globe-preview="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${hitRad.toFixed(1)}"></circle>` +
+          `<circle class="${cls.join(" ")}" data-globe-preview="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>` +
+          `</g>`
+        );
       }).join("");
       const land = `
         <ellipse class="land" cx="42" cy="42" rx="28" ry="22"/>

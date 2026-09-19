@@ -158,11 +158,18 @@ Fill in on device as playtests land. Target: courier can move, fight/ICE, open j
 | Touch HUD polish | **Improved** | Pad backplates + light blur; larger vjoy/chord grids; portrait reserves ~9.2rem for pads |
 | Safe-area / notch | **Improved** | Topbar padding uses `env(safe-area-inset-*)`; sticky stats shadow; death/year modal cards inset; body `overscroll-behavior-y: none` while playing |
 
+### Slice 5 (this branch)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Globe pin touch targets | **Improved** | Schematic Earth pins now include transparent `pin-hitbox` circles (~5.6+ SVG units) so taps near tiny pins still open preview/Hop flows |
+| Globe hover parity | **Improved** | `pin-hitbox:hover + .pin` keeps desktop hover feedback while preserving larger touch hit zones |
+
 ## Remaining for full #75 acceptance
 
 See open checkboxes on **#75**. Highest leverage next slices:
 
 1. **Real-device matrix** (iPhone Safari + Android Chrome) — portrait one-handed + landscape combat
 2. Measured 30fps+ / battery on a mid-range phone during neon rain / ICE
-3. Finish hover/keyboard audit for leftover year-modals / globe pin hit targets
+3. Finish hover/keyboard audit for leftover year-modals and crew invite text-entry ergonomics
 4. Cyberspace plane ↑Z/↓Z on the chord pad (or long-press) if phone jack-in becomes common

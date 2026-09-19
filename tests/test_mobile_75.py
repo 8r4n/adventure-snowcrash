@@ -65,6 +65,9 @@ def test_slice4_chord_and_nested_scroll_markers():
     game = (STATIC / "game.js").read_text(encoding="utf-8")
     assert 'classList.add("is-pressed")' in game
     assert "nestedScrollBound" in game
+    assert "pin-hitbox" in game
     doc = (ROOT / "docs" / "mobile.md").read_text(encoding="utf-8")
     assert "Slice 4" in doc
+    assert "Slice 5" in doc
     assert "LOOK/WAIT" in doc or "LOOK / WAIT" in doc
+    assert "pin-hitbox" in css

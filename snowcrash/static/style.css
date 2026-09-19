@@ -2325,10 +2325,13 @@ body:not(.intro-active) {
 }
 .globe-svg .ocean { fill: #0a1622; }
 .globe-svg .land { fill: #1a3a2a; stroke: #2a5a40; stroke-width: 0.5; }
+.globe-svg .pin-wrap { cursor: pointer; }
+.globe-svg .pin-hitbox { fill: transparent; stroke: transparent; }
 .globe-svg .pin { fill: #7ad4ff; stroke: #0a1520; stroke-width: 0.4; cursor: pointer; }
 .globe-svg .pin.home { fill: #ffcc66; }
 .globe-svg .pin.here { fill: #ff6b9d; }
 .globe-svg .pin:hover { fill: #c8f0ff; }
+.globe-svg .pin-hitbox:hover + .pin { fill: #c8f0ff; }
 .year-panel .panel-body.globe-body { max-height: 16rem; }
 .globe-region-list .row { align-items: center; }
 .globe-region-list .row button { flex-shrink: 0; font-size: 0.62rem; padding: 0.12rem 0.35rem; }
