@@ -841,6 +841,12 @@
       .replace(/>/g, "&gt;");
   }
 
+  function safeAttrToken(t, maxLen = 64) {
+    return String(t || "")
+      .replace(/[^A-Za-z0-9_.:-]/g, "")
+      .slice(0, maxLen);
+  }
+
   function mapAt(s, x, y) {
     if (y < 0 || x < 0 || y >= s.height || x >= s.width) return "#";
     const row = s.map[y] || "";
@@ -2367,6 +2373,7 @@
       }
       const list = listRegions.map((r) => {
         const id = defStr(r.id, "");
+        const idAttr = safeAttrToken(id);
         const name = defStr(r.name, id);
         const here = id === cur ? " · HERE" : "";
         const ascii = defBool(r.has_ascii_shard, false) ? " · ASCII" : "";
@@ -2375,8 +2382,8 @@
         const hopCost = id === home ? recallCost : cost;
         const disabled = (id === cur || cd > 0.5 || credits < hopCost) ? " disabled" : "";
         return `<div class="row${sel}"><span><strong>${escapeHtml(name)}</strong> <span class="dim">${escapeHtml(id)}${here}${ascii}${news}</span></span>` +
-          `<span><button type="button" data-globe-preview="${escapeHtml(id)}">Preview</button> ` +
-          `<button type="button" data-tp="${escapeHtml(id)}"${disabled}>Hop</button></span></div>`;
+          `<span><button type="button" data-globe-preview="${idAttr}">Preview</button> ` +
+          `<button type="button" data-tp="${idAttr}"${disabled}>Hop</button></span></div>`;
       }).join("");
 
       if (zoom === "region") {
@@ -2399,6 +2406,7 @@
       // zoom === globe (schematic Earth)
       const pins = regions.map((r) => {
         const id = defStr(r.id, "");
+        const idAttr = safeAttrToken(id);
         const useNewsPin = defBool(r.has_news, false) && r.news_lat != null && r.news_lon != null;
         const [x, y] = latLonToSvg(useNewsPin ? Number(r.news_lat) : r.lat, useNewsPin ? Number(r.news_lon) : r.lon, w, h);
         const cls = ["pin"];
@@ -2425,8 +2433,8 @@
         const hitRad = Math.max(5.6, rad + 3.2);
         return (
           `<g class="pin-wrap">` +
-          `<circle class="pin-hitbox" data-globe-preview="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${hitRad.toFixed(1)}"></circle>` +
-          `<circle class="${cls.join(" ")}" data-globe-preview="${escapeHtml(id)}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>` +
+          `<circle class="pin-hitbox" data-globe-preview="${idAttr}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${hitRad.toFixed(1)}"></circle>` +
+          `<circle class="${cls.join(" ")}" data-globe-preview="${idAttr}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad}"><title>${title}</title></circle>` +
           `</g>`
         );
       }).join("");
