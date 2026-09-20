@@ -38,6 +38,10 @@ On world init (and `reload_daily_storylines()`), today's entry fires each beat o
 
 `daily_storylines`: `{ date, beat_count, beats[], fired_ids[], hooks }`.
 
+
+Latest shipped calendar day: **2026-09-20** (Oracle cage spill / Lobby ICE walk-off / Sky-rail densify).
+
 ## Ops
 
 Append a new `entries[]` object for each calendar day. Dedup against the last 7 days of comments on #51 before shipping.
+
