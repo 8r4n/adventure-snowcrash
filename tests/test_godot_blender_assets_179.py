@@ -34,6 +34,7 @@ def test_docs_godot_blender_assets_conventions():
     assert "Godot import" in doc or "import" in doc.lower()
     assert "Blender 4.3" in doc
     assert "wall_panel" in doc and "door_frame" in doc
+    assert "deliverator_car" in doc
     assert "scripts/blender_export_kit.sh" in doc
     assert "MeshKit" in doc
     assert "Abandoned Spaceship" in doc
@@ -67,6 +68,8 @@ def test_export_script_headless_blender():
     assert 'export_format="GLB"' in src or "export_format='GLB'" in src
     assert "build_wall_panel" in src
     assert "build_door_frame" in src
+    assert "build_deliverator_car" in src
+    assert "wall_panel,door_frame,deliverator_car" in src
     assert "Mat_" in src
     assert "smart_project" in src
     assert "BEVEL" in src

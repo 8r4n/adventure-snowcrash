@@ -30,8 +30,8 @@ World-scale GLB means `street_3d.gd` instances with **identity scale** at the ti
 
 | Kind | Pattern | Examples |
 |------|---------|----------|
-| File / object | `role_variant` snake | `wall_panel`, `door_frame`, `neon_strip` |
-| Material slots | `Mat_*` | `Mat_WallConcrete`, `Mat_NeonSky`, `Mat_DoorFrame`, `Mat_NeonYellow` |
+| File / object | `role_variant` snake | `wall_panel`, `door_frame`, `deliverator_car` |
+| Material slots | `Mat_*` | `Mat_WallConcrete`, `Mat_NeonSky`, `Mat_DoorFrame`, `Mat_NeonYellow`, `Mat_DeliveratorBody` |
 | One mesh per file | Join parts (core + plates + neon) before export | Godot AOI instances a single `Mesh`, not a full scene per tile |
 
 Future wave (not required this slice): `floor_tile`, `jackpoint`, `uplink`, `vendor_kiosk`, `neon_strip`, `crate`.
@@ -99,6 +99,7 @@ numpy: `blender --background --python-expr "import sys; print(sys.executable)"` 
 |-------|------|--------|
 | `wall_panel` | `godot_client/models/wall_panel.glb` | 1×1×2.55 m, inset plates, mid rail, Sky neon trims |
 | `door_frame` | `godot_client/models/door_frame.glb` | Jambs / lintel / threshold / Yellow neon |
+| `deliverator_car` | `godot_client/models/deliverator_car.glb` | Courier ride prop, low poly hard-surface body + neon side stripes |
 
 Sources: `tools/blender/export_kit.py` + `tools/blender/src/*.blend`. Rebuild with `./scripts/blender_export_kit.sh`.
 

@@ -158,6 +158,51 @@ def build_door_frame() -> object:
     return joined
 
 
+def build_deliverator_car() -> object:
+    """Compact retro-futurist courier car prop. Origin at floor center."""
+    mat_body = make_mat(
+        "Mat_DeliveratorBody",
+        (0.88, 0.22, 0.18),
+        roughness=0.34,
+    )
+    mat_trim = make_mat("Mat_DeliveratorTrim", (0.16, 0.17, 0.20), roughness=0.42)
+    mat_glass = make_mat("Mat_DeliveratorGlass", (0.09, 0.14, 0.18), roughness=0.08)
+    mat_neon = make_mat(
+        "Mat_DeliveratorNeon",
+        (0.98, 0.62, 0.24),
+        roughness=0.20,
+        emission=(0.98, 0.58, 0.20),
+        emission_strength=4.6,
+    )
+    floor = add_box("car_floor", (0.0, 0.0, 0.09), (1.10, 0.52, 0.18), mat_trim, bevel_w=0.012)
+    body = add_box("car_body", (0.0, 0.0, 0.45), (1.05, 0.50, 0.50), mat_body, bevel_w=0.028)
+    nose = add_box("car_nose", (1.03, 0.0, 0.38), (0.26, 0.44, 0.34), mat_body, bevel_w=0.018)
+    rear = add_box("car_rear", (-1.03, 0.0, 0.38), (0.22, 0.42, 0.30), mat_body, bevel_w=0.016)
+    roof = add_box("car_roof", (0.08, 0.0, 0.90), (0.78, 0.42, 0.22), mat_trim, bevel_w=0.016)
+    glass = add_box("car_windshield", (0.18, 0.0, 0.78), (0.55, 0.36, 0.18), mat_glass, bevel_w=0.010)
+    vent_l = add_box("car_vent_l", (0.0, 0.36, 0.66), (0.80, 0.03, 0.12), mat_trim, bevel_w=0.006)
+    vent_r = add_box("car_vent_r", (0.0, -0.36, 0.66), (0.80, 0.03, 0.12), mat_trim, bevel_w=0.006)
+    stripe_l = add_box("car_neon_l", (0.0, 0.53, 0.56), (0.98, 0.014, 0.035), mat_neon, do_bevel=False)
+    stripe_r = add_box("car_neon_r", (0.0, -0.53, 0.56), (0.98, 0.014, 0.035), mat_neon, do_bevel=False)
+    tail = add_box("car_tail_neon", (-1.13, 0.0, 0.48), (0.020, 0.34, 0.032), mat_neon, do_bevel=False)
+    parts = [
+        floor,
+        body,
+        nose,
+        rear,
+        roof,
+        glass,
+        vent_l,
+        vent_r,
+        stripe_l,
+        stripe_r,
+        tail,
+    ]
+    joined = join_named("deliverator_car", parts)
+    unwrap(joined)
+    return joined
+
+
 def export_glb(obj, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
@@ -189,8 +234,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--blend-out", type=Path, default=here.parent / "src")
     p.add_argument(
         "--pieces",
-        default="wall_panel,door_frame",
-        help="Comma list: wall_panel,door_frame",
+        default="wall_panel,door_frame,deliverator_car",
+        help="Comma list: wall_panel,door_frame,deliverator_car",
     )
     return p.parse_args(_argv_after_double_dash())
 
@@ -200,6 +245,7 @@ def main() -> None:
     builders = {
         "wall_panel": build_wall_panel,
         "door_frame": build_door_frame,
+        "deliverator_car": build_deliverator_car,
     }
     wanted = [s.strip() for s in args.pieces.split(",") if s.strip()]
     for name in wanted:
