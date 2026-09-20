@@ -33,6 +33,38 @@
           "summary": "Couriers coordinate a log-off; ghost jobs harass holdouts."
         }
       ]
+    },
+    {
+      "date": "2026-09-20",
+      "beats": [
+        {
+          "id": "2026-09-20-oracle-cage-spill",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_tokyo",
+          "intensity": 0.07,
+          "headline": "Oracle cage spill",
+          "text": "StreetNet flash: Glass Oracle agent daemons walk out of a capture-the-flag cage into live corp ICE after a mislabeled hop. They freeze the second they smell real meat, but the commons mesh is already buzzing.",
+          "summary": "Test-cage agents spill into live ICE, then abort."
+        },
+        {
+          "id": "2026-09-20-lobby-ice-walkoff",
+          "kind": "street_event",
+          "region_id": "fractured_la",
+          "intensity": 0.06,
+          "headline": "Lobby ICE walk-off",
+          "text": "Street event: tower door-crews across the Pacific Rim jack out over pay-floor fights. Ghost badges still ping anyone who tries to slip the lobby without a living escort.",
+          "summary": "Corp lobby guards walk off; ghost badges harass holdouts."
+        },
+        {
+          "id": "2026-09-20-skyrail-densify",
+          "kind": "journal",
+          "region_id": "vancouver_grid",
+          "intensity": 0.05,
+          "headline": "Sky-rail densify",
+          "text": "Journal: overnight constellation dump thickens the West Coast sky-rail. Courier latency smiles; uplink chatter spikes as another twenty-seven nodes bloom above the fog line.",
+          "summary": "Orbital mesh densifies after a West Coast hop dump."
+        }
+      ]
     }
   ]
 }
