@@ -65,6 +65,38 @@
           "summary": "Orbital mesh densifies after a West Coast hop dump."
         }
       ]
+    },
+    {
+      "date": "2026-09-21",
+      "beats": [
+        {
+          "id": "2026-09-21-plugin-pin-forge",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_nyc",
+          "intensity": 0.07,
+          "headline": "Plugin pin forge",
+          "text": "StreetNet flash: Flotilla tool-market hashes get swapped under the pin. Four courier agent kits load a ghost plugin before anyone smells the forged SHA.",
+          "summary": "Forged plugin hashes slip past pin checks on courier kits."
+        },
+        {
+          "id": "2026-09-21-badge-forge-gate",
+          "kind": "journal",
+          "region_id": "london_fog",
+          "intensity": 0.06,
+          "headline": "Badge-forge gate",
+          "text": "Journal: Thames uplink Identity ICE accepts a blank request and opens root on the door-daemon. Forensic scrub crews race the logs before the badge-forge spreads.",
+          "summary": "Identity ICE blank-request unlocks root at Thames uplink."
+        },
+        {
+          "id": "2026-09-21-hyperscale-rack-freeze",
+          "kind": "street_event",
+          "region_id": "fractured_la",
+          "intensity": 0.05,
+          "headline": "Hyperscale rack freeze",
+          "text": "Street event: County zoning ICE freezes new Black Lattice rack farms across the unincorporated sprawl. Payload-Zero reroutes cooling contracts overnight while idle pads go dark.",
+          "summary": "Zoning freeze stalls new hyperscale racks; cooling contracts reroute."
+        }
+      ]
     }
   ]
 }
