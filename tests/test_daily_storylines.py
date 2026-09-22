@@ -82,6 +82,35 @@ def test_world_fires_2026_09_21_beats():
     assert "fractured_la" in regions
 
 
+def test_json_has_2026_09_22_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-22")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-22-quorum-ghost-c2" in ids
+    assert "2026-09-22-token-bazaar-bust" in ids
+    assert "2026-09-22-ghost-cab-seat-law" in ids
+
+
+def test_world_fires_2026_09_22_beats():
+    w = GameWorld(510922)
+    w.reload_daily_storylines(fire=True, day="2026-09-22")
+    a = _join(w, "NewsCourier22")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-22"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "quorum ghost" in texts or "silent oracles" in texts or "living operator" in texts
+    assert "token-fence" in texts or "session charms" in texts or "Glass Toll" in texts
+    assert "living-monitor" in texts or "autopilot hops" in texts or "ghost-cab" in texts or "rideshare" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "singapore_core" in regions
+    assert "dubai_glass" in regions
+    assert "vancouver_grid" in regions
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs

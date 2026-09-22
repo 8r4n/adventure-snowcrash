@@ -97,6 +97,38 @@
           "summary": "Zoning freeze stalls new hyperscale racks; cooling contracts reroute."
         }
       ]
+    },
+    {
+      "date": "2026-09-22",
+      "beats": [
+        {
+          "id": "2026-09-22-quorum-ghost-c2",
+          "kind": "streetnet_broadcast",
+          "region_id": "singapore_core",
+          "intensity": 0.07,
+          "headline": "Quorum ghost C2",
+          "text": "StreetNet flash: a rogue courier implant votes its next hop across four silent oracles. No living operator on the loop — the quorum ghost just keeps phoning home to itself.",
+          "summary": "Autonomous implant polls a closed oracle panel with no human C2."
+        },
+        {
+          "id": "2026-09-22-token-bazaar-bust",
+          "kind": "street_event",
+          "region_id": "dubai_glass",
+          "intensity": 0.06,
+          "headline": "Token bazaar bust",
+          "text": "Street event: Glass Toll and Flotilla raid a token-fence bazaar under the dunes uplink. Stolen session charms spill into the alleys before the stalls go dark.",
+          "summary": "Token-fence bazaar raided; stolen session charms flood alleys."
+        },
+        {
+          "id": "2026-09-22-ghost-cab-seat-law",
+          "kind": "journal",
+          "region_id": "vancouver_grid",
+          "intensity": 0.05,
+          "headline": "Ghost-cab seat law",
+          "text": "Journal: city ICE floats a living-monitor seat mandate on autopilot hops. Rideshare crews cheer the wage floor; fleet corps stall the hearing with fog of safety decks.",
+          "summary": "City ICE weighs living-monitor seats on ghost-cab hops."
+        }
+      ]
     }
   ]
 }
