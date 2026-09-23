@@ -39,7 +39,7 @@ On world init (and `reload_daily_storylines()`), today's entry fires each beat o
 `daily_storylines`: `{ date, beat_count, beats[], fired_ids[], hooks }`.
 
 
-Latest shipped calendar day: **2026-09-21** (Plugin pin forge / Badge-forge gate / Hyperscale rack freeze).
+Latest shipped calendar day: **2026-09-23** (Daybreak ward gift / OAuth mint hole / Truth-ward stand-up).
 
 ## Ops
 
