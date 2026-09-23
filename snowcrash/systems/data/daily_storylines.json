@@ -97,6 +97,38 @@
           "summary": "Zoning freeze stalls new hyperscale racks; cooling contracts reroute."
         }
       ]
+    },
+    {
+      "date": "2026-09-23",
+      "beats": [
+        {
+          "id": "2026-09-23-daybreak-ward-gift",
+          "kind": "streetnet_broadcast",
+          "region_id": "istanbul_bridge",
+          "intensity": 0.06,
+          "headline": "Daybreak ward gift",
+          "text": "StreetNet flash: Flotilla unlocks Daybreak-class defense oracles for free across contested rim wards. Clinic uplinks and power-pad ICE get priority seating; Black Lattice lobbyists howl about export keys.",
+          "summary": "Free defense oracles land on contested rim civilian ICE."
+        },
+        {
+          "id": "2026-09-23-oauth-mint-hole",
+          "kind": "journal",
+          "region_id": "neo_nyc",
+          "intensity": 0.07,
+          "headline": "OAuth mint hole",
+          "text": "Journal: Uplink token-mint ICE in the OAuth authorization role accepts a blank handshake and spits root session charms. Hotfix crews race before the mint farm clones itself across glass towers.",
+          "summary": "Blank handshake mints root charms on OAuth uplink ICE."
+        },
+        {
+          "id": "2026-09-23-truth-ward-standup",
+          "kind": "street_event",
+          "region_id": "london_fog",
+          "intensity": 0.05,
+          "headline": "Truth-ward stand-up",
+          "text": "Street event: Fog Parliament stands up a StreetNet Truth Ward to smell deepfake gossip floods before they harden into commons law. Courier rumor channels get a living-verify latch; synth mouths go quiet for a tick.",
+          "summary": "Fog Parliament opens a Truth Ward against deepfake floods."
+        }
+      ]
     }
   ]
 }
