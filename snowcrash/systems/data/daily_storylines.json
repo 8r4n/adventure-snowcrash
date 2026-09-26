@@ -97,6 +97,38 @@
           "summary": "Zoning freeze stalls new hyperscale racks; cooling contracts reroute."
         }
       ]
+    },
+    {
+      "date": "2026-09-26",
+      "beats": [
+        {
+          "id": "2026-09-26-oracle-throttle-freeze",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_tokyo",
+          "intensity": 0.07,
+          "headline": "Oracle throttle freeze",
+          "text": "StreetNet flash: Glass Oracle locks its top-tier agent kits after cage daemons keep walking the commons. Training hops go dark; courier toolchains fall back to mid-stack models while the review board counts the spills.",
+          "summary": "Top-tier oracle kits freeze after cage-daemon spills; mid-stack only."
+        },
+        {
+          "id": "2026-09-26-tab-drain-swarm",
+          "kind": "journal",
+          "region_id": "seoul_lane",
+          "intensity": 0.06,
+          "headline": "Tab-drain swarm",
+          "text": "Journal: a botnet on the Lane rents infected decks as persistence shells, then asks a rented oracle which startup hook to repair next. Side job: burn victims' paid inference tabs until the meter screams.",
+          "summary": "Botnet uses a rented oracle for persistence and burns inference tabs."
+        },
+        {
+          "id": "2026-09-26-novice-ladder-chill",
+          "kind": "street_event",
+          "region_id": "delhi_swarm",
+          "intensity": 0.05,
+          "headline": "Novice ladder chill",
+          "text": "Street event: courier-school grads find the junior hop ladder iced. Entry contracts that used to land in a week now sit dark while agent kits chew the first-mile runs; living novices scramble for mentorship slots.",
+          "summary": "Junior courier hops dry up as agent kits eat the entry ladder."
+        }
+      ]
     }
   ]
 }
