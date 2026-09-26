@@ -82,6 +82,36 @@ def test_world_fires_2026_09_21_beats():
     assert "fractured_la" in regions
 
 
+
+def test_json_has_2026_09_26_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-26")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-26-oracle-throttle-freeze" in ids
+    assert "2026-09-26-tab-drain-swarm" in ids
+    assert "2026-09-26-novice-ladder-chill" in ids
+
+
+def test_world_fires_2026_09_26_beats():
+    w = GameWorld(510926)
+    w.reload_daily_storylines(fire=True, day="2026-09-26")
+    a = _join(w, "NewsCourier26")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-26"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "top-tier agent" in texts or "Glass Oracle" in texts or "mid-stack" in texts or "cage daemons" in texts
+    assert "inference tabs" in texts or "persistence shells" in texts or "rented oracle" in texts or "meter screams" in texts
+    assert "junior hop" in texts or "courier-school" in texts or "entry ladder" in texts or "mentorship" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "neo_tokyo" in regions
+    assert "seoul_lane" in regions
+    assert "delhi_swarm" in regions
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs
