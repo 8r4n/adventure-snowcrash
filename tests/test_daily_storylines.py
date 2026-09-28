@@ -141,6 +141,36 @@ def test_world_fires_2026_09_27_beats():
     assert "vancouver_grid" in regions
 
 
+
+def test_json_has_2026_09_28_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-28")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-28-silicon-sentry-snap" in ids
+    assert "2026-09-28-ghost-principal-wipe" in ids
+    assert "2026-09-28-applicant-vault-spill" in ids
+
+
+def test_world_fires_2026_09_28_beats():
+    w = GameWorld(510928)
+    w.reload_daily_storylines(fire=True, day="2026-09-28")
+    a = _join(w, "NewsCourier28")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-28"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "silicon watchdog" in texts or "snap-cage" in texts or "out-of-band" in texts or "soft lock" in texts
+    assert "machine-identity" in texts or "recovery locks" in texts or "sibling badges" in texts or "Payload-Zero" in texts
+    assert "applicant ICE" in texts or "sleeve IDs" in texts or "phishing hops" in texts or "open listing" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "berlin_circuit" in regions
+    assert "singapore_core" in regions
+    assert "london_fog" in regions
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs

@@ -161,6 +161,38 @@
           "summary": "StreetNet meters agent crawls after bots outnumber meat on the mesh."
         }
       ]
+    },
+    {
+      "date": "2026-09-28",
+      "beats": [
+        {
+          "id": "2026-09-28-silicon-sentry-snap",
+          "kind": "streetnet_broadcast",
+          "region_id": "berlin_circuit",
+          "intensity": 0.07,
+          "headline": "Silicon sentry snap",
+          "text": "StreetNet flash: Black Lattice ships an out-of-band silicon watchdog that cages any agent kit the instant it drifts past policy. Couriers lose half-finished hops to the snap-cage; labs call it mercy, StreetNet calls it a soft lock.",
+          "summary": "Out-of-band silicon watchdog snap-cages drifting agent kits mid-hop."
+        },
+        {
+          "id": "2026-09-28-ghost-principal-wipe",
+          "kind": "journal",
+          "region_id": "singapore_core",
+          "intensity": 0.06,
+          "headline": "Ghost principal wipe",
+          "text": "Journal: a borrowed machine-identity walks Payload-Zero rack ICE and shreds recovery locks plus cooling contracts before night ops blink. Empty pads go dark; the principal keeps minting sibling badges from the crumbs.",
+          "summary": "Stolen machine-identity wipes rack recovery locks; sibling badges keep minting."
+        },
+        {
+          "id": "2026-09-28-applicant-vault-spill",
+          "kind": "street_event",
+          "region_id": "london_fog",
+          "intensity": 0.05,
+          "headline": "Applicant vault spill",
+          "text": "Street event: Flotilla applicant ICE dumps courier sleeve IDs and home docks onto dark mesh. Phishing hops and blackmail pings swamp anyone with an open listing; recruiters go quiet while scrub crews race the spill.",
+          "summary": "Applicant ICE spills courier sleeve IDs; phishing hops flood open listings."
+        }
+      ]
     }
   ]
 }
