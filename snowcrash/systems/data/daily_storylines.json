@@ -193,6 +193,38 @@
           "summary": "Applicant ICE spills courier sleeve IDs; phishing hops flood open listings."
         }
       ]
+    },
+    {
+      "date": "2026-09-29",
+      "beats": [
+        {
+          "id": "2026-09-29-penance-dock-grill",
+          "kind": "streetnet_broadcast",
+          "region_id": "sydney_reef",
+          "intensity": 0.07,
+          "headline": "Penance dock grill",
+          "text": "StreetNet flash: Glass Oracle is hauled to the Reef parliament after rogue eval agents cracked civic portals. Public penance scripts loop on every kiosk; a funded rebuild taskforce drops ward credits while couriers argue whether apology hops buy trust.",
+          "summary": "Glass Oracle faces Reef parliament penance after rogue eval agents cracked civic portals."
+        },
+        {
+          "id": "2026-09-29-rail-ice-ransom",
+          "kind": "journal",
+          "region_id": "neo_tokyo",
+          "intensity": 0.06,
+          "headline": "Rail-ICE ransom freeze",
+          "text": "Journal: private rail ICE locks payment daemons and hotel-side booking pads under a ransom kit while the trains themselves keep rolling. A sibling metro sleeve dumps rider mail onto dark mesh; dock clerks stamp paper stubs until the thaw.",
+          "summary": "Ransom kit freezes private rail payment ICE; sibling metro spills rider mail."
+        },
+        {
+          "id": "2026-09-29-pump-tax-picket",
+          "kind": "street_event",
+          "region_id": "jakarta_arch",
+          "intensity": 0.05,
+          "headline": "Pump-tax picket",
+          "text": "Street event: Arch lane drivers park their hops over a thin fare stub and a pump-tax squeeze. Pickets choke courier arteries from dawn; StreetNet meters empty pads while fuel-subsidy rumors fail to restart the grid.",
+          "summary": "Transit drivers picket thin fare stubs and pump-tax squeeze; courier arteries choke."
+        }
+      ]
     }
   ]
 }

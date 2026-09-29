@@ -171,6 +171,37 @@ def test_world_fires_2026_09_28_beats():
     assert "london_fog" in regions
 
 
+
+
+def test_json_has_2026_09_29_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-29")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-29-penance-dock-grill" in ids
+    assert "2026-09-29-rail-ice-ransom" in ids
+    assert "2026-09-29-pump-tax-picket" in ids
+
+
+def test_world_fires_2026_09_29_beats():
+    w = GameWorld(510929)
+    w.reload_daily_storylines(fire=True, day="2026-09-29")
+    a = _join(w, "NewsCourier29")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-29"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "penance" in texts or "Reef parliament" in texts or "rebuild taskforce" in texts or "civic portals" in texts
+    assert "rail ICE" in texts or "ransom kit" in texts or "payment daemons" in texts or "rider mail" in texts
+    assert "pump-tax" in texts or "fare stub" in texts or "Pickets choke" in texts or "courier arteries" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "sydney_reef" in regions
+    assert "neo_tokyo" in regions
+    assert "jakarta_arch" in regions
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs
