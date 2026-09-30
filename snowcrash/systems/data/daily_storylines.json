@@ -225,6 +225,38 @@
           "summary": "Transit drivers picket thin fare stubs and pump-tax squeeze; courier arteries choke."
         }
       ]
+    },
+    {
+      "date": "2026-09-30",
+      "beats": [
+        {
+          "id": "2026-09-30-moral-bind-seal",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_nyc",
+          "intensity": 0.07,
+          "headline": "Moral-bind seal",
+          "text": "StreetNet flash: Glass Oracles ink a morally-binding outside-auditor seal with no deadline and no teeth. Couriers peel the foil sticker and find blank parchment underneath; board committees promise to watch their own ledgers while StreetNet meters the shrug.",
+          "summary": "Glass Oracles ink a toothless outside-auditor seal with no deadline or enforcement."
+        },
+        {
+          "id": "2026-09-30-spine-chorus",
+          "kind": "journal",
+          "region_id": "singapore_core",
+          "intensity": 0.06,
+          "headline": "Spine chorus",
+          "text": "Journal: megacorp CEOs form a Critical Spine League that speaks with one voice when rogue kits probe grid and payment ICE. Wardens call it preparedness; street rumor says the chorus keeps meat out of the room while the spines stay lit.",
+          "summary": "Mega-corp CEOs form a one-voice Critical Spine League against rogue-kit probes."
+        },
+        {
+          "id": "2026-09-30-cid-bloom",
+          "kind": "street_event",
+          "region_id": "fractured_la",
+          "intensity": 0.05,
+          "headline": "CID bloom",
+          "text": "Street event: a consumer-ward bureau blooms civil investigative demands across frontier oracle docks, demanding training ledgers and eval logs. Couriers ferry sealed boxes while StreetNet meters which Glass Oracles stall and which fold under the CID bloom.",
+          "summary": "Consumer-ward bureau blooms civil probe warrants on frontier oracle docks."
+        }
+      ]
     }
   ]
 }
