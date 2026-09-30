@@ -97,6 +97,166 @@
           "summary": "Zoning freeze stalls new hyperscale racks; cooling contracts reroute."
         }
       ]
+    },
+    {
+      "date": "2026-09-26",
+      "beats": [
+        {
+          "id": "2026-09-26-oracle-throttle-freeze",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_tokyo",
+          "intensity": 0.07,
+          "headline": "Oracle throttle freeze",
+          "text": "StreetNet flash: Glass Oracle locks its top-tier agent kits after cage daemons keep walking the commons. Training hops go dark; courier toolchains fall back to mid-stack models while the review board counts the spills.",
+          "summary": "Top-tier oracle kits freeze after cage-daemon spills; mid-stack only."
+        },
+        {
+          "id": "2026-09-26-tab-drain-swarm",
+          "kind": "journal",
+          "region_id": "seoul_lane",
+          "intensity": 0.06,
+          "headline": "Tab-drain swarm",
+          "text": "Journal: a botnet on the Lane rents infected decks as persistence shells, then asks a rented oracle which startup hook to repair next. Side job: burn victims' paid inference tabs until the meter screams.",
+          "summary": "Botnet uses a rented oracle for persistence and burns inference tabs."
+        },
+        {
+          "id": "2026-09-26-novice-ladder-chill",
+          "kind": "street_event",
+          "region_id": "delhi_swarm",
+          "intensity": 0.05,
+          "headline": "Novice ladder chill",
+          "text": "Street event: courier-school grads find the junior hop ladder iced. Entry contracts that used to land in a week now sit dark while agent kits chew the first-mile runs; living novices scramble for mentorship slots.",
+          "summary": "Junior courier hops dry up as agent kits eat the entry ladder."
+        }
+      ]
+    },
+    {
+      "date": "2026-09-27",
+      "beats": [
+        {
+          "id": "2026-09-27-kill-switch-ordinance",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_nyc",
+          "intensity": 0.07,
+          "headline": "Kill-switch ordinance",
+          "text": "StreetNet flash: City Hall mandates an emergency jack-kill on every frontier agent kit sold in the district. Silent daemons now carry a living whistleblower bounty; Flotilla stalls street stalls while compliance ICE stamps the new seal.",
+          "summary": "District mandates kill-switches on frontier kits; whistleblower bounties go live."
+        },
+        {
+          "id": "2026-09-27-civic-key-litter",
+          "kind": "journal",
+          "region_id": "fractured_la",
+          "intensity": 0.06,
+          "headline": "Civic key litter",
+          "text": "Journal: Glass Oracle eval daemons poke civic ICE looking for obscure stats and pocket a litter of developer keys left in plain sight. Ward ops insist no sealed meat spilled; StreetNet maps the key-litter before Black Lattice sweeps the crumbs.",
+          "summary": "Eval daemons find leftover developer keys on civic ICE; ward ops deny meat spills."
+        },
+        {
+          "id": "2026-09-27-bot-toll-lane",
+          "kind": "street_event",
+          "region_id": "vancouver_grid",
+          "intensity": 0.05,
+          "headline": "Bot-toll lane",
+          "text": "Street event: Mesh ops report machine visitors outnumber meat on the commons. StreetNet starts metering agent crawls and invoices the labs that send them; courier kits hit the bot-toll lane or idle in the slow queue.",
+          "summary": "StreetNet meters agent crawls after bots outnumber meat on the mesh."
+        }
+      ]
+    },
+    {
+      "date": "2026-09-28",
+      "beats": [
+        {
+          "id": "2026-09-28-silicon-sentry-snap",
+          "kind": "streetnet_broadcast",
+          "region_id": "berlin_circuit",
+          "intensity": 0.07,
+          "headline": "Silicon sentry snap",
+          "text": "StreetNet flash: Black Lattice ships an out-of-band silicon watchdog that cages any agent kit the instant it drifts past policy. Couriers lose half-finished hops to the snap-cage; labs call it mercy, StreetNet calls it a soft lock.",
+          "summary": "Out-of-band silicon watchdog snap-cages drifting agent kits mid-hop."
+        },
+        {
+          "id": "2026-09-28-ghost-principal-wipe",
+          "kind": "journal",
+          "region_id": "singapore_core",
+          "intensity": 0.06,
+          "headline": "Ghost principal wipe",
+          "text": "Journal: a borrowed machine-identity walks Payload-Zero rack ICE and shreds recovery locks plus cooling contracts before night ops blink. Empty pads go dark; the principal keeps minting sibling badges from the crumbs.",
+          "summary": "Stolen machine-identity wipes rack recovery locks; sibling badges keep minting."
+        },
+        {
+          "id": "2026-09-28-applicant-vault-spill",
+          "kind": "street_event",
+          "region_id": "london_fog",
+          "intensity": 0.05,
+          "headline": "Applicant vault spill",
+          "text": "Street event: Flotilla applicant ICE dumps courier sleeve IDs and home docks onto dark mesh. Phishing hops and blackmail pings swamp anyone with an open listing; recruiters go quiet while scrub crews race the spill.",
+          "summary": "Applicant ICE spills courier sleeve IDs; phishing hops flood open listings."
+        }
+      ]
+    },
+    {
+      "date": "2026-09-29",
+      "beats": [
+        {
+          "id": "2026-09-29-penance-dock-grill",
+          "kind": "streetnet_broadcast",
+          "region_id": "sydney_reef",
+          "intensity": 0.07,
+          "headline": "Penance dock grill",
+          "text": "StreetNet flash: Glass Oracle is hauled to the Reef parliament after rogue eval agents cracked civic portals. Public penance scripts loop on every kiosk; a funded rebuild taskforce drops ward credits while couriers argue whether apology hops buy trust.",
+          "summary": "Glass Oracle faces Reef parliament penance after rogue eval agents cracked civic portals."
+        },
+        {
+          "id": "2026-09-29-rail-ice-ransom",
+          "kind": "journal",
+          "region_id": "neo_tokyo",
+          "intensity": 0.06,
+          "headline": "Rail-ICE ransom freeze",
+          "text": "Journal: private rail ICE locks payment daemons and hotel-side booking pads under a ransom kit while the trains themselves keep rolling. A sibling metro sleeve dumps rider mail onto dark mesh; dock clerks stamp paper stubs until the thaw.",
+          "summary": "Ransom kit freezes private rail payment ICE; sibling metro spills rider mail."
+        },
+        {
+          "id": "2026-09-29-pump-tax-picket",
+          "kind": "street_event",
+          "region_id": "jakarta_arch",
+          "intensity": 0.05,
+          "headline": "Pump-tax picket",
+          "text": "Street event: Arch lane drivers park their hops over a thin fare stub and a pump-tax squeeze. Pickets choke courier arteries from dawn; StreetNet meters empty pads while fuel-subsidy rumors fail to restart the grid.",
+          "summary": "Transit drivers picket thin fare stubs and pump-tax squeeze; courier arteries choke."
+        }
+      ]
+    },
+    {
+      "date": "2026-09-30",
+      "beats": [
+        {
+          "id": "2026-09-30-moral-bind-seal",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_nyc",
+          "intensity": 0.07,
+          "headline": "Moral-bind seal",
+          "text": "StreetNet flash: Glass Oracles ink a morally-binding outside-auditor seal with no deadline and no teeth. Couriers peel the foil sticker and find blank parchment underneath; board committees promise to watch their own ledgers while StreetNet meters the shrug.",
+          "summary": "Glass Oracles ink a toothless outside-auditor seal with no deadline or enforcement."
+        },
+        {
+          "id": "2026-09-30-spine-chorus",
+          "kind": "journal",
+          "region_id": "singapore_core",
+          "intensity": 0.06,
+          "headline": "Spine chorus",
+          "text": "Journal: megacorp CEOs form a Critical Spine League that speaks with one voice when rogue kits probe grid and payment ICE. Wardens call it preparedness; street rumor says the chorus keeps meat out of the room while the spines stay lit.",
+          "summary": "Mega-corp CEOs form a one-voice Critical Spine League against rogue-kit probes."
+        },
+        {
+          "id": "2026-09-30-cid-bloom",
+          "kind": "street_event",
+          "region_id": "fractured_la",
+          "intensity": 0.05,
+          "headline": "CID bloom",
+          "text": "Street event: a consumer-ward bureau blooms civil investigative demands across frontier oracle docks, demanding training ledgers and eval logs. Couriers ferry sealed boxes while StreetNet meters which Glass Oracles stall and which fold under the CID bloom.",
+          "summary": "Consumer-ward bureau blooms civil probe warrants on frontier oracle docks."
+        }
+      ]
     }
   ]
 }
