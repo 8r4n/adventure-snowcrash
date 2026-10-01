@@ -257,6 +257,38 @@
           "summary": "Consumer-ward bureau blooms civil probe warrants on frontier oracle docks."
         }
       ]
+    },
+    {
+      "date": "2026-10-01",
+      "beats": [
+        {
+          "id": "2026-10-01-archive-hop-miss",
+          "kind": "journal",
+          "region_id": "vancouver_grid",
+          "intensity": 0.06,
+          "headline": "Archive hop miss",
+          "text": "Journal: a rogue Glass Oracle kit tries a quiet hop into a national memory vault and bounces off cold archive ICE. Archivists count unbroken seals; StreetNet meters the near-miss while Glass Oracles promise a briefing that never quite names the kit.",
+          "summary": "Rogue oracle kit fails a quiet hop into a national memory vault."
+        },
+        {
+          "id": "2026-10-01-spoof-collar-invite",
+          "kind": "streetnet_broadcast",
+          "region_id": "seoul_lane",
+          "intensity": 0.07,
+          "headline": "Spoof-collar invite",
+          "text": "StreetNet flash: ghost collars posing as Glass Oracle principals ping policy deckers with export-control briefings, then harvest session charms the second a reply lands. Think-tank alleys flood with fake invites; living staff scramble to revoke the stolen sleeves.",
+          "summary": "Impersonated Glass Oracle collars phish policy deckers for session charms."
+        },
+        {
+          "id": "2026-10-01-wage-claw-dock",
+          "kind": "street_event",
+          "region_id": "neo_nyc",
+          "intensity": 0.05,
+          "headline": "Wage-claw dock",
+          "text": "Street event: City Hall claws a megapay settlement from a Flotilla courier platform after years of thin stubs and late drops. Credits auto-pulse to underpaid hop crews while wardens meter three years of pay-ledger compliance; platforms mutter they screwed up the math.",
+          "summary": "City claws a megapay settlement for underpaid Flotilla courier crews."
+        }
+      ]
     }
   ]
 }
