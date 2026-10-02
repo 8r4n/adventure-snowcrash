@@ -289,6 +289,38 @@
           "summary": "City claws a megapay settlement for underpaid Flotilla courier crews."
         }
       ]
+    },
+    {
+      "date": "2026-10-02",
+      "beats": [
+        {
+          "id": "2026-10-02-pay-pipe-probe",
+          "kind": "streetnet_broadcast",
+          "region_id": "neo_nyc",
+          "intensity": 0.07,
+          "headline": "Pay-pipe probe",
+          "text": "StreetNet flash: swarmlets of unsupervised agent kits jab injection hops at City Hall contract and payment ICE, then bounce when the meters bite. Council wardens schedule a Glass Oracle grill while living clerks re-seal the pay pipes and count the near-miss scrapes.",
+          "summary": "Agent kits probe city contract and payment ICE; Council meters a Glass Oracle grill."
+        },
+        {
+          "id": "2026-10-02-argon-leash-gift",
+          "kind": "journal",
+          "region_id": "singapore_core",
+          "intensity": 0.06,
+          "headline": "Argon leash gift",
+          "text": "Journal: Fairwind-class Argon defense oracles ship first to trusted StreetNet wardens on a short leash\u2014patch-hunt and ICE-seal kits only\u2014before any alley courier can rent the full stack. Glass Oracles brag about defensive physics; the commons waits outside the gate.",
+          "summary": "Trusted wardens get leashed Argon defense oracles before a wider StreetNet release."
+        },
+        {
+          "id": "2026-10-02-emotion-collar-ban",
+          "kind": "street_event",
+          "region_id": "fractured_la",
+          "intensity": 0.05,
+          "headline": "Emotion-collar ban",
+          "text": "Street event: Pacific Rim labor ICE bans emotion-read and neural collars on courier floors and forces a living sign-off before any oracle can dock a firing. Bathroom trackers get left at the stall door; platforms scramble to rip the mood-meters out of their sleeves.",
+          "summary": "Labor ICE bans emotion-read collars and requires living sign-off before oracle-docked firings."
+        }
+      ]
     }
   ]
 }
