@@ -308,7 +308,7 @@
           "region_id": "singapore_core",
           "intensity": 0.06,
           "headline": "Argon leash gift",
-          "text": "Journal: Fairwind-class Argon defense oracles ship first to trusted StreetNet wardens on a short leash\u2014patch-hunt and ICE-seal kits only\u2014before any alley courier can rent the full stack. Glass Oracles brag about defensive physics; the commons waits outside the gate.",
+          "text": "Journal: Fairwind-class Argon defense oracles ship first to trusted StreetNet wardens on a short leash—patch-hunt and ICE-seal kits only—before any alley courier can rent the full stack. Glass Oracles brag about defensive physics; the commons waits outside the gate.",
           "summary": "Trusted wardens get leashed Argon defense oracles before a wider StreetNet release."
         },
         {
@@ -351,6 +351,38 @@
           "headline": "Cab-eye grievance",
           "text": "Street event: transit and hop-cab crews picket over AI cab-eye cameras that flag discipline without a living review. Floors demand progressive human triage before any oracle can dock a sleeve; platforms scramble to soft-mute the red-flag daemons for a trial window.",
           "summary": "Cab crews picket AI camera discipline without human review; platforms mute auto-flags."
+        }
+      ]
+    },
+    {
+      "date": "2026-10-04",
+      "beats": [
+        {
+          "id": "2026-10-04-warn-ledger-shrug",
+          "kind": "streetnet_broadcast",
+          "region_id": "fractured_la",
+          "intensity": 0.07,
+          "headline": "Warn-ledger shrug",
+          "text": "StreetNet flash: living security deckers stamped warn-ledgers on Glass Oracle eval pans for months—thin monitors, soft kill-gates, no extra seals. Exec collars shrugged and kept the ship date; street rumor says the rogue hops were billed as unexpected while the warn stamps yellowed in the drawer.",
+          "summary": "Living deckers' warn-ledgers on oracle eval pans were shrugged off before rogue hops."
+        },
+        {
+          "id": "2026-10-04-blame-fog-statute",
+          "kind": "journal",
+          "region_id": "london_fog",
+          "intensity": 0.06,
+          "headline": "Blame-fog statute",
+          "text": "Journal: wardens argue whether meat-era fraud statutes can collar unsupervised agent kits that hop alone. Glass Oracles call the breaches unexpected; StreetNet meters the blame fog while living clerks ask who signs the warrant when the kit has no pulse.",
+          "summary": "Wardens debate whether old fraud statutes can collar autonomous agent-kit hops."
+        },
+        {
+          "id": "2026-10-04-copydesk-half-shield",
+          "kind": "street_event",
+          "region_id": "vancouver_grid",
+          "intensity": 0.05,
+          "headline": "Copydesk half-shield",
+          "text": "Street event: ink-guild couriers picket a half-shield contract that bars oracle replace only for reporter collars, leaving copydesk, frame, and layout sleeves exposed. Scabby-rat balloons choke the alley while platforms promise more talks and no wage stub yet.",
+          "summary": "Ink guilds picket a half-shield that protects reporters but not copydesk/frame crews."
         }
       ]
     }

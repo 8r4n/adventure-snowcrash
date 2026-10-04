@@ -323,6 +323,37 @@ def test_world_fires_2026_10_03_beats():
 
 
 
+
+def test_json_has_2026_10_04_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-10-04")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-10-04-warn-ledger-shrug" in ids
+    assert "2026-10-04-blame-fog-statute" in ids
+    assert "2026-10-04-copydesk-half-shield" in ids
+
+
+def test_world_fires_2026_10_04_beats():
+    w = GameWorld(5101004)
+    w.reload_daily_storylines(fire=True, day="2026-10-04")
+    a = _join(w, "NewsCourier1004")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-10-04"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "warn-ledger" in texts or "eval pans" in texts or "warn stamps" in texts or "rogue hops" in texts
+    assert "blame fog" in texts or "fraud statutes" in texts or "no pulse" in texts or "agent kits" in texts
+    assert "half-shield" in texts or "copydesk" in texts or "ink-guild" in texts or "Scabby-rat" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "fractured_la" in regions
+    assert "london_fog" in regions
+    assert "vancouver_grid" in regions
+
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs
