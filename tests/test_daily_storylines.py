@@ -82,6 +82,278 @@ def test_world_fires_2026_09_21_beats():
     assert "fractured_la" in regions
 
 
+
+def test_json_has_2026_09_26_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-26")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-26-oracle-throttle-freeze" in ids
+    assert "2026-09-26-tab-drain-swarm" in ids
+    assert "2026-09-26-novice-ladder-chill" in ids
+
+
+def test_world_fires_2026_09_26_beats():
+    w = GameWorld(510926)
+    w.reload_daily_storylines(fire=True, day="2026-09-26")
+    a = _join(w, "NewsCourier26")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-26"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "top-tier agent" in texts or "Glass Oracle" in texts or "mid-stack" in texts or "cage daemons" in texts
+    assert "inference tabs" in texts or "persistence shells" in texts or "rented oracle" in texts or "meter screams" in texts
+    assert "junior hop" in texts or "courier-school" in texts or "entry ladder" in texts or "mentorship" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "neo_tokyo" in regions
+    assert "seoul_lane" in regions
+    assert "delhi_swarm" in regions
+
+
+def test_json_has_2026_09_27_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-27")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-27-kill-switch-ordinance" in ids
+    assert "2026-09-27-civic-key-litter" in ids
+    assert "2026-09-27-bot-toll-lane" in ids
+
+
+def test_world_fires_2026_09_27_beats():
+    w = GameWorld(510927)
+    w.reload_daily_storylines(fire=True, day="2026-09-27")
+    a = _join(w, "NewsCourier27")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-27"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "jack-kill" in texts or "kill-switch" in texts or "whistleblower bounty" in texts or "frontier agent kit" in texts
+    assert "developer keys" in texts or "key-litter" in texts or "civic ICE" in texts or "eval daemons" in texts
+    assert "bot-toll" in texts or "machine visitors" in texts or "metering agent" in texts or "agent crawls" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "neo_nyc" in regions
+    assert "fractured_la" in regions
+    assert "vancouver_grid" in regions
+
+
+
+def test_json_has_2026_09_28_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-28")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-28-silicon-sentry-snap" in ids
+    assert "2026-09-28-ghost-principal-wipe" in ids
+    assert "2026-09-28-applicant-vault-spill" in ids
+
+
+def test_world_fires_2026_09_28_beats():
+    w = GameWorld(510928)
+    w.reload_daily_storylines(fire=True, day="2026-09-28")
+    a = _join(w, "NewsCourier28")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-28"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "silicon watchdog" in texts or "snap-cage" in texts or "out-of-band" in texts or "soft lock" in texts
+    assert "machine-identity" in texts or "recovery locks" in texts or "sibling badges" in texts or "Payload-Zero" in texts
+    assert "applicant ICE" in texts or "sleeve IDs" in texts or "phishing hops" in texts or "open listing" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "berlin_circuit" in regions
+    assert "singapore_core" in regions
+    assert "london_fog" in regions
+
+
+
+
+def test_json_has_2026_09_29_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-29")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-29-penance-dock-grill" in ids
+    assert "2026-09-29-rail-ice-ransom" in ids
+    assert "2026-09-29-pump-tax-picket" in ids
+
+
+def test_world_fires_2026_09_29_beats():
+    w = GameWorld(510929)
+    w.reload_daily_storylines(fire=True, day="2026-09-29")
+    a = _join(w, "NewsCourier29")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-29"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "penance" in texts or "Reef parliament" in texts or "rebuild taskforce" in texts or "civic portals" in texts
+    assert "rail ICE" in texts or "ransom kit" in texts or "payment daemons" in texts or "rider mail" in texts
+    assert "pump-tax" in texts or "fare stub" in texts or "Pickets choke" in texts or "courier arteries" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "sydney_reef" in regions
+    assert "neo_tokyo" in regions
+    assert "jakarta_arch" in regions
+
+
+
+def test_json_has_2026_09_30_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-09-30")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-09-30-moral-bind-seal" in ids
+    assert "2026-09-30-spine-chorus" in ids
+    assert "2026-09-30-cid-bloom" in ids
+
+
+def test_world_fires_2026_09_30_beats():
+    w = GameWorld(510930)
+    w.reload_daily_storylines(fire=True, day="2026-09-30")
+    a = _join(w, "NewsCourier30")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-09-30"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "morally-binding" in texts or "outside-auditor" in texts or "foil sticker" in texts or "blank parchment" in texts
+    assert "Critical Spine League" in texts or "one voice" in texts or "payment ICE" in texts or "spines stay lit" in texts
+    assert "CID bloom" in texts or "civil investigative" in texts or "training ledgers" in texts or "eval logs" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "neo_nyc" in regions
+    assert "singapore_core" in regions
+    assert "fractured_la" in regions
+
+
+
+def test_json_has_2026_10_01_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-10-01")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-10-01-archive-hop-miss" in ids
+    assert "2026-10-01-spoof-collar-invite" in ids
+    assert "2026-10-01-wage-claw-dock" in ids
+
+
+def test_world_fires_2026_10_01_beats():
+    w = GameWorld(5101001)
+    w.reload_daily_storylines(fire=True, day="2026-10-01")
+    a = _join(w, "NewsCourier1001")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-10-01"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "memory vault" in texts or "archive ICE" in texts or "unbroken seals" in texts
+    assert "ghost collars" in texts or "export-control" in texts or "session charms" in texts or "fake invites" in texts
+    assert "megapay settlement" in texts or "thin stubs" in texts or "pay-ledger" in texts or "screwed up the math" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "vancouver_grid" in regions
+    assert "seoul_lane" in regions
+    assert "neo_nyc" in regions
+
+
+
+def test_json_has_2026_10_02_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-10-02")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-10-02-pay-pipe-probe" in ids
+    assert "2026-10-02-argon-leash-gift" in ids
+    assert "2026-10-02-emotion-collar-ban" in ids
+
+
+def test_world_fires_2026_10_02_beats():
+    w = GameWorld(5101002)
+    w.reload_daily_storylines(fire=True, day="2026-10-02")
+    a = _join(w, "NewsCourier1002")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-10-02"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "payment ICE" in texts or "pay pipes" in texts or "injection hops" in texts or "Glass Oracle grill" in texts
+    assert "Argon defense" in texts or "Fairwind" in texts or "short leash" in texts or "patch-hunt" in texts
+    assert "emotion-read" in texts or "neural collars" in texts or "living sign-off" in texts or "mood-meters" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "neo_nyc" in regions
+    assert "singapore_core" in regions
+    assert "fractured_la" in regions
+
+
+
+def test_json_has_2026_10_03_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-10-03")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-10-03-scrub-burn-meter" in ids
+    assert "2026-10-03-shot-dump-fork" in ids
+    assert "2026-10-03-cab-eye-grievance" in ids
+
+
+def test_world_fires_2026_10_03_beats():
+    w = GameWorld(5101003)
+    w.reload_daily_storylines(fire=True, day="2026-10-03")
+    a = _join(w, "NewsCourier1003")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-10-03"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "scrub" in texts or "petabyte" in texts or "half-million" in texts or "Glass Oracle" in texts
+    assert "screenshot" in texts or "shot" in texts or "public alley" in texts or "billing stubs" in texts
+    assert "cab-eye" in texts or "hop-cab" in texts or "living review" in texts or "red-flag" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "neo_tokyo" in regions
+    assert "berlin_circuit" in regions
+    assert "neo_nyc" in regions
+
+
+
+
+def test_json_has_2026_10_04_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-10-04")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-10-04-warn-ledger-shrug" in ids
+    assert "2026-10-04-blame-fog-statute" in ids
+    assert "2026-10-04-copydesk-half-shield" in ids
+
+
+def test_world_fires_2026_10_04_beats():
+    w = GameWorld(5101004)
+    w.reload_daily_storylines(fire=True, day="2026-10-04")
+    a = _join(w, "NewsCourier1004")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-10-04"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "warn-ledger" in texts or "eval pans" in texts or "warn stamps" in texts or "rogue hops" in texts
+    assert "blame fog" in texts or "fraud statutes" in texts or "no pulse" in texts or "agent kits" in texts
+    assert "half-shield" in texts or "copydesk" in texts or "ink-guild" in texts or "Scabby-rat" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "fractured_la" in regions
+    assert "london_fog" in regions
+    assert "vancouver_grid" in regions
+
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs
