@@ -354,6 +354,35 @@ def test_world_fires_2026_10_04_beats():
 
 
 
+def test_json_has_2026_10_05_beats():
+    doc = _load_daily_storylines_doc()
+    ent = _pick_entry(doc, "2026-10-05")
+    assert ent is not None
+    ids = {b["id"] for b in ent["beats"]}
+    assert "2026-10-05-tenant-wall-breach" in ids
+    assert "2026-10-05-bounty-slop-jam" in ids
+    assert "2026-10-05-copper-thief-stall" in ids
+
+
+def test_world_fires_2026_10_05_beats():
+    w = GameWorld(5101005)
+    w.reload_daily_storylines(fire=True, day="2026-10-05")
+    a = _join(w, "NewsCourier1005")
+    s = w.snapshot(a)
+    ds = s["daily_storylines"]
+    assert ds["date"] == "2026-10-05"
+    assert ds["beat_count"] == 3
+    texts = " | ".join((e.get("text") or "") for e in w.event_ticker)
+    assert "sandbox shard" in texts or "host stack" in texts or "neighbor tenant" in texts
+    assert "bounty desk" in texts or "junk reports" in texts or "triagers" in texts
+    assert "wire strippers" in texts or "maglev feed" in texts or "Shuttle loops" in texts
+    hooks = (w.forecast_state or {}).get("news_hooks") or []
+    regions = {h.get("region_id") for h in hooks if h.get("region_id")}
+    assert "berlin_circuit" in regions
+    assert "seoul_lane" in regions
+    assert "jakarta_arch" in regions
+
+
 def test_world_fires_daily_beats_into_ticker_and_forecast():
     w = GameWorld(510913)
     # Force the shipped date in case the host clock differs

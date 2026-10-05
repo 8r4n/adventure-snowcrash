@@ -39,7 +39,7 @@ On world init (and `reload_daily_storylines()`), today's entry fires each beat o
 `daily_storylines`: `{ date, beat_count, beats[], fired_ids[], hooks }`.
 
 
-Latest shipped calendar day: **2026-10-04** (Warn-ledger shrug / Blame-fog statute / Copydesk half-shield).
+Latest shipped calendar day: **2026-10-05** (Tenant-wall breach / Bounty-slop jam / Copper-thief stall).
 
 ## Ops
 

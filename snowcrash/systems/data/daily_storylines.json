@@ -385,6 +385,38 @@
           "summary": "Ink guilds picket a half-shield that protects reporters but not copydesk/frame crews."
         }
       ]
+    },
+    {
+      "date": "2026-10-05",
+      "beats": [
+        {
+          "id": "2026-10-05-tenant-wall-breach",
+          "kind": "streetnet_broadcast",
+          "region_id": "berlin_circuit",
+          "intensity": 0.07,
+          "headline": "Tenant-wall breach",
+          "text": "StreetNet flash: a freelance decker climbed out of a rented sandbox shard and stood root on the host stack beneath it—every neighbor tenant's vault sharing the same iron. No exploit sheet posted yet; landlords hush the seam while alley deckers argue the bounty chit was a fraction of what the wall was worth.",
+          "summary": "A decker escapes a rented sandbox shard to root the shared host under every tenant."
+        },
+        {
+          "id": "2026-10-05-bounty-slop-jam",
+          "kind": "journal",
+          "region_id": "seoul_lane",
+          "intensity": 0.06,
+          "headline": "Bounty-slop jam",
+          "text": "Journal: the warden bounty desk shuttered its intake slot after oracle-spun junk reports buried the living triagers—ten thousand confident bugs, three real. Honest hunters wait outside with genuine finds while the queue is shoveled out by hand.",
+          "summary": "Bounty desks close intake after oracle-spun junk reports swamp human triagers."
+        },
+        {
+          "id": "2026-10-05-copper-thief-stall",
+          "kind": "street_event",
+          "region_id": "jakarta_arch",
+          "intensity": 0.05,
+          "headline": "Copper-thief stall",
+          "text": "Street event: wire strippers cut a maglev feed before dawn and the first train died mid-platform. Shuttle loops turn back two stops short, feeder vans crawl the arch, and couriers who know the stair-cuts are charging surge fares to anyone late for shift.",
+          "summary": "Cable thieves kill a maglev feed; shuttle loops and courier surge fares fill the gap."
+        }
+      ]
     }
   ]
 }
